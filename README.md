@@ -14,6 +14,10 @@ The world is built from real data: 77 nations, 8 simulated leagues (Premier Leag
 
 Ratings are estimates and squads drift out of date as real transfers happen. Use the editor or a data pack to correct them. Real names and likenesses are licensed in many countries, so check before publishing a build to an app store.
 
+## Play it
+
+Play in the browser at https://vaibhavshiroorkar.github.io/footmax/. Every push to `main` rebuilds the site (`.github/workflows/deploy.yml`). Saves stay in that browser's local storage.
+
 ## Run it
 
 ```sh
