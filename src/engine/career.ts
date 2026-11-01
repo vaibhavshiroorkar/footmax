@@ -1,0 +1,228 @@
+import { AttrKey, Game, Player } from './types';
+import { Rng, clamp } from './rng';
+import { avgRating, formatMoney, overall, weightsFor } from './player';
+import { MatchState } from './match';
+import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
+import { canUpgrade, skillLevel, SKILLS } from './skills';
+import { movePlayer } from './transfers';
+import { recordTraining } from './progress';
+import { addXp, careerPlayer, squadStatus } from './careerBase';
+
+export { addXp, careerPlayer, squadStatus };
+
+export interface Drill {
+  id: string;
+  label: string;
+  attrs: AttrKey[];
+  energy: number;
+}
+
+export const DRILLS: Drill[] = [
+  { id: 'finishing', label: 'Finishing', attrs: ['shooting', 'composure'], energy: 25 },
+  { id: 'speed', label: 'Sprints and gym', attrs: ['pace', 'physical'], energy: 25 },
+  { id: 'playmaking', label: 'Passing patterns', attrs: ['passing', 'vision'], energy: 25 },
+  { id: 'technique', label: 'Ball mastery', attrs: ['dribbling', 'composure'], energy: 25 },
+  { id: 'defending', label: 'Defensive shape', attrs: ['defending', 'physical'], energy: 25 },
+  { id: 'keeping', label: 'Goalkeeping', attrs: ['goalkeeping', 'composure'], energy: 25 },
+];
+
+// Keepers get their own drill; outfield players do not see it.
+const GK_DRILLS = ['keeping', 'speed', 'playmaking'];
+
+export function drillsFor(p: Player): Drill[] {
+  return p.position === 'GK' ? DRILLS.filter((d) => GK_DRILLS.includes(d.id)) : DRILLS.filter((d) => d.id !== 'keeping');
+}
+
+export interface ShopItem {
+  id: string;
+  label: string;
+  price: number;
+  description: string;
+}
+
+export const SHOP: ShopItem[] = [
+  { id: 'nutrition', label: 'Nutritionist', price: 10_000, description: 'Recover 6 more fitness each week. Slower decline with age.' },
+  { id: 'physio', label: 'Private physio', price: 25_000, description: 'Injuries heal twice as fast.' },
+  { id: 'trainer', label: 'Personal trainer', price: 40_000, description: 'Training gains up 25% and +5 XP per session.' },
+  { id: 'agent', label: 'Top agent', price: 80_000, description: 'Better contracts and more offers.' },
+  { id: 'car', label: 'Sports car', price: 150_000, description: 'A big fame boost. Fans love it.' },
+  { id: 'house', label: 'Seaside villa', price: 1_500_000, description: 'Morale stays high all season.' },
+];
+
+export interface LifeAction {
+  id: string;
+  label: string;
+  energy: number;
+  description: string;
+}
+
+export const LIFE_ACTIONS: LifeAction[] = [
+  { id: 'post', label: 'Post on social media', energy: 10, description: 'Small fame boost. Bigger after a good game.' },
+  { id: 'charity', label: 'Charity visit', energy: 20, description: 'Fame and morale up. Costs $1K.' },
+  { id: 'night', label: 'Night out', energy: 15, description: 'Morale up, fitness down.' },
+  { id: 'rest', label: 'Rest day', energy: 15, description: 'Recover 20 fitness.' },
+  { id: 'video', label: 'Video analysis', energy: 15, description: '+15 XP toward your next skill point.' },
+];
+
+
+export type ActionResult = { ok: boolean; text: string };
+
+
+// Training slows as a player ages and as he nears his ceiling.
+export function trainingGain(p: Player, hasTrainer: boolean): number {
+  // Teenagers improve fastest, so early seasons feel rewarding.
+  const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 1 : p.age <= 23 ? 0.8 : p.age <= 27 ? 0.5 : p.age <= 30 ? 0.3 : 0.15;
+  const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
+  return 0.13 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+}
+
+// score is the training mini-game result, 0..1. Quick training uses 0.35.
+export function train(game: Game, drillId: string, score = 0.35): ActionResult & { gains?: Partial<Record<AttrKey, number>> } {
+  const c = game.career!;
+  const drill = DRILLS.find((d) => d.id === drillId);
+  const p = careerPlayer(game);
+  if (!drill) return { ok: false, text: 'Unknown drill.' };
+  if (p.injuryWeeks > 0) return { ok: false, text: 'You are injured. Rest up.' };
+  if (c.energy < drill.energy) return { ok: false, text: 'Not enough energy this week.' };
+  const rng = new Rng(game.world.rngState);
+  c.energy -= drill.energy;
+  c.trainedThisWeek++;
+  const mult = 0.6 + 0.9 * Math.max(0, Math.min(1, score));
+  const gain = trainingGain(p, c.items.includes('trainer')) * mult;
+  const gains: string[] = [];
+  const deltas: Partial<Record<AttrKey, number>> = {};
+  for (const k of drill.attrs) {
+    const before = p.attrs[k];
+    const g = gain * rng.range(0.8, 1.2);
+    p.attrs[k] = clamp(p.attrs[k] + g, 1, 99);
+    deltas[k] = p.attrs[k] - before;
+    gains.push(`${k} +${g.toFixed(1)}`);
+  }
+  p.fitness = clamp(p.fitness - 4 * (1 - 0.15 * skillLevel(p, 'engine')), 0, 100);
+  const xp = Math.round((c.items.includes('trainer') ? 15 : 10) * (0.7 + score));
+  let text = `${drill.label}: ${gains.join(', ')}. +${xp} XP.`;
+  const lvl = addXp(game, xp);
+  recordTraining(game);
+  if (lvl) text += ` ${lvl}`;
+  // Pushing on tired legs risks a knock.
+  if (p.fitness < 45 && rng.chance(0.1)) {
+    p.injuryWeeks = rng.int(1, 3);
+    text += ` You felt something go. Out for ${p.injuryWeeks} week(s).`;
+  }
+  game.world.rngState = rng.state;
+  return { ok: true, text, gains: deltas };
+}
+
+export function upgradeSkill(game: Game, skillId: string): ActionResult {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  const check = canUpgrade(p, skillId, c.skillPoints);
+  if (!check.ok) return { ok: false, text: check.reason! };
+  const lvl = skillLevel(p, skillId) + 1;
+  c.skillPoints -= lvl;
+  p.skills = { ...(p.skills ?? {}), [skillId]: lvl };
+  const def = SKILLS.find((s) => s.id === skillId)!;
+  return { ok: true, text: `${def.label} is now level ${lvl}.` };
+}
+
+export function lifeAction(game: Game, actionId: string): ActionResult {
+  const c = game.career!;
+  const a = LIFE_ACTIONS.find((x) => x.id === actionId);
+  const p = careerPlayer(game);
+  if (!a) return { ok: false, text: 'Unknown action.' };
+  if (c.energy < a.energy) return { ok: false, text: 'Not enough energy this week.' };
+  if (a.id === 'charity' && c.money < 1000) return { ok: false, text: 'You need $1K for the charity visit.' };
+  const rng = new Rng(game.world.rngState);
+  c.energy -= a.energy;
+  let text = '';
+  switch (a.id) {
+    case 'post': {
+      const gain = clamp(rng.range(0.2, 1) * (avgRating(p.stats) >= 7 ? 2 : 1), 0, 3);
+      c.fame = clamp(c.fame + gain, 0, 100);
+      text = `Your post gets ${Math.round(gain * 1200 + rng.int(50, 400) + c.fame * 900)} likes. Fame +${gain.toFixed(1)}.`;
+      break;
+    }
+    case 'charity':
+      c.money -= 1000;
+      c.fame = clamp(c.fame + 1.5, 0, 100);
+      p.morale = clamp(p.morale + 6, 0, 100);
+      text = 'The kids loved meeting you. Fame and morale up.';
+      break;
+    case 'night':
+      p.morale = clamp(p.morale + 10, 0, 100);
+      p.fitness = clamp(p.fitness - 10, 0, 100);
+      text = 'A fun night out. Morale up, legs heavy.';
+      break;
+    case 'rest':
+      p.fitness = clamp(p.fitness + 20, 0, 100);
+      text = 'You put your feet up. Fitness +20.';
+      break;
+    case 'video': {
+      const lvl = addXp(game, 15);
+      text = `You study your last game. +15 XP.${lvl ? ` ${lvl}` : ''}`;
+      break;
+    }
+  }
+  game.world.rngState = rng.state;
+  return { ok: true, text };
+}
+
+export function buyItem(game: Game, itemId: string): ActionResult {
+  const c = game.career!;
+  const item = SHOP.find((i) => i.id === itemId);
+  const p = careerPlayer(game);
+  if (!item) return { ok: false, text: 'Unknown item.' };
+  if (c.items.includes(item.id)) return { ok: false, text: 'You already own that.' };
+  if (c.money < item.price) return { ok: false, text: `You need ${formatMoney(item.price)}.` };
+  c.money -= item.price;
+  c.items.push(item.id);
+  if (item.id === 'car') c.fame = clamp(c.fame + 5, 0, 100);
+  if (item.id === 'house') p.morale = 100;
+  return { ok: true, text: `Bought: ${item.label}.` };
+}
+
+// After a match: fame, XP, and a little growth from game time.
+export function afterCareerMatch(game: Game, s: MatchState): string | null {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  const played = s.home.usedIds.includes(p.id) || s.away.usedIds.includes(p.id);
+  if (!played) {
+    p.morale = clamp(p.morale - 3, 0, 100);
+    return null;
+  }
+  const rating = s.ratings[p.id] ?? 6;
+  const goals = s.goals[p.id] ?? 0;
+  const assists = s.assists[p.id] ?? 0;
+  const homeTeam = game.world.clubs[s.home.clubId] ?? game.world.nationalTeams[s.home.clubId];
+  const myTeamId = s.home.usedIds.includes(p.id) ? s.home.clubId : s.away.clubId;
+  const team = game.world.clubs[myTeamId] ?? game.world.nationalTeams[myTeamId] ?? homeTeam;
+  const stage = 0.6 + team.reputation / 100 + (team.national ? 0.5 : 0);
+  c.fame = clamp(c.fame + stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5), 0, 100);
+  const w = weightsFor(p);
+  for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.05 * (w[k] ?? 0) * 4 * (p.age <= 23 ? 1 : 0.4) * (overall(p) < p.potential ? 1 : 0), 1, 99);
+  return addXp(game, Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10));
+}
+
+export function retire(game: Game): void {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  c.retired = true;
+  p.retired = true;
+  if (p.clubId && p.stats.apps) p.history.push({ season: game.world.season, clubId: p.clubId, ...p.stats });
+  p.stats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
+  if (p.clubId) movePlayer(game.world, p, null);
+  game.world.freeAgents = game.world.freeAgents.filter((id) => id !== p.id);
+}
+
+
+export function learnSecondary(game: Game, role: string): ActionResult {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  if (c.level < SECONDARY_ROLE_LEVEL) return { ok: false, text: `Unlocks at level ${SECONDARY_ROLE_LEVEL}.` };
+  if (!p.role || !isRole(p.role) || !isRole(role) || !ROLE_NEIGHBOURS[p.role].includes(role)) return { ok: false, text: 'That position does not suit you.' };
+  if (p.secondaryRole === role) return { ok: false, text: 'You already play there.' };
+  if (c.skillPoints < SECONDARY_ROLE_COST) return { ok: false, text: `Needs ${SECONDARY_ROLE_COST} skill points.` };
+  c.skillPoints -= SECONDARY_ROLE_COST;
+  p.secondaryRole = role;
+  return { ok: true, text: `You can now play ${ROLES[role].label}.` };
+}
