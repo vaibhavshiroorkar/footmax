@@ -1,53 +1,59 @@
 import { Position } from '../engine/types';
 
-// Floodlit matchday: a green-black night pitch, warm chalk text and one
-// flare-orange accent for the thing to do. See DESIGN.md. "text" and
-// "onBg" are the same; both names stay so older screens keep working.
+// Night match under floodlights. Dark-mode rules from the research:
+// - The background is a deep slate navy, never pure black (pure black
+//   makes white text smear).
+// - Text is a soft off-white, never pure white, which vibrates on dark.
+// - The pitch-green accent is a slightly softened lime, so it does not
+//   shimmer, and it is used only for the thing to do.
+// - Warm gold carries rewards and big moments.
+// - Green and red never carry meaning alone; an icon or a lightness
+//   difference goes with them.
+// "text" and "onBg" are the same; both names stay for older screens.
 export const colors = {
-  bg: '#0e1310',
-  bgElev: '#1a211d',
-  card: '#151b17',
-  cardAlt: '#1d2520',
-  border: '#28322c',
-  borderStrong: '#3b4840',
-  text: '#f2eee3',
-  muted: '#a7ad9f',
-  faint: '#8a9284',
-  onBg: '#f2eee3',
-  onBgMuted: '#a7ad9f',
+  bg: '#0f1522',
+  bgElev: '#1a2233',
+  card: '#151c2b',
+  cardAlt: '#1c2536',
+  border: '#263042',
+  borderStrong: '#36435a',
+  text: '#e9edf4',
+  muted: '#9aa5b8',
+  faint: '#7d889c',
+  onBg: '#e9edf4',
+  onBgMuted: '#9aa5b8',
   white: '#ffffff',
-  accent: '#ff7a2f',
-  accentDark: '#e5601a',
-  green: '#3fcf7c',
-  teal: '#2ec4b6',
-  gold: '#ffc83d',
-  orange: '#ffa24d',
-  red: '#f0524d',
-  blue: '#4fa3ff',
-  purple: '#a98cff',
-  pink: '#ff6fa8',
-  pitch: '#2a8c48',
-  pitchDark: '#237c3f',
+  accent: '#b6e35a',
+  accentDark: '#93c33a',
+  green: '#4cc98a',
+  teal: '#3cc7b6',
+  gold: '#f4b942',
+  orange: '#f59a52',
+  red: '#ef5a5a',
+  blue: '#5aa2f5',
+  purple: '#a48cf2',
+  pink: '#ef7aaa',
+  pitch: '#2b8a4b',
+  pitchDark: '#257d43',
   pitchLine: '#ffffff',
   // Printed-programme moments: cream paper and its ink.
-  paper: '#f3ead6',
-  paperInk: '#1d1a15',
+  paper: '#efe7d3',
+  paperInk: '#1b1a17',
   // Text on the accent and other light fills.
-  ink: '#16120d',
+  ink: '#0f1522',
 };
 
-// Kept for screens that still fill shapes with two tones. Flat-ish on
-// purpose: no neon.
+// Kept for screens that still fill shapes with two tones. Close tones, no neon.
 export const gradients = {
-  sky: ['#111814', '#0e1310', '#0b0f0d'] as const,
-  primary: ['#ff8a45', '#ff7a2f'] as const,
-  gold: ['#ffd25c', '#f5b71f'] as const,
-  danger: ['#f5665f', '#e2463f'] as const,
-  purple: ['#b39dff', '#9475f2'] as const,
-  blue: ['#64b0ff', '#3f92ec'] as const,
-  orange: ['#ffb36b', '#f7913a'] as const,
-  pink: ['#ff8ab9', '#f05a97'] as const,
-  card: ['#18201b', '#151b17'] as const,
+  sky: ['#121a29', '#0f1522', '#0c111c'] as const,
+  primary: ['#c2ea6c', '#b6e35a'] as const,
+  gold: ['#f8c75e', '#eeaa2c'] as const,
+  danger: ['#f36d6d', '#e44848'] as const,
+  purple: ['#b3a0f6', '#9479ea'] as const,
+  blue: ['#6db0f8', '#4b93ea'] as const,
+  orange: ['#f8ab6c', '#ef8a3c'] as const,
+  pink: ['#f390bb', '#e8679b'] as const,
+  card: ['#18202f', '#151c2b'] as const,
 };
 
 // Big Shoulders Display for titles and numbers, Rubik for reading.
@@ -114,9 +120,9 @@ export function luminance(hex: string): number {
   return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
 }
 
-// Dark ink on light fills (orange, gold, paper), white on everything else.
+// Dark ink on light fills (lime, gold, paper), white on everything else.
 export function onColor(hex: string): string {
-  // 0.3 puts dark ink on the orange accent, which reads far better than white.
+  // 0.3 keeps dark ink on the lime accent and gold, where it reads best.
   return luminance(hex) > 0.3 ? colors.ink : '#ffffff';
 }
 
@@ -126,6 +132,6 @@ export function teamColor(c: [string, string]): string {
   const white = (h: string) => luminance(h) > 0.85;
   let base = white(c[0]) ? c[1] : c[0];
   if (white(base)) return colors.blue;
-  if (luminance(base) < 0.02) base = white(c[1]) || luminance(c[1]) < 0.02 ? '#56635a' : c[1];
+  if (luminance(base) < 0.02) base = white(c[1]) || luminance(c[1]) < 0.02 ? '#56627a' : c[1];
   return base;
 }

@@ -16,8 +16,9 @@ export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 
 // Career player's calls from the pitch. Each lasts a spell of the match and
 // then needs a rest before the next.
 export type ShoutKind = 'call' | 'run' | 'track';
-export const SHOUT_MINUTES = 10;
-export const SHOUT_COOLDOWN = 12;
+export const SHOUT_MINUTES = 8;
+// Minutes before another call: short, so the user can keep playing.
+export const SHOUT_COOLDOWN = 3;
 
 export type PassKind = 'safe' | 'square' | 'through' | 'cross';
 
@@ -172,7 +173,7 @@ export interface MatchState {
   shoutReady?: number;
 }
 
-const MAX_MOMENTS = 8;
+const MAX_MOMENTS = 12;
 const BASE_CHANCE = 0.215;
 const SUB_MINUTES = [60, 70, 80];
 
@@ -296,7 +297,9 @@ function shoutActive(s: MatchState, kind: ShoutKind): boolean {
 function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Player {
   const ps = players(world, side.onPitch);
   // Making a run or calling for it puts the user's player on the end of more chances.
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'run') ? 2.2 : shoutActive(s, 'call') ? 1.5 : 1);
+  // The user's player is on the end of a few more chances anyway, so key
+  // moments come along steadily.
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'run') ? 2.4 : shoutActive(s, 'call') ? 1.8 : 1.3);
   return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
 }
 

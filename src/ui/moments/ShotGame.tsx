@@ -27,7 +27,8 @@ const FLIGHT = 0.6;
 // the ball flies and what you see is what counts: out of the keeper's reach
 // and on target is a goal, inside his reach is a save, too wide or too much
 // power misses.
-export function ShotGame({ kind, composure, finesse = 0, keeper = 60, view = 'box', chip = false, onDone }: { kind: Kind; composure: number; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; onDone: (q: number, text: string, outcome: ShotOutcome) => void }) {
+// shooting and weakFoot widen or narrow how far a shot strays from the aim.
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; onDone: (q: number, text: string, outcome: ShotOutcome) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -35,7 +36,8 @@ export function ShotGame({ kind, composure, finesse = 0, keeper = 60, view = 'bo
   const sweet: [number, number] = [SWEET[0] - 0.04 * finesse, SWEET[1] + 0.03 * finesse];
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
-  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number } | null>(null);
+  // x is where the ball actually goes: the aim plus any stray.
+  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number } | null>(null);
   const [setup] = useState(() => ({
     keeper: 0.32 + Math.random() * 0.36,
     dive: Math.random() < 0.5 ? -1 : 1,
@@ -43,6 +45,9 @@ export function ShotGame({ kind, composure, finesse = 0, keeper = 60, view = 'bo
     wall: 0.15 + Math.random() * 0.4,
     offset: Math.random() * Math.PI * 2,
     blockers: [0.25 + Math.random() * 0.2, 0.55 + Math.random() * 0.2].map((x) => ({ x, speed: 0.8 + Math.random() * 0.8, phase: Math.random() * 6 })),
+    // Two normal draws, used for the stray and for where a parry goes.
+    stray: Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random()),
+    parry: Math.random() < 0.5 ? -1 : 1,
   }));
   const t = useTicker(phase !== 'done', phase);
   const speed = 2 + (1 - composure / 99) * 2.4;
@@ -59,15 +64,21 @@ export function ShotGame({ kind, composure, finesse = 0, keeper = 60, view = 'bo
       setAim(aimX);
       setPhase('power');
     } else if (phase === 'power') {
+      // No shot goes exactly where it was aimed. Better finishers stray less;
+      // the weaker foot, distance and an overhit ball stray more.
+      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.03 : 0) + (power > sweet[1] ? 0.03 : 0);
+      const x = aim + setup.stray * spread;
+      const strayed = Math.abs(x - aim) > 0.06;
       // Two defenders shuffle across in front of a shot from distance.
-      const blocked = outside && setup.blockers.some((b) => Math.abs(blockerX(b, t) - aim) < 0.07);
+      const blocked = outside && setup.blockers.some((b) => Math.abs(blockerX(b, t) - x) < 0.07);
       const lob = oneOnOne && chip && power > sweet[1] && power <= sweet[1] + 0.14;
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: setup.keeper }
         : lob
           ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: setup.keeper }
-          : judge(kind, aim, power, setup, sweet, reach);
-      setShot({ power, blockAt: t, ...r });
+          : judge(kind, x, power, setup, sweet, reach);
+      if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
+      setShot({ power, blockAt: t, x, parry: setup.parry, ...r });
       setPhase('flight');
     }
   };
@@ -77,19 +88,38 @@ export function ShotGame({ kind, composure, finesse = 0, keeper = 60, view = 'bo
   useEffect(() => {
     if (phase === 'flight' && shot && t >= flight && !sent.current) {
       sent.current = true;
-      setTimeout(() => onDone(shot.q, shot.text, shot.outcome), 900);
+      setTimeout(() => onDone(shot.q, shot.text, shot.outcome), 1200);
     }
   });
 
   const px = (x: number) => GOAL.x + x * GOAL.w;
   const k = phase === 'flight' && shot ? Math.min(1, t / flight) : 0;
   const landed = k >= 1;
-  // Ball path: from the spot to the target, over the bar when overhit.
+  // After the ball arrives: a parry off the keeper, or on out of play.
+  const after = phase === 'flight' && shot ? Math.min(1, Math.max(0, (t - flight) / 0.55)) : 0;
   const over = !!shot && shot.outcome === 'miss' && shot.power > sweet[1] + 0.06;
+  const wide = !!shot && shot.outcome === 'miss' && !over && (shot.x < 0.02 || shot.x > 0.98);
   const targetY = over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / sweet[1]));
-  const ballX = 150 + (px(aim) - 150) * k;
-  const ballY = H - 12 + (targetY - (H - 12)) * k - Math.sin(Math.PI * k) * 10;
-  const ballR = 8 - 3.5 * k;
+  const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
+  let ballX = 150 + (endX - 150) * k;
+  let ballY = H - 12 + (targetY - (H - 12)) * k - Math.sin(Math.PI * k) * 10;
+  let ballR = 8 - 3.5 * k;
+  if (after > 0 && shot) {
+    if (shot.outcome === 'save') {
+      // Palmed away: back out and to the side, bouncing once.
+      ballX = endX + shot.parry * 70 * after;
+      ballY = targetY + (H - 30 - targetY) * after - Math.sin(Math.PI * after) * 22;
+      ballR = 4.5 + 2.5 * after;
+    } else if (shot.outcome === 'miss') {
+      // On past the post or over the bar, into the crowd.
+      ballX = endX + (wide ? (shot.x < 0.5 ? -40 : 40) : 0) * after;
+      ballY = targetY - (over ? 14 : 6) * after;
+      ballR = 4.5 - 1.5 * after;
+    } else {
+      // In the net: it drops into the back of it.
+      ballY = targetY + 8 * after;
+    }
+  }
   // The keeper dives as the ball comes; on a save he gets to it.
   const keeperAt = shot ? setup.keeper + (shot.diveTo - setup.keeper) * Math.min(1, k * 1.4) : setup.keeper;
   const diveSide = shot ? Math.sign(shot.diveTo - setup.keeper) || setup.dive : 0;
@@ -198,6 +228,6 @@ function judge(
   // A weak shot gives the keeper time to get across.
   const weak = power < sweet[0] - 0.12;
   const gap = Math.abs(x - setup.keeper);
-  if (gap <= reach * (weak ? 1.6 : 1)) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : 'Within his reach. Saved!', q: 0.4, diveTo: x };
+  if (gap <= reach * (weak ? 1.6 : 1)) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : 'Within his reach. Parried away!', q: 0.4, diveTo: x };
   return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power >= sweet[0] ? 1 : 0.85, diveTo: toward(x) };
 }

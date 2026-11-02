@@ -180,16 +180,16 @@ export function BottomNav({ mode }: { mode: 'career' | 'manager' }) {
   );
 }
 
-// Mown pitch stripes under a floodlight, fading down the screen.
+// Faint mown stripes under a floodlight, fading down the screen.
 function Backdrop() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520, flexDirection: 'row' }}>
         {Array.from({ length: 8 }, (_, i) => (
-          <View key={i} style={{ flex: 1, backgroundColor: i % 2 ? 'rgba(80,140,90,0.05)' : 'transparent' }} />
+          <View key={i} style={{ flex: 1, backgroundColor: i % 2 ? 'rgba(255,255,255,0.025)' : 'transparent' }} />
         ))}
       </View>
-      <LinearGradient colors={[alpha('#fff3d6', 0.07), alpha(colors.bg, 0.4), colors.bg]} locations={[0, 0.5, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} />
+      <LinearGradient colors={[alpha('#d6e6ff', 0.06), alpha(colors.bg, 0.4), colors.bg]} locations={[0, 0.5, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }} />
     </View>
   );
 }
@@ -294,7 +294,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, sub, sty
   const ghost = variant === 'ghost';
   const plain = variant === 'secondary';
   const face = ghost ? 'transparent' : plain ? colors.cardAlt : FACES[variant];
-  const lipColor = ghost ? 'transparent' : plain ? '#0a0e0b' : shade(face, -0.35);
+  const lipColor = ghost ? 'transparent' : plain ? '#0a0f18' : shade(face, -0.35);
   const fg = ghost ? colors.muted : plain ? colors.text : onColor(face);
   const lip = ghost ? 0 : small ? 3 : 4;
   return (
@@ -565,7 +565,7 @@ export function Toast({ text, href, onClose }: { text: string | null; href?: str
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: space.lg, paddingVertical: space.sm, width: '100%', maxWidth: 600, alignSelf: 'center', minHeight: 56 },
-  iconBtn: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.borderStrong, borderBottomWidth: 3, borderBottomColor: '#0a0e0b' },
+  iconBtn: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.borderStrong, borderBottomWidth: 3, borderBottomColor: '#0a0f18' },
   headerTitle: { flex: 1, color: colors.text, fontSize: 30, fontFamily: fonts.display, letterSpacing: 0.6, textTransform: 'uppercase' },
   scroll: { padding: space.lg, paddingTop: space.xs, paddingBottom: 64 },
   inner: { width: '100%', maxWidth: 600, alignSelf: 'center', gap: space.md },
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   tile: { flex: 1, backgroundColor: colors.bgElev, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, padding: 10, gap: 2, minWidth: 90, alignItems: 'flex-start' },
   tileValue: { color: colors.text, fontFamily: fonts.display, fontSize: 28 },
   tileLabel: { color: colors.muted, fontFamily: fonts.medium, fontSize: 11.5 },
-  nav: { flexDirection: 'row', backgroundColor: '#111712', borderTopWidth: 1.5, borderColor: colors.border, paddingHorizontal: 6, width: '100%', maxWidth: 600, alignSelf: 'center' },
+  nav: { flexDirection: 'row', backgroundColor: '#121a28', borderTopWidth: 1.5, borderColor: colors.border, paddingHorizontal: 6, width: '100%', maxWidth: 600, alignSelf: 'center' },
   toastWrap: { position: 'absolute', left: space.lg, right: space.lg, bottom: 92, alignItems: 'center' },
   toast: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%', maxWidth: 560, backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, padding: 12, paddingLeft: 15, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 0, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
 });

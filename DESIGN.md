@@ -1,9 +1,9 @@
 # FootMax design
 
-The look is a floodlit matchday at night: a dark pitch, chalk lines, a
-flare of colour, numbers that read like a stadium scoreboard. It should
-feel like a football game made by people who love football, not a
-template.
+The look is a floodlit matchday at night: a dark sky over the stadium,
+chalk lines, pitch green, numbers that read like a stadium scoreboard.
+It should feel like a football game made by people who love football,
+not a template.
 
 ## Words to design by
 
@@ -24,14 +24,24 @@ template.
 
 ## Colour
 
-Tokens live in `src/ui/theme.ts`.
+Tokens live in `src/ui/theme.ts`. The palette follows common dark-mode
+guidance:
 
-- Background `bg` is a green-black night pitch, never navy. Cards sit one
-  step up (`card`), with a solid `border`.
-- Text is warm chalk (`text`), not pure white.
-- `accent` (flare orange) is for the one thing to do on a screen: the main
-  button, the selected tab, the Play button. Do not use it for status.
-- Status colours: `green` good, `gold` reward, `red` bad, `blue` info.
+- `bg` is a deep slate navy, not pure black. Pure black makes light text
+  smear and leaves no room to show depth. Cards sit one step lighter
+  (`card`, `cardAlt`) with a solid `border`.
+- `text` is a soft off-white, not pure white, which vibrates on a dark
+  background.
+- `accent` is pitch green: a slightly softened lime, because fully
+  saturated colours shimmer on dark. It marks the one thing to do on a
+  screen (the main button, the selected tab, the Play button) and nothing
+  else.
+- `gold` is the warm colour for rewards and big moments. Warm colours read
+  as energy and competition, and green as calm.
+- Status: `green` good, `red` bad, `blue` info. About one man in twelve
+  has trouble telling red from green, so status always comes with an
+  icon, a word or a lightness difference too.
+- Body text keeps at least 4.5:1 contrast with its background.
 - `paper` and `paperInk` are for the rare printed-programme moment (the
   player card, a headline), not for whole screens.
 
@@ -46,7 +56,8 @@ Tokens live in `src/ui/theme.ts`.
 ## Do not
 
 - Inter, Roboto or system fonts.
-- Navy or purple backgrounds, neon lime, gradient buttons, glow shadows.
+- Pure black or purple backgrounds, full-strength neon, gradient buttons,
+  glow shadows.
 - Centred screen titles with an empty side; titles sit on the left.
 - Cards inside cards. A card holds content, not more cards.
 - Bouncy entrance animations. Things appear where they stay.

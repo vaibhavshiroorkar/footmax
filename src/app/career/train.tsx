@@ -183,7 +183,7 @@ export default function Train() {
         <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
         <Row gap={18}>
           <View style={{ flex: 1 }}>
-            <StatBar label={`Energy  |  ${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left`} value={c.energy} color={colors.blue} />
+            <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left`} />
           </View>
           <View style={{ flex: 1 }}>
             <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />

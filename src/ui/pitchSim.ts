@@ -434,7 +434,15 @@ export class PitchSim {
             return done();
           }
           if (step.act === 'save') {
-            this.ball.owner = step.carrier;
+            // Half the time the keeper holds it; otherwise he parries it out
+            // and gathers it a moment later.
+            if (Math.random() < 0.5 && carrier) {
+              const out = carrier.side === 'home' ? 1 : -1;
+              const px = clamp(this.ball.x + (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 5), 4, PW - 4);
+              const py = clamp(this.ball.y + out * (5 + Math.random() * 4), 2, PL - 2);
+              this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: px, ty: py, t: 0, dur: 0.45, peak: 1.2 };
+              this.ball.owner = null;
+            } else this.ball.owner = step.carrier;
             if (carrier) this.attacking = carrier.side;
             this.callout = { text: 'SAVED!', sub: carrier?.name, tone: 'save', until: this.clock + 1.3 };
             this.hooks.onSound?.('ooh', 0.8);
