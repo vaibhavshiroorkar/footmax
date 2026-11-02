@@ -23,7 +23,7 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
 const SWEET = [0.6, 0.85];
 const FLIGHT = 0.6;
 // Seconds for the power bar to fill.
-const RISE = 0.9;
+const RISE = 1.1;
 
 // Two taps: the first stops the aim marker, the second the power bar. Then
 // the ball flies and what you see is what counts: out of the keeper's reach

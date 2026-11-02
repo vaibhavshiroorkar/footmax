@@ -102,6 +102,10 @@ export class PitchSim {
   caption = 'Teams are out. Waiting for kick off.';
   callout: Callout | null = null;
   hooks: SimHooks = {};
+  // The user's player: where he plays and his current call. He moves on
+  // them: higher or deeper by zone, in behind on a run, short to the ball
+  // when calling for it, goal-side and pressing when tracking back.
+  focus: { id: string; zone: 'defend' | 'middle' | 'attack'; shout: 'call' | 'run' | 'track' | null } | null = null;
 
   setHooks(h: SimHooks) {
     this.hooks = h;
@@ -615,7 +619,11 @@ export class PitchSim {
         return { x: a.kx, y: a.ky };
       }
     }
-    if (ball.owner === b.id) return { x: b.x + b.vx * 0.3, y: b.y + b.vy * 0.3 };
+    if (ball.owner === b.id) {
+      // Nothing to do yet: carry it on toward goal.
+      if (!a && this.layout === 'play' && b.pos !== 'GK') return { x: b.x + (PW / 2 - b.x) * 0.08, y: clamp(b.y + (b.side === 'home' ? 1.5 : -1.5), 4, PL - 4) };
+      return { x: b.x + b.vx * 0.3, y: b.y + b.vy * 0.3 };
+    }
     const inPossession = this.attacking === b.side;
     return this.shapeSpot(b, 1, inPossession);
   }
@@ -643,6 +651,26 @@ export class PitchSim {
       depth = b.spot.depth * 0.82 + (bd - 0.5) * 0.42 + 0.02;
       lat = 0.5 + (b.spot.lat - 0.5) * 0.72 + (bl - 0.5) * 0.32;
     }
+    const f = this.focus;
+    if (f && f.id === b.id && b.pos !== 'GK') {
+      depth += (f.zone === 'attack' ? 0.1 : f.zone === 'defend' ? -0.1 : 0) * (inPossession ? 1 : 0.7);
+      if (f.zone === 'middle') lat = lat * 0.7 + 0.15;
+      if (f.shout === 'run') {
+        // In behind the ball, toward the middle; he stays high when it is lost.
+        if (inPossession) {
+          depth = Math.max(depth, Math.min(0.9, bd + 0.2));
+          lat = lat * 0.6 + 0.2;
+        } else depth += 0.08;
+      } else if (f.shout === 'call' && inPossession) {
+        // Short, to one side of the ball, showing for it.
+        depth = depth * 0.4 + (bd - 0.06) * 0.6;
+        lat = bl + (lat < bl ? -0.13 : 0.13);
+      } else if (f.shout === 'track' && !inPossession) {
+        // Goal-side of the ball.
+        depth = Math.min(depth - 0.08, bd - 0.05);
+        lat = lat * 0.5 + bl * 0.5;
+      }
+    }
     depth += Math.cos(this.clock * 0.45 + b.phase * 1.3) * 0.012;
     lat += Math.sin(this.clock * 0.6 + b.phase) * 0.014;
     const target = M(toPitch(b.side, { depth: clamp(depth, 0.015, 0.95), lat: clamp(lat, 0.04, 0.96) }));
@@ -662,6 +690,10 @@ export class PitchSim {
         .sort((p, q) => p.d - q.d)
         .slice(0, 2)
         .forEach(({ b }, i) => pressing.set(b.id, i === 0 ? 0.85 : 0.45));
+      // Tracking back: the user's player hunts the ball too.
+      const f = this.focus;
+      const me = f?.shout === 'track' ? this.bodies.get(f.id) : undefined;
+      if (me && me.side !== this.attacking && dist(me.x, me.y, ball.x, ball.y) < 22) pressing.set(me.id, Math.max(pressing.get(me.id) ?? 0, 0.7));
     }
     const attackers = list.filter((b) => b.side === this.attacking);
     for (const b of list) {
@@ -699,6 +731,8 @@ export class PitchSim {
           t = { x: t.x * 0.5 + mark.x * 0.5, y: t.y * 0.5 + gy * 0.5 };
         }
       }
+      // A call is a sprint, not a stroll.
+      if (!job && this.focus?.id === b.id && this.focus.shout && this.layout === 'play') urgency = Math.max(urgency, 0.92);
       if (this.celebrate && b.side !== this.celebrate.side) urgency = 0.3;
       if (this.holding) urgency *= 0.6;
       const dx = t.x - b.x;

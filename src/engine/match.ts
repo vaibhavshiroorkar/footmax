@@ -513,6 +513,8 @@ function defensiveMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey,
 function zoneMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey, start: PlayStart): boolean {
   const id = s.focus.playerId;
   if (!id || s.moments >= MAX_MOMENTS) return false;
+  // Never while the teams line up for a restart or in the opening minutes.
+  if (start.restart || s.minute <= 2) return false;
   const mySide: SideKey | null = s.home.onPitch.includes(id) ? 'home' : s.away.onPitch.includes(id) ? 'away' : null;
   const me = world.players[id];
   if (!mySide || !me || me.position === 'GK') return false;
@@ -961,12 +963,70 @@ function shotResult(s: MatchState, from: number): 'goal' | 'save' | 'miss' | nul
   return null;
 }
 
-function visualize(world: World, s: MatchState, attKey: SideKey, from: PlayStart, outcome: PlayOutcome) {
+// How a quiet minute brings the ball to the user's player, from his calls
+// and his zone: a pass to feet, a ball in behind for a run, or winning it
+// back when he tracks back.
+type Involve = { kind: 'receive' | 'through' | 'win'; id: string };
+
+const INVOLVE_OWN: Record<Zone, number> = { attack: 0.14, middle: 0.22, defend: 0.12 };
+const INVOLVE_WIN: Record<Zone, number> = { attack: 0.02, middle: 0.06, defend: 0.1 };
+
+function involve(rng: Rng, world: World, s: MatchState, attKey: SideKey): Involve | null {
+  const id = s.focus.playerId;
+  if (!id || !world.players[id] || world.players[id].position === 'GK') return null;
+  const mySide: SideKey | null = s.home.onPitch.includes(id) ? 'home' : s.away.onPitch.includes(id) ? 'away' : null;
+  if (!mySide) return null;
+  const zone = zoneOf(world, s);
+  if (attKey === mySide) {
+    const run = shoutActive(s, 'run');
+    const p = Math.min(0.7, INVOLVE_OWN[zone] + (shoutActive(s, 'call') ? 0.35 : 0) + (run ? 0.25 : 0));
+    if (!rng.chance(p)) return null;
+    return { kind: run ? 'through' : 'receive', id };
+  }
+  const p = shoutActive(s, 'track') ? 0.3 : INVOLVE_WIN[zone];
+  if (!rng.chance(p)) return null;
+  // Winning it back counts, watched or not.
+  s.userTackles++;
+  bump(s, id, 0.05);
+  const me = world.players[id];
+  push(s, s.minute, mySide, 'info', `${shortName(me)} closes down and wins it back.`, id, true);
+  return { kind: 'win', id };
+}
+
+function visualize(world: World, s: MatchState, attKey: SideKey, from: PlayStart, outcome: PlayOutcome, inv?: Involve | null) {
   if (!s.visual) return;
-  const steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), from, outcome);
+  let steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), from, outcome);
+  if (inv) steps = withUser(world, s, attKey, steps, inv);
   s.play = steps;
   const end = steps[steps.length - 1];
   if (end) s.ball = { x: Math.min(1, Math.max(0, end.x)), y: Math.min(1, Math.max(0, end.y)) };
+}
+
+// Cuts a quiet move where the side on the ball still has it, then brings
+// the user in: the ball played to him, or him winning it.
+function withUser(world: World, s: MatchState, attKey: SideKey, steps: PlayStep[], inv: Involve): PlayStep[] {
+  const first = steps.findIndex((st) => st.side === attKey);
+  let end = first;
+  while (end >= 0 && end + 1 < steps.length && steps[end + 1].side === attKey && (steps[end + 1].act === 'pass' || steps[end + 1].act === 'run')) end++;
+  if (end < 0) return steps;
+  const kept = steps.slice(0, end + 1);
+  const last = kept[kept.length - 1];
+  if (inv.kind === 'win') {
+    const mySide = other(attKey);
+    kept.push({ x: last.x, y: last.y, carrier: inv.id, side: mySide, act: 'tackle', other: last.carrier ?? undefined });
+    return kept;
+  }
+  if (last.carrier === inv.id) return kept;
+  const zone = zoneOf(world, s);
+  const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[inv.id] ?? { depth: 0.5, lat: 0.5 };
+  const lastDepth = attKey === 'home' ? last.y : 1 - last.y;
+  const at =
+    inv.kind === 'through'
+      ? // In behind: beyond the ball, toward the middle.
+        { depth: clamp(Math.max(slot.depth + 0.22, lastDepth + 0.2), 0.55, 0.88), lat: clamp(0.5 + (slot.lat - 0.5) * 0.6, 0.15, 0.85) }
+      : { depth: clamp(slot.depth + (zone === 'attack' ? 0.12 : zone === 'defend' ? -0.06 : 0.04), 0.2, 0.8), lat: clamp(slot.lat, 0.08, 0.92) };
+  kept.push({ ...toPitch(attKey, at), carrier: inv.id, side: attKey, act: 'pass' });
+  return kept;
 }
 
 // After a key moment: how it played out on the pitch.
@@ -1091,6 +1151,7 @@ export function stepMinute(world: World, s: MatchState): void {
   const forward = (v: number) => (attKey === 'home' ? v : 1 - v);
   s.ball = { x: rng.range(0.15, 0.85), y: forward(rng.range(0.5, 0.75)) };
   let outcome: PlayOutcome = { result: null };
+  let inv: Involve | null = null;
 
   const att = attKey === 'home' ? hs : as;
   const def = attKey === 'home' ? as : hs;
@@ -1129,8 +1190,9 @@ export function stepMinute(world: World, s: MatchState): void {
   } else if (zoneMoment(rng, world, s, attKey, start)) {
     s.rngState = rng.state;
     return;
-  } else if (rng.chance(0.03)) {
-    push(s, s.minute, attKey, 'info', line(rng, 'quiet', names(world, s, attKey)));
+  } else {
+    inv = start.restart || s.minute <= 2 ? null : involve(rng, world, s, attKey);
+    if (!inv && rng.chance(0.03)) push(s, s.minute, attKey, 'info', line(rng, 'quiet', names(world, s, attKey)));
   }
 
   // Cards and injuries.
@@ -1163,7 +1225,7 @@ export function stepMinute(world: World, s: MatchState): void {
     rng.state = s.rngState;
   }
   s.rngState = rng.state;
-  visualize(world, s, attKey, start, outcome);
+  visualize(world, s, attKey, start, outcome, inv);
 }
 
 function finishMatch(world: World, s: MatchState, rng: Rng) {

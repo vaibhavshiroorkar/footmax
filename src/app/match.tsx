@@ -149,7 +149,8 @@ export default function MatchScreen() {
   }, [inPlay, soundOn]);
 
   // A key moment opens when the move that led to it reaches the player.
-  const momentOpen = !!pendingKey && (!watching || readyMoment === pendingKey);
+  // Nothing opens before kick-off.
+  const momentOpen = kicked && !!pendingKey && (!watching || readyMoment === pendingKey);
   const passing = momentOpen && !autoMoments && live?.pending?.kind === 'pass';
   const [passPick, setPassPick] = useState<string | null>(null);
   const onMomentReady = () => {
@@ -311,6 +312,8 @@ export default function MatchScreen() {
         onTarget={passing ? setPassPick : undefined}
         onBall={setOnBall}
         onSim={(sim) => (simRef.current = sim)}
+        zone={game.mode === 'career' ? zoneOf(game.world, live) : undefined}
+        shout={live.shout && live.minute <= live.shout.until ? live.shout.kind : null}
       />
       )}
       {/* Passing happens on the pitch: the options light up above, the cards sit here. */}

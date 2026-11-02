@@ -44,7 +44,7 @@ function TargetRing({ v, size, target, onPress }: { v: Animated.ValueXY; size: n
   );
 }
 
-function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void }) {
+function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget, tag }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void; tag?: string }) {
   const v = useState(() => new Animated.ValueXY({ x: -100, y: -100 }))[0];
   useEffect(() => {
     registry.set(id, v);
@@ -79,6 +79,11 @@ function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, ta
       }}
     >
       <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text>
+      {tag && (
+        <View style={{ position: 'absolute', bottom: size + 1, left: -16, right: -16, alignItems: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: colors.ink, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 4, overflow: 'hidden' }}>{tag}</Text>
+        </View>
+      )}
       {keeper && (
         <>
           <View style={{ position: 'absolute', left: -size * 0.32, top: size * 0.12, width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#111827' }} />
@@ -129,10 +134,18 @@ export interface LivePitchProps {
   // and hands over the pitch so the match can let him act on it.
   onBall?: (has: boolean) => void;
   onSim?: (sim: PitchSim) => void;
+  // Career: the user's zone and current call, which move his player.
+  zone?: 'defend' | 'middle' | 'attack';
+  shout?: 'call' | 'run' | 'track' | null;
 }
 
+const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'BACK' } as const;
+// Real seconds play waits while the user's player has the ball, so he can
+// shoot, pass or take his man on.
+const ON_BALL_WAIT = 2.2;
+
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
-export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim }: LivePitchProps) {
+export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout }: LivePitchProps) {
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
@@ -146,9 +159,9 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   const [callout, setCallout] = useState<Callout | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   // Latest props for the frame loop, which is set up once.
-  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h });
+  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout });
   useEffect(() => {
-    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h };
+    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout };
   });
   useEffect(() => {
     onSim?.(sim);
@@ -209,6 +222,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let lastCallout: Callout | null = null;
     let lastOwner: string | null = null;
     let lastOnBall = false;
+    let onBallAt = 0;
     const toScreen = (x: number, y: number) => {
       const { width: w, h: hh } = props.current;
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
@@ -217,8 +231,10 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
       last = now;
       const p = props.current;
+      sim.focus = p.focusId && p.zone ? { id: p.focusId, zone: p.zone, shout: p.shout ?? null } : null;
       // A key moment plays in slow motion while the user decides.
-      const scale = p.paused ? 0 : sim.holding ? 0.25 : p.speed;
+      // On the ball, play eases to slow motion so the choice is his.
+      const scale = p.paused ? 0 : sim.holding ? 0.25 : lastOnBall ? Math.min(1, p.speed) * 0.6 : p.speed;
       sim.update(dt * scale);
       for (const [id, body] of sim.bodies) {
         const v = registry.get(id);
@@ -244,10 +260,13 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       const onBallNow = !!p.focusId && sim.ball.owner === p.focusId && !sim.holding && sim.quietAhead() && sim.layout === 'play';
       if (onBallNow !== lastOnBall) {
         lastOnBall = onBallNow;
+        if (onBallNow) onBallAt = now;
         p.onBall?.(onBallNow);
       }
-      // Ready for more: ask once per move.
-      if (p.running && !p.paused && sim.idle() && !asked.current) {
+      // Ready for more: ask once per move. With the ball at his feet the
+      // user gets a moment to act first.
+      const waiting = onBallNow && now - onBallAt < ON_BALL_WAIT * 1000;
+      if (p.running && !p.paused && sim.idle() && !asked.current && !waiting) {
         asked.current = true;
         p.onNeedMinute?.();
       }
@@ -281,6 +300,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           text={String(live.numbers?.[id] ?? '')}
           textColor={luminance(fill) > 0.55 ? '#111111' : '#ffffff'}
           glow={me || has}
+          tag={me && shout ? SHOUT_TAG[shout] : undefined}
           keeper={keeper}
           target={targets?.[id]}
           onTarget={onTarget}

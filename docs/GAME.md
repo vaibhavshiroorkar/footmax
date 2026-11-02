@@ -112,9 +112,17 @@ moments to play, not a wall of information.
   (shown under him) it is saved and parried; out of reach and on target it
   is a goal; wide or overhit misses.
 - **On the ball:** in a quiet move, when the user's player has the ball,
-  the buttons become Shoot, Pass and Take him on, usable anywhere. Off the
-  ball they are calls: Call for it, Make a run, Track back (8 minutes
-  each, 3 minutes rest).
+  the buttons become Shoot, Pass and Take him on, usable anywhere. Play
+  slows to slow motion (at any speed) and waits about two seconds while
+  he carries it, so there is time to choose. Off the ball they are calls:
+  Call for it, Make a run, Track back (8 minutes each, 3 minutes rest).
+- **Calls and the zone happen on the pitch:** the player stands higher or
+  deeper by zone; on a run he sprints in behind and gets balls over the
+  top; calling for it he comes short and gets passes to feet; tracking
+  back he gets goal-side, presses and can win the ball (counted as a
+  tackle). A tag (RUN, CALL, BACK) shows over him while a call lasts.
+  Nothing of this happens at a restart or in the first two minutes, and
+  no moment opens before kick-off.
 - **Screen:** one scoreboard row with speed (1x, 2x, 4x), pause, sound and skip,
   scorers under it, the pitch, the action buttons, then two tabs: Feed,
   and Teams (possession and shots over both lineups with live ratings,
