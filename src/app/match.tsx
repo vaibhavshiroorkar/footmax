@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useStore, useGame } from '../state/store';
-import { AnimatedNumber, Badge, Button, Card, Choice, ConfirmButton, H2, Icon, IconName, Pill, Row, Screen, StatBar, T, Tabs, haptic } from '../ui/kit';
+import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, StatBar, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, chooseMoment, makeSub, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
@@ -46,7 +45,7 @@ export default function MatchScreen() {
   const [paused, setPaused] = useState(false);
   // Auto-play for moments is a setting now, not a switch on this screen.
   const autoMoments = useSettings((st) => st.autoMoments);
-  const [tab, setTab] = useState<'feed' | 'lineups' | 'stats'>('feed');
+  const [tab, setTab] = useState<'feed' | 'lineups' | 'stats'>('lineups');
   const { width } = useWindowDimensions();
   const pitchWidth = Math.min(width, 600) - 32;
   const pace = SPEEDS.find((s) => s.key === speed)!;
@@ -90,6 +89,7 @@ export default function MatchScreen() {
 
   // Manager mode: the touchline panel for changes holds the clock.
   const [changing, setChanging] = useState(false);
+  const [skipArmed, setSkipArmed] = useState(false);
   const running = kicked && !!live && !live.finished && !live.pending && !live.pausedAtHalf && !paused && !changing;
   const tick = () => {
     // Anything the pitch did not get to show is on the board before play goes on.
@@ -200,7 +200,56 @@ export default function MatchScreen() {
 
   return (
     <Screen title="Match day" back={false} scroll>
-      <Scoreboard game={game} live={live} home={home} away={away} flash={flash} flashBad={flashBad} shown={boardGoals} />
+      <Scoreboard
+        game={game}
+        live={live}
+        home={home}
+        away={away}
+        flash={flash}
+        flashBad={flashBad}
+        shown={boardGoals}
+        controls={
+          kicked && !live.finished ? (
+            <Row gap={6}>
+              <Pressable
+                onPress={() => {
+                  haptic();
+                  const i = SPEEDS.findIndex((x) => x.key === speed);
+                  setSpeed(SPEEDS[(i + 1) % SPEEDS.length].key);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Speed ${pace.label}. Tap to change.`}
+                style={styles.ctl}
+              >
+                <Text style={styles.ctlText}>{pace.label}</Text>
+              </Pressable>
+              <Pressable onPress={() => setPaused(!paused)} accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'} style={[styles.ctl, paused && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                <Icon name={paused ? 'play' : 'pause'} size={16} color={paused ? colors.ink : colors.text} />
+              </Pressable>
+              <Pressable onPress={() => setSkipArmed(!skipArmed)} accessibilityRole="button" accessibilityLabel="Skip to full time" style={[styles.ctl, skipArmed && { borderColor: colors.gold }]}>
+                <Icon name="play-skip-forward" size={16} color={skipArmed ? colors.gold : colors.text} />
+              </Pressable>
+            </Row>
+          ) : null
+        }
+      />
+      {skipArmed && kicked && !live.finished && (
+        <Row gap={8}>
+          <Button label="Keep watching" small variant="secondary" style={{ flex: 1 }} onPress={() => setSkipArmed(false)} />
+          <Button
+            label="Sim to full time"
+            icon="play-skip-forward"
+            small
+            variant="gold"
+            style={{ flex: 1 }}
+            onPress={() => {
+              setSkipArmed(false);
+              mutateLive((m, g) => simToEnd(g.world, m));
+              commitIfDone();
+            }}
+          />
+        </Row>
+      )}
 
       {leaving && (
         <Card glow={colors.gold}>
@@ -211,42 +260,6 @@ export default function MatchScreen() {
             <Button label="Sim and leave" icon="play-forward" style={{ flex: 1 }} onPress={simAndLeave} />
           </Row>
         </Card>
-      )}
-
-      {/* Match controls sit above the pitch, so the commentary stays in view below it. */}
-      {kicked && !live.finished && (
-        <Row gap={6}>
-          <Row gap={4} style={styles.segment}>
-            {SPEEDS.map((sp) => (
-              <Pressable
-                key={sp.key}
-                onPress={() => {
-                  haptic();
-                  setSpeed(sp.key);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Speed ${sp.label}`}
-                accessibilityState={{ selected: speed === sp.key }}
-                style={[styles.segBtn, speed === sp.key && { backgroundColor: colors.accent }]}
-              >
-                <Text style={[styles.segText, speed === sp.key && { color: colors.ink }]}>{sp.label}</Text>
-              </Pressable>
-            ))}
-          </Row>
-          <Button label={paused ? 'Play' : 'Pause'} icon={paused ? 'play' : 'pause'} small variant="secondary" style={{ flex: 1 }} onPress={() => setPaused(!paused)} />
-          <ConfirmButton
-            label="Skip"
-            confirmLabel="Sure?"
-            icon="play-skip-forward"
-            variant="secondary"
-            small
-            style={{ flex: 1 }}
-            onPress={() => {
-              mutateLive((m, g) => simToEnd(g.world, m));
-              commitIfDone();
-            }}
-          />
-        </Row>
       )}
 
       <LivePitch
@@ -319,11 +332,12 @@ export default function MatchScreen() {
 
       {live.finished && <FullTime game={game} live={live} verdict={verdict} reward={reward} onContinue={leave} />}
 
+      {kicked && !live.finished && <Ticker game={game} live={live} />}
       {kicked && (
         <>
           <Tabs
             tabs={[
-              { key: 'feed', label: 'Commentary' },
+              { key: 'feed', label: 'Feed' },
               { key: 'lineups', label: 'Lineups' },
               { key: 'stats', label: 'Stats' },
             ]}
@@ -428,7 +442,7 @@ function Gain({ label, value, color, icon, decimals = 0, money }: { label: strin
   );
 }
 
-function Scoreboard({ game, live, home, away, flash, flashBad, shown }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value; flashBad: Animated.Value; shown: number }) {
+function Scoreboard({ game, live, home, away, flash, flashBad, shown, controls }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value; flashBad: Animated.Value; shown: number; controls?: React.ReactNode }) {
   const pulse = useState(() => new Animated.Value(0))[0];
   // The live dot pulses only while the clock runs.
   const ticking = !live.finished && !live.pausedAtHalf;
@@ -438,69 +452,71 @@ function Scoreboard({ game, live, home, away, flash, flashBad, shown }: { game: 
     loop.start();
     return () => loop.stop();
   }, [pulse, ticking]);
-  const [hp] = possessionPct(live);
-  const clock = live.finished ? 'FULL TIME' : live.pausedAtHalf ? 'HALF TIME' : live.minute === 0 ? 'KICK OFF' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
-  // A goal still being played out on the pitch is not on the board yet.
+  const clock = live.finished ? 'FT' : live.pausedAtHalf ? 'HT' : live.minute === 0 ? 'KO' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
   // Goals already seen on the pitch. Shoot-out kicks are not in scorers, so
   // a finished match shows the real totals.
   const seen = live.scorers.slice(0, shown);
   const all = shown >= live.scorers.length;
   const hg = all ? live.home.goals : seen.filter((g) => g.clubId === live.home.clubId).length;
   const ag = all ? live.away.goals : seen.filter((g) => g.clubId === live.away.clubId).length;
-  const scorers = (side: SideKey) =>
-    seen
-      .filter((s) => s.clubId === live[side].clubId)
-      .map((s) => `${game.world.players[s.playerId].lastName} ${s.minute}'`)
-      .join(', ');
+  const team = (club: Club, right?: boolean) => (
+    <Row gap={8} style={{ flex: 1, justifyContent: right ? 'flex-end' : 'flex-start' }}>
+      {!right && <Badge club={club} size={34} />}
+      <Text style={[styles.teamName, { textAlign: right ? 'right' : 'left' }]} numberOfLines={1}>
+        {club.short}
+      </Text>
+      {right && <Badge club={club} size={34} />}
+    </Row>
+  );
+  void game;
   return (
     <View style={styles.board}>
-      <LinearGradient colors={[alpha(teamColor(home.colors), 0.42), colors.card, colors.card, alpha(teamColor(away.colors), 0.42)]} locations={[0, 0.4, 0.6, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
       <View style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: 3, backgroundColor: teamColor(home.colors) }} />
       <View style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: 3, backgroundColor: teamColor(away.colors) }} />
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.32] }) }]} />
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.red, opacity: flashBad.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }) }]} />
-      <View style={{ padding: 16, gap: 12 }}>
-        <Row style={{ justifyContent: 'center' }} gap={8}>
-          {ticking && live.minute > 0 && <Animated.View style={[styles.liveDot, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }) }]} />}
-          <Text style={styles.clock}>{clock}</Text>
-        </Row>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={styles.team}>
-            <Badge club={home} size={56} />
-            <Text style={styles.teamName} numberOfLines={2}>
-              {home.name}
-            </Text>
-            <Text style={styles.scorers} numberOfLines={2}>
-              {scorers('home')}
-            </Text>
-          </View>
-          <Row style={{ alignItems: 'center', marginTop: 4 }}>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }) }]} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.red, opacity: flashBad.interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }]} />
+      <View style={{ paddingHorizontal: 12, paddingVertical: 10, gap: 6 }}>
+        <Row gap={6}>
+          {team(home)}
+          <Row style={{ alignItems: 'center' }}>
             <Score value={hg} />
             <Text style={[styles.score, { color: colors.faint, minWidth: 0 }]}>:</Text>
             <Score value={ag} />
           </Row>
-          <View style={styles.team}>
-            <Badge club={away} size={56} />
-            <Text style={styles.teamName} numberOfLines={2}>
-              {away.name}
-            </Text>
-            <Text style={styles.scorers} numberOfLines={2}>
-              {scorers('away')}
-            </Text>
-          </View>
+          {team(away, true)}
         </Row>
-        <View>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={styles.possLabel}>{hp}%</Text>
-            <Text style={[styles.possLabel, { color: colors.muted }]}>POSSESSION</Text>
-            <Text style={styles.possLabel}>{100 - hp}%</Text>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Row gap={6}>
+            {ticking && live.minute > 0 && <Animated.View style={[styles.liveDot, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }) }]} />}
+            <Text style={styles.clock}>{clock}</Text>
           </Row>
-          <View style={styles.possTrack}>
-            <View style={{ flex: hp, backgroundColor: teamColor(home.colors) }} />
-            <View style={{ flex: 100 - hp, backgroundColor: teamColor(away.colors) }} />
-          </View>
-        </View>
+          {controls}
+        </Row>
       </View>
+    </View>
+  );
+}
+
+// The last three things that happened, newest first, in one small block.
+function Ticker({ game, live }: { game: Game; live: MatchState }) {
+  const recent = live.events.filter((e) => e.type !== 'kickoff').slice(-3).reverse();
+  if (!recent.length) return null;
+  return (
+    <View style={{ gap: 4 }}>
+      {recent.map((e, i) => {
+        const { icon, color } = eventIcon(e);
+        const team = e.side ? teamById(game.world, live[e.side].clubId) : null;
+        return (
+          <Row key={`${live.events.length}-${i}`} gap={8} style={{ opacity: i === 0 ? 1 : 0.65 }}>
+            <Text style={styles.minute}>{`${e.minute}'`}</Text>
+            <Icon name={icon} size={14} color={color} />
+            <Text style={[styles.evText, { fontSize: 13 }, e.type === 'goal' && { fontFamily: fonts.bold }]} numberOfLines={1}>
+              {team ? `${team.short}  ` : ''}
+              {e.text}
+            </Text>
+          </Row>
+        );
+      })}
     </View>
   );
 }
@@ -607,9 +623,13 @@ function ShoutBar({ game, live }: { game: Game; live: MatchState }) {
             }}
             style={[styles.shoutBtn, on && { borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.16) }, disabled && { opacity: 0.45 }]}
           >
-            <Icon name={sh.icon} size={18} color={on ? colors.accent : colors.text} />
-            <Text style={[styles.shoutLabel, on && { color: colors.accent }]}>{sh.label}</Text>
-            <Text style={styles.shoutHint}>{on ? `${live.shout!.until - live.minute + 1} min left` : disabled ? `Ready in ${wait}'` : sh.hint}</Text>
+            <Row gap={6}>
+              <Icon name={sh.icon} size={16} color={on ? colors.accent : colors.text} />
+              <Text style={[styles.shoutLabel, on && { color: colors.accent }]} numberOfLines={1}>
+                {sh.label}
+              </Text>
+            </Row>
+            {(on || disabled) && <Text style={styles.shoutHint}>{on ? `${live.shout!.until - live.minute + 1}' left` : `${wait}'`}</Text>}
           </Pressable>
         );
       })}
@@ -937,15 +957,14 @@ function Stats({ game, live, side }: { game: Game; live: MatchState; side: SideK
 }
 
 const styles = StyleSheet.create({
-  board: { borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  ctl: { minWidth: 40, height: 34, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev, borderWidth: 1.5, borderColor: colors.borderStrong },
+  ctlText: { fontFamily: fonts.display, fontSize: 17, color: colors.text },
+  board: { borderRadius: 12, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.red },
-  clock: { fontFamily: fonts.display, fontSize: 18, color: '#ffffff', letterSpacing: 1.5 },
+  clock: { fontFamily: fonts.display, fontSize: 20, color: colors.text, letterSpacing: 1 },
   team: { alignItems: 'center', flex: 1, gap: 6 },
-  teamName: { fontFamily: fonts.display, fontSize: 17, color: '#ffffff', textAlign: 'center', letterSpacing: 0.4, textTransform: 'uppercase' },
-  scorers: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center' },
-  score: { fontFamily: fonts.display, fontSize: 60, color: '#ffffff', lineHeight: 64, letterSpacing: 1, minWidth: 44, textAlign: 'center' },
-  possLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.text, letterSpacing: 1 },
-  possTrack: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 4, gap: 2 },
+  teamName: { fontFamily: fonts.display, fontSize: 22, color: colors.text, letterSpacing: 0.6, textTransform: 'uppercase', flexShrink: 1 },
+  score: { fontFamily: fonts.display, fontSize: 46, color: colors.text, lineHeight: 50, minWidth: 30, textAlign: 'center' },
   momentBackdrop: { flex: 1, backgroundColor: 'rgba(4,6,12,0.55)' },
   segment: { backgroundColor: colors.bgElev, borderRadius: 12, padding: 3, borderWidth: 1, borderColor: colors.border },
   segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
@@ -962,7 +981,7 @@ const styles = StyleSheet.create({
   momentTitle: { fontFamily: fonts.display, fontSize: 26, color: colors.accent, letterSpacing: 0.6, textTransform: 'uppercase' },
   moveChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElev },
   shoutBar: { flexDirection: 'row', gap: 6, alignItems: 'stretch' },
-  shoutBtn: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 8, paddingHorizontal: 4, minHeight: 64, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  shoutBtn: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 6, paddingHorizontal: 4, minHeight: 44, justifyContent: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   shoutLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.text, textAlign: 'center' },
   shoutHint: { fontFamily: fonts.medium, fontSize: 11, color: colors.muted, textAlign: 'center' },
   shoutWait: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted, paddingVertical: 12 },

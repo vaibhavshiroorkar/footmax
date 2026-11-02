@@ -20,19 +20,22 @@ const OBJ_ICONS: Record<string, IconName> = {
   rating: 'star',
 };
 
-export function ObjectivesCard({ game }: { game: Game }) {
+// compact: only the two targets closest to done, for the home screen.
+export function ObjectivesCard({ game, compact }: { game: Game; compact?: boolean }) {
   const pr = progressOf(game);
   const done = pr.objectives.filter((o) => o.done).length;
+  const share = (o: (typeof pr.objectives)[number]) => (o.kind === 'rating' ? (o.progress ? o.progress / o.target : 0) : o.progress / o.target);
+  const shown = compact ? [...pr.objectives].filter((o) => !o.done).sort((a, b) => share(b) - share(a)).slice(0, 2) : pr.objectives;
   return (
     <Card>
       <Row style={{ justifyContent: 'space-between' }}>
         <Row gap={8}>
           <Sticker icon="flag" color={colors.orange} size={34} />
-          <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>{"Coach's targets"}</Text>
+          <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Season goals</Text>
         </Row>
         <Pill label={`${done}/${pr.objectives.length}`} color={colors.orange} solid />
       </Row>
-      {pr.objectives.map((o, i) => {
+      {shown.map((o, i) => {
         const pct = o.kind === 'rating' ? (o.progress ? o.progress / o.target : 0) : o.progress / o.target;
         return (
           <FadeIn key={o.id} index={i}>

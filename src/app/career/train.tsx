@@ -9,7 +9,7 @@ import { GameFor } from '../../ui/training/games';
 import { AttrRow, AttributeGrid } from '../../ui/attributes';
 import { MovesBody } from '../../ui/skillMoves';
 import { alpha, colors, fonts } from '../../ui/theme';
-import { drillsFor, train, trainingGain } from '../../engine/career';
+import { drillsFor, train } from '../../engine/career';
 import { ATTR_LABELS, overall, weightsFor } from '../../engine/player';
 import { AttrKey } from '../../engine/types';
 import { motionReduced } from '../../state/settings';
@@ -125,7 +125,6 @@ export default function Train() {
   const c = game.career;
   const p = game.world.players[c.playerId];
   const drills = drillsFor(p);
-  const gain = trainingGain(p, c.items.includes('trainer'));
   const nearCap = overall(p) >= p.potential - 1;
   const w = weightsFor(p);
   const sessionsLeft = Math.floor(c.energy / (drills[0]?.energy ?? 40));
@@ -174,9 +173,11 @@ export default function Train() {
         <Row style={{ justifyContent: 'space-between' }}>
           <View>
             <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Your attributes</Text>
-            <T muted style={{ fontSize: 12 }}>
-              Gold bars fill toward the next point.{nearCap ? ' Near your ceiling: gains are small now.' : ''}
-            </T>
+            {nearCap ? (
+              <T muted style={{ fontSize: 12 }}>
+                Near your ceiling
+              </T>
+            ) : null}
           </View>
           <RatingRing value={overall(p)} size={56} />
         </Row>
@@ -204,33 +205,38 @@ export default function Train() {
       {tab === 'moves' && <MovesBody />}
       {tab === 'train' && (
         <>
-          <View style={{ height: 18, justifyContent: 'center' }}>
-            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.accent }}>
-              {last || 'Two big sessions a week. Play for up to 1.5x, or quick-train for 0.9x.'}
+          {last ? (
+            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.green }}>
+              {last}
             </Text>
+          ) : null}
+          {/* Drills as compact tiles, two to a row. */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {drills.map((d) => {
+              const look = LOOK[d.id];
+              const disabled = c.energy < d.energy || p.injuryWeeks > 0;
+              return (
+                <View key={d.id} style={{ flexBasis: '47%', flexGrow: 1, padding: 12, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, opacity: disabled ? 0.55 : 1 }}>
+                  <Row gap={10}>
+                    <Sticker icon={look.icon} color={look.color} size={36} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.display, fontSize: 17, color: colors.text, lineHeight: 19 }} numberOfLines={2}>
+                        {d.label}
+                      </Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
+                        {d.attrs.map((k) => ATTR_LABELS[k]).join(' + ')}
+                      </Text>
+                    </View>
+                  </Row>
+                  <Row gap={6}>
+                    <Button label="Play" icon="game-controller" small style={{ flex: 3 }} disabled={disabled} onPress={() => start(d.id)} />
+                    <Button label="Quick" small variant="secondary" style={{ flex: 2 }} disabled={disabled} onPress={() => run(d.id, 0.35, false)} />
+                  </Row>
+                </View>
+              );
+            })}
           </View>
-          {drills.map((d) => {
-            const look = LOOK[d.id];
-            const disabled = c.energy < d.energy || p.injuryWeeks > 0;
-            return (
-              <Card key={d.id}>
-                <Row gap={12}>
-                  <Sticker icon={look.icon} color={look.color} size={44} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text }}>{d.label}</Text>
-                    <T muted style={{ fontSize: 12 }}>
-                      {d.attrs.map((k) => ATTR_LABELS[k]).join(' + ')}  |  up to +{(gain * 1.5).toFixed(1)} each
-                    </T>
-                  </View>
-                </Row>
-                <Row>
-                  <Button label="Play" icon="game-controller" sub={look.game} style={{ flex: 2 }} disabled={disabled} onPress={() => start(d.id)} />
-                  <Button label="Quick" icon="flash" sub="0.9x" variant="secondary" style={{ flex: 1 }} disabled={disabled} onPress={() => run(d.id, 0.35, false)} />
-                </Row>
-              </Card>
-            );
-          })}
-          {sessionsLeft === 0 && <Button label="Training done. Back to the hub" icon="home" variant="secondary" onPress={() => router.replace('/career')} />}
+          {sessionsLeft === 0 && <Button label="Done for the week" icon="football" variant="secondary" onPress={() => router.replace('/career')} />}
         </>
       )}
 

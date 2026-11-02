@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useGame, useStore } from '../state/store';
-import { AnimatedNumber, Card, Icon, IconName, Row, SectionLabel, T, haptic } from './kit';
+import { AnimatedNumber, Card, Icon, IconName, Row, SectionLabel, haptic } from './kit';
 import { alpha, colors, fonts } from './theme';
 import { SKILL_MOVES, SkillMove, canLearnMove, hasMove, moveCost } from '../engine/skills';
 import { learnMove } from '../engine/career';
@@ -65,9 +65,6 @@ export function MovesBody() {
         <Row style={{ justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Skill moves</Text>
-            <T muted style={{ fontSize: 12 }}>
-              Learn tricks with skill points. Use a dribble move when you take your man on.
-            </T>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 }}>POINTS</Text>

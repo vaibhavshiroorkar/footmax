@@ -53,6 +53,13 @@ guidance:
   glows, no glass, no gradient fills on buttons.
 - Section labels are chalk lines: a short label and a dashed rule.
 
+## Layout
+
+- Each screen has one main action, and it is the first thing you see.
+- At most three blocks before you scroll.
+- No paragraphs that explain the screen. Help lives in the first-run tips.
+- Numbers, icons and short labels over sentences.
+
 ## Do not
 
 - Inter, Roboto or system fonts.

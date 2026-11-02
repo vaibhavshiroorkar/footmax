@@ -120,9 +120,6 @@ export function SkillsBody() {
           </View>
         </Row>
         <StatBar label="XP to next level" value={c.xp} max={xpForLevel(c.level)} color={colors.accent} right={`${c.xp} / ${xpForLevel(c.level)}`} />
-        <T muted style={{ fontSize: 12 }}>
-          Each level gives a skill point. Abilities cost 1 point a level and need a minimum attribute. Spend the rest on skill moves.
-        </T>
       </Card>
 
       <Card glow={secondaryReady ? colors.accent : undefined}>

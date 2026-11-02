@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { GrowthChart } from '../../ui/progressCards';
-import { Button, Card, ConfirmButton, H2, Row, Screen, T } from '../../ui/kit';
+import { GrowthChart, MilestonesPeek } from '../../ui/progressCards';
+import { LadderCard } from '../../ui/ladder';
+import { retire, squadStatus } from '../../engine/career';
+import { coachTrust, trustLabel } from '../../engine/relations';
+import { formAverage } from '../../engine/lineup';
+import { Button, Card, ConfirmButton, H2, Pill, Row, Screen, StatBar, T } from '../../ui/kit';
 import { AttributeList, potentialLabel } from '../../ui/attributes';
 import { HistoryTable } from '../../ui/careerSummary';
 import { avgRating, fullName, marketValue, formatMoney, overall } from '../../engine/player';
-import { retire } from '../../engine/career';
 import { careerRequest } from '../../engine/offers';
 import { nationById } from '../../engine/generator';
 import { colors } from '../../ui/theme';
@@ -21,9 +24,24 @@ export default function Profile() {
   const p = game.world.players[game.career.playerId];
   const ovr = overall(p);
   const honours = game.world.honours.filter((h) => h.playerId === p.id);
+  const form = formAverage(p);
 
   return (
     <Screen title={fullName(p)} nav="career">
+      <LadderCard game={game} />
+      <Card>
+        <StatBar label="Fitness" icon="pulse" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />
+        <StatBar label="Morale" icon="happy" value={p.morale} color={colors.gold} />
+        <Row style={{ flexWrap: 'wrap' }} gap={6}>
+          <Pill label={squadStatus(game)} icon="people" color={colors.muted} />
+          {p.clubId && <Pill label={`Coach: ${trustLabel(coachTrust(game))}`} icon="person" color={colors.muted} />}
+          {form !== null && <Pill label={`Form ${form.toFixed(1)}`} icon="pulse" color={form >= 7 ? colors.green : form < 6.2 ? colors.red : colors.gold} />}
+          {p.clubId && <Pill label={`${formatMoney(p.wage)}/wk, ${p.contractYears} yr left`} icon="document-text" color={colors.muted} />}
+          <Pill label={`Bank ${formatMoney(game.career.money)}`} icon="wallet" color={colors.green} />
+          <Pill label={`Fame ${Math.round(game.career.fame)}`} icon="flame" color={colors.pink} />
+        </Row>
+      </Card>
+      <MilestonesPeek game={game} />
       <GrowthChart game={game} />
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>
