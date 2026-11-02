@@ -664,7 +664,7 @@ export default function Title() {
           icon="person"
           color={colors.accent}
           title="Player career"
-          text="Pick any nation, start small at home and earn your big move."
+          text="Pick any nation, start in the smallest leagues and climb to the top."
           onPress={() => router.push("/new-career")}
           disabled={full}
         />
