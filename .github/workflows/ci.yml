@@ -1,0 +1,28 @@
+# Checks every push and pull request. Vercel deploys the site itself:
+# main goes to production and every other branch gets a preview URL.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run check-data
+      - run: npm test -- --ci
+      # Proves the web export still builds; Vercel runs the same command.
+      - run: npx expo export -p web

@@ -11,7 +11,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0a0e17",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -35,6 +35,7 @@
       "expo-font"
     ],
     "scheme": "footmax",
-    "backgroundColor": "#0b1410"
+    "backgroundColor": "#0a0e17",
+    "description": "A football career and manager game. Start as an academy kid or run a club, in a world of real nations and players."
   }
 }

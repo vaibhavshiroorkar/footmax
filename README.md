@@ -16,7 +16,17 @@ Ratings are estimates and squads drift out of date as real transfers happen. Use
 
 ## Play it
 
-Play in the browser at https://vaibhavshiroorkar.github.io/footmax/. Every push to `main` rebuilds the site (`.github/workflows/deploy.yml`). Saves stay in that browser's local storage.
+Play in the browser at https://footmax.vercel.app. The site is an installable web app: use "Add to Home Screen" on a phone.
+
+FootMax is an unofficial fan game. It is not affiliated with any league, club, federation or player.
+
+## Hosting
+
+Vercel builds and serves the site (`vercel.json`): `main` goes to production and every other branch and pull request gets its own preview URL. GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, lint, data check, tests and a web build on every push.
+
+To set it up on a new Vercel account: import the GitHub repo and keep the defaults; `vercel.json` sets the build command and output. If the project gets a name other than `footmax`, change the `og:image` URLs in `public/index.html`.
+
+The page template, social-preview tags and web app manifest live in `public/`. Icons are in `assets/` (app) and `public/icons/` (web).
 
 ## Run it
 

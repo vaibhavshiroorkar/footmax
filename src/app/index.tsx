@@ -272,6 +272,19 @@ export default function Title() {
           <Icon name="chevron-forward" size={18} color={colors.faint} />
         </Row>
       </Pressable>
+      <View style={{ alignItems: 'center', gap: 6, marginTop: 8 }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center', lineHeight: 16 }}>
+          Unofficial fan game. Not affiliated with any league, club, federation or player.
+        </Text>
+        <Row gap={18}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.muted, paddingVertical: 8 }} onPress={() => router.push('/legal/privacy')}>
+            Privacy
+          </Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.muted, paddingVertical: 8 }} onPress={() => router.push('/legal/terms')}>
+            Terms
+          </Text>
+        </Row>
+      </View>
     </Screen>
   );
 }
