@@ -439,7 +439,7 @@ describe('form, relations and awards', () => {
 });
 
 describe('progression', () => {
-  const { progressOf, MILESTONES } = require('../../src/engine/progress');
+  const { progressOf, MILESTONES, claimables, claimReward } = require('../../src/engine/progress');
   const { train } = require('../../src/engine/career');
 
   it('a new career starts with coach objectives', () => {
@@ -465,6 +465,12 @@ describe('progression', () => {
     const pr = progressOf(game);
     expect(pr.milestones).toContain('debut');
     expect(MILESTONES.length).toBeGreaterThan(15);
+    // The reward waits for a claim, then pays once.
+    expect(claimables(game).some((r: { id: string }) => r.id === 'debut')).toBe(true);
+    const before = game.career!.xp + game.career!.level * 10000;
+    expect(claimReward(game, 'milestone', 'debut').ok).toBe(true);
+    expect(game.career!.xp + game.career!.level * 10000).toBeGreaterThan(before);
+    expect(claimReward(game, 'milestone', 'debut').ok).toBe(false);
   });
 
   it('records a season review at the rollover', () => {

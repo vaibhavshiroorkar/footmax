@@ -19,6 +19,9 @@ export interface Objective {
   progress: number;
   reward: { xp: number; money: number; trust: number };
   done: boolean;
+  // Finished and waiting for the player to collect the reward. Older saves
+  // paid out on the spot and never set it.
+  claimable?: boolean;
 }
 
 export interface Reward {
@@ -52,6 +55,8 @@ export interface CareerProgress {
   seasonStart: SeasonSnapshot;
   // Set at the new season; the UI shows a review card once and clears it.
   review?: { season: number; before: SeasonSnapshot; after: SeasonSnapshot };
+  // Milestones reached but not yet collected.
+  unclaimed?: string[];
 }
 
 const zero = (): Counters => ({ cleanSheets: 0, tackles: 0, saves: 0, training: 0, firstTeamGoals: 0 });
@@ -138,8 +143,9 @@ export function checkObjectives(game: Game): void {
     if (o.done) continue;
     o.progress = progressFor(game, o.kind);
     if (o.progress >= o.target) {
+      // Done: the reward waits for a tap on Claim, which is half the fun.
       o.done = true;
-      grant(game, o.reward);
+      o.claimable = true;
       pr.rewards.push({ title: 'Objective complete!', sub: `${o.label}. +${o.reward.xp} XP${o.reward.money ? `, +$${Math.round(o.reward.money / 1000)}K` : ''}.`, icon: 'flag' });
     }
   }
@@ -188,14 +194,12 @@ export const MILESTONES: MilestoneDef[] = [
 
 export function checkMilestones(game: Game): void {
   const pr = progressOf(game);
-  const c = game.career!;
   for (const m of MILESTONES) {
     if (pr.milestones.includes(m.id) || !m.test(game)) continue;
+    // Reached now, collected with a tap on Claim.
     pr.milestones.push(m.id);
-    gainFame(c, m.fame);
+    pr.unclaimed = [...(pr.unclaimed ?? []), m.id];
     pr.rewards.push({ title: m.label, sub: `Milestone unlocked. +${m.xp} XP, +${m.fame} fame.`, icon: m.icon });
-    const lvl = addXp(game, m.xp);
-    if (lvl) pr.rewards.push({ title: 'Level up!', sub: lvl.replace(/^Level up! /, ''), icon: 'star' });
   }
 }
 
@@ -230,6 +234,12 @@ export function seasonRollover(game: Game, rng: Rng): void {
   const p = careerPlayer(game);
   const after: SeasonSnapshot = { season: game.world.season, ovr: overall(p), attrs: { ...p.attrs } };
   const done = pr.objectives.filter((o) => o.done).length;
+  for (const o of pr.objectives) {
+    if (o.claimable) {
+      o.claimable = false;
+      grant(game, o.reward);
+    }
+  }
   pr.review = { season: pr.seasonStart.season, before: pr.seasonStart, after };
   pr.ovrHistory.push({ season: game.world.season, ovr: after.ovr });
   pr.seasonStart = after;
@@ -238,6 +248,56 @@ export function seasonRollover(game: Game, rng: Rng): void {
   if (done) addMessage(game, 'season', 'Coach objectives', `You completed ${done} objective${done > 1 ? 's' : ''} last season. New targets are on your home screen.`);
   void rng;
   checkMilestones(game);
+}
+
+export interface Claimable {
+  kind: 'objective' | 'milestone';
+  id: string;
+  label: string;
+  icon: string;
+  xp: number;
+  money: number;
+  fame: number;
+}
+
+// Everything finished and waiting to be collected, objectives first.
+export function claimables(game: Game): Claimable[] {
+  if (!game.career) return [];
+  const pr = progressOf(game);
+  const out: Claimable[] = pr.objectives.filter((o) => o.claimable).map((o) => ({ kind: 'objective' as const, id: o.id, label: o.label, icon: 'flag', xp: o.reward.xp, money: o.reward.money, fame: 0 }));
+  for (const id of pr.unclaimed ?? []) {
+    const m = MILESTONES.find((x) => x.id === id);
+    if (m) out.push({ kind: 'milestone', id, label: m.label, icon: m.icon, xp: m.xp, money: 0, fame: m.fame });
+  }
+  return out;
+}
+
+export interface ClaimResult {
+  ok: boolean;
+  xp: number;
+  money: number;
+  fame: number;
+  // Levels gained by this claim.
+  levels: number;
+}
+
+export function claimReward(game: Game, kind: 'objective' | 'milestone', id: string): ClaimResult {
+  const c = game.career!;
+  const pr = progressOf(game);
+  const before = c.level;
+  if (kind === 'objective') {
+    const o = pr.objectives.find((x) => x.id === id && x.claimable);
+    if (!o) return { ok: false, xp: 0, money: 0, fame: 0, levels: 0 };
+    o.claimable = false;
+    grant(game, o.reward);
+    return { ok: true, xp: o.reward.xp, money: o.reward.money, fame: 0, levels: c.level - before };
+  }
+  const m = MILESTONES.find((x) => x.id === id);
+  if (!m || !(pr.unclaimed ?? []).includes(id)) return { ok: false, xp: 0, money: 0, fame: 0, levels: 0 };
+  pr.unclaimed = (pr.unclaimed ?? []).filter((x) => x !== id);
+  gainFame(c, m.fame);
+  addXp(game, m.xp);
+  return { ok: true, xp: m.xp, money: 0, fame: m.fame, levels: c.level - before };
 }
 
 export function takeRewards(game: Game): Reward[] {

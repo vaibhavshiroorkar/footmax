@@ -7,6 +7,7 @@ import { overall } from '../src/engine/player';
 import { openOffers } from '../src/engine/inbox';
 import { respond } from '../src/engine/offers';
 import { SKILLS } from '../src/engine/skills';
+import { claimReward, claimables } from '../src/engine/progress';
 
 const seasons = Number(process.argv[2] ?? 6);
 const game = newCareerGame({ firstName: 'Test', lastName: 'Player', nationId: 'ENG', position: 'FWD', seed: Number(process.argv[3] ?? 7) });
@@ -18,6 +19,8 @@ for (let s = 0; s < seasons; s++) {
   const season = game.world.season;
   while (game.world.season === season) {
     for (let k = 0; k < 2; k++) train(game, drills[turn++ % drills.length]);
+    // Collect finished goals and milestones, as a player would.
+    for (const r of claimables(game)) claimReward(game, r.kind, r.id);
     for (const sk of SKILLS) upgradeSkill(game, sk.id);
     for (const m of openOffers(game)) {
       const t = m.action!.type;

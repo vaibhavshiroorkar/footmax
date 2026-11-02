@@ -126,6 +126,11 @@ function NavItem({ tab, active, onPress, badge }: { tab: (typeof CAREER_TABS)[nu
       <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label} style={{ flex: 1, alignItems: 'center', minHeight: 52 }}>
         <View style={{ marginTop: -18, width: 58, height: 58, borderRadius: 29, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.bg, shadowColor: colors.accent, shadowOpacity: active ? 0.6 : 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } }}>
           <Icon name={tab.icon} size={26} color={colors.ink} />
+          {badge ? (
+            <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: colors.bg }}>
+              <Text style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 10.5 }}>{badge > 9 ? '9+' : badge}</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: active ? colors.accent : colors.text, marginTop: 1 }}>{tab.label}</Text>
       </Pressable>

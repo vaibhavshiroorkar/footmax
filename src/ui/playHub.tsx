@@ -1,8 +1,8 @@
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Animated, Platform, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Game } from '../engine/types';
-import { fullName, overall } from '../engine/player';
+import { formatMoney, fullName, overall } from '../engine/player';
 import { xpForLevel } from '../engine/skills';
 import { userFixture } from '../engine/game';
 import { leagueOf, tablePosition } from '../engine/league';
@@ -11,7 +11,10 @@ import { teamById } from '../engine/lineup';
 import { actionMessages, upgradeCount } from '../engine/alerts';
 import { drillsFor } from '../engine/career';
 import { Avatar } from './avatar';
-import { Badge, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
+import { Badge, Button, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
+import { Claimable, claimReward, claimables } from '../engine/progress';
+import { useStore } from '../state/store';
+import { playSound } from './sound';
 import { MatchdayButton } from './shared';
 import { alpha, colors, fonts, teamColor } from './theme';
 
@@ -158,6 +161,63 @@ export function WeekChips({ game }: { game: Game }) {
           </Text>
         </Pressable>
       ))}
+    </Row>
+  );
+}
+
+// Rewards waiting to be collected. A tap pops the reward with a chime, then
+// banks it; a level-up gets the full celebration.
+export function ClaimCard({ game }: { game: Game }) {
+  const list = claimables(game);
+  if (!list.length) return null;
+  return (
+    <Card glow={colors.gold}>
+      <Row gap={8}>
+        <Icon name="gift" size={20} color={colors.gold} />
+        <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, flex: 1 }}>Rewards</Text>
+        <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.gold }}>{list.length}</Text>
+      </Row>
+      {list.slice(0, 4).map((r) => (
+        <ClaimRow key={`${r.kind}-${r.id}`} r={r} />
+      ))}
+    </Card>
+  );
+}
+
+function ClaimRow({ r }: { r: Claimable }) {
+  const mutate = useStore((s) => s.mutate);
+  const celebrate = useStore((s) => s.celebrate);
+  const [popped, setPopped] = useState(false);
+  const pop = useState(() => new Animated.Value(0))[0];
+  const claim = () => {
+    if (popped) return;
+    setPopped(true);
+    haptic('success');
+    playSound('reward', 0.8);
+    Animated.spring(pop, { toValue: 1, friction: 4, tension: 120, useNativeDriver: Platform.OS !== 'web' }).start();
+    setTimeout(() => {
+      const res = mutate((g) => claimReward(g, r.kind, r.id));
+      const lv = useStore.getState().game?.career?.level;
+      if (res.levels > 0) celebrate({ title: 'Level up!', sub: `Level ${lv}. +${res.levels} skill point${res.levels > 1 ? 's' : ''} to spend.`, icon: 'star', action: { label: 'Spend it', href: '/career/train?tab=abilities' } });
+    }, 650);
+  };
+  const reward = [r.xp ? `+${r.xp} XP` : '', r.money ? `+${formatMoney(r.money)}` : '', r.fame ? `+${r.fame} fame` : ''].filter(Boolean).join('  ');
+  return (
+    <Row gap={10} style={{ paddingVertical: 4 }}>
+      <View style={{ width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(colors.gold, 0.14) }}>
+        <Icon name={r.icon as IconName} size={17} color={colors.gold} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.text }} numberOfLines={1}>
+          {r.label}
+        </Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.gold }}>{reward}</Text>
+      </View>
+      {popped ? (
+        <Animated.Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.gold, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.15] }) }] }}>{r.xp ? `+${r.xp} XP` : 'Got it!'}</Animated.Text>
+      ) : (
+        <Button label="Claim" small variant="gold" onPress={claim} />
+      )}
     </Row>
   );
 }

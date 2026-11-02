@@ -1,5 +1,6 @@
 import { Game, Message } from './types';
 import { SkillDef, canUpgrade, skillsFor, SKILL_MOVES, SkillMove, canLearnMove } from './skills';
+import { claimables } from './progress';
 import { ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
 
 // The game only nags about things the player has to act on: messages that
@@ -42,5 +43,6 @@ export function upgradeCount(game: Game): number {
 }
 
 export function navBadges(game: Game): Record<string, number> {
-  return { '/inbox': actionMessages(game).length, '/career/train': upgradeCount(game) };
+  return {
+    '/career': claimables(game).length, '/inbox': actionMessages(game).length, '/career/train': upgradeCount(game) };
 }

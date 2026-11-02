@@ -228,8 +228,9 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.04 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
   const xp = Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
   const levelBefore = c.level;
+  const xpBefore = c.xp;
   const lvl = addXp(game, xp);
-  c.lastMatch = { fixtureId: s.fixtureId, played: true, result, rating, goals, assists, xp, fame: c.fame - fameBefore, money: bonus, levels: c.level - levelBefore, motm: rating >= best };
+  c.lastMatch = { fixtureId: s.fixtureId, played: true, result, rating, goals, assists, xp, fame: c.fame - fameBefore, money: bonus, levels: c.level - levelBefore, xpBefore, levelBefore, motm: rating >= best };
   return lvl;
 }
 

@@ -7,7 +7,7 @@ import { colors, fonts } from '../../ui/theme';
 import { CareerSummary } from '../../ui/careerSummary';
 import { FirstRunTips } from '../../ui/firstRunTips';
 import { ObjectivesCard, SeasonReview } from '../../ui/progressCards';
-import { NextMatchCard, PlayerStrip, WeekChips } from '../../ui/playHub';
+import { ClaimCard, NextMatchCard, PlayerStrip, WeekChips } from '../../ui/playHub';
 
 export default function CareerHub() {
   const game = useGame();
@@ -31,6 +31,7 @@ export default function CareerHub() {
   return (
     <Screen title="FootMax" back={false} right={menu} nav="career">
       <PlayerStrip game={game} />
+      <ClaimCard game={game} />
       <FirstRunTips />
       <SeasonReview game={game} />
       {!p.clubId && (

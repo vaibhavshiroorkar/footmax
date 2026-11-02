@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
-import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, StatBar, T, Tabs, haptic } from '../ui/kit';
+import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, chooseMoment, makeSub, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
@@ -402,7 +402,7 @@ function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; liv
             <Gain label="Fame" value={reward.fame} color={colors.pink} icon="flame" decimals={1} />
             <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />
           </Row>
-          {c && <StatBar label={`Level ${c.level}`} icon="star" value={c.xp} max={xpForLevel(c.level)} color={colors.gold} right={`${c.xp}/${xpForLevel(c.level)}`} />}
+          {c && <XpFill from={reward.xpBefore ?? c.xp} fromLevel={reward.levelBefore ?? c.level} to={c.xp} level={c.level} />}
           {reward.levels > 0 && c && (
             <View style={styles.banner}>
               <Icon name="star" size={20} color={colors.ink} />
@@ -429,6 +429,38 @@ function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; liv
       )}
       <Button label="Continue" icon="arrow-forward" onPress={onContinue} />
     </Card>
+  );
+}
+
+// The XP bar fills from where it was before the match. On a level-up it
+// fills to the top, chimes, and starts again from zero.
+function XpFill({ from, fromLevel, to, level }: { from: number; fromLevel: number; to: number; level: number }) {
+  const fill = useState(() => new Animated.Value(from / xpForLevel(fromLevel)))[0];
+  const [shownLevel, setShownLevel] = useState(fromLevel);
+  useEffect(() => {
+    const end = to / xpForLevel(level);
+    if (motionReduced()) return fill.setValue(end);
+    if (level > fromLevel) {
+      Animated.timing(fill, { toValue: 1, duration: 900, delay: 400, useNativeDriver: false }).start(() => {
+        playSound('fanfare', 0.7);
+        setShownLevel(level);
+        fill.setValue(0);
+        Animated.timing(fill, { toValue: end, duration: 700, useNativeDriver: false }).start();
+      });
+    } else Animated.timing(fill, { toValue: end, duration: 1100, delay: 400, useNativeDriver: false }).start();
+  }, [fill, to, level, fromLevel]);
+  return (
+    <View style={{ gap: 4 }}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.gold }}>LV {shownLevel}</Text>
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.muted }}>
+          {to}/{xpForLevel(level)} XP
+        </Text>
+      </Row>
+      <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.bgElev, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+        <Animated.View style={{ height: '100%', backgroundColor: colors.gold, width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
+      </View>
+    </View>
   );
 }
 

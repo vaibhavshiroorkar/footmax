@@ -319,6 +319,9 @@ export interface MatchReward {
   fame: number;
   money: number;
   levels: number;
+  // XP bar before the match, so full time can fill it from there.
+  xpBefore?: number;
+  levelBefore?: number;
   motm: boolean;
   // Milestones and objectives this match unlocked.
   unlocks?: string[];
