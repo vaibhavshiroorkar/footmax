@@ -3,14 +3,20 @@ import { AppState, Platform } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Both values are public by design: the publishable key only allows what the
-// row level security rules in supabase/migrations permit.
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+// row level security rules in supabase/migrations permit. The official
+// project is the default, so a build works without any env setup. Set the
+// env vars to point a fork at its own project, or to "off" for guest-only.
+const OFFICIAL_URL = 'https://shollcauscnytgrktvwi.supabase.co';
+const OFFICIAL_KEY = 'sb_publishable_L5nQ25KoETH0mT1CEaO_Bg_wl8CrkVI';
+const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const envKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const off = envUrl === 'off';
+const url = off ? undefined : envUrl || OFFICIAL_URL;
+const key = off ? undefined : envKey || OFFICIAL_KEY;
 
 const WEB = Platform.OS === 'web';
 
-// Without the two env vars the game runs guest-only, so forks and local
-// builds work with no backend.
+// With the env var set to "off" the game runs guest-only, with no backend.
 export const supabase: SupabaseClient | null =
   url && key
     ? createClient(url, key, {

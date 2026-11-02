@@ -30,7 +30,7 @@ The page template, social-preview tags and web app manifest live in `public/`. I
 
 ## Accounts and cloud saves
 
-Accounts use Supabase: email and password or Google sign-in, cloud saves, leaderboards and public profiles at `/u/<username>`. Without the two Supabase env vars the game runs guest-only and everything stays on the device.
+Accounts use Supabase: email and password or Google sign-in, cloud saves, leaderboards and public profiles at `/u/<username>`. Builds use the official FootMax Supabase project by default (`src/state/supabase.ts`). Set the two `EXPO_PUBLIC_SUPABASE_*` env vars to use your own project, or set the URL to `off` to run guest-only with everything on the device.
 
 Setting up a Supabase project:
 
