@@ -217,6 +217,7 @@ export function startNegotiation(game: Game, playerId: string, kind: 'buy' | 'lo
     playerPatience: 3,
     askWage: wageDemand(world, p, club),
     askYears: p.age >= 31 ? 2 : p.age >= 27 ? 3 : 4,
+    fromClubId: p.clubId,
   };
   game.negotiations[playerId] = n;
   return n;
@@ -229,9 +230,26 @@ export function swapValue(world: World, sellerId: string, swap: Player): number 
   return overall(swap) >= worst - 3 ? roundMoney(marketValue(swap) * 0.8) : 0;
 }
 
+// Talks can outlive the situation they started in: the AI may sign the
+// player, he may retire or be released from the game, or the money may be
+// gone. Returns why the talks are off, after ending them.
+function staleTalks(game: Game, n: Negotiation | undefined): string | null {
+  if (!n) return null;
+  const p = game.world.players[n.playerId];
+  let why: string | null = null;
+  if (!p || p.retired) why = 'He is no longer available.';
+  else if (n.fromClubId !== undefined && p.clubId !== n.fromClubId) why = `${fullName(p)} has moved on${p.clubId ? ` to ${game.world.clubs[p.clubId]?.name ?? 'another club'}` : ''}. The talks are off.`;
+  else if (p.loan) why = `${fullName(p)} has gone out on loan. The talks are off.`;
+  else if (n.fee > myClub(game).budget) why = `You can no longer afford the ${formatMoney(n.fee)} fee. The talks are off.`;
+  if (why) delete game.negotiations[n.playerId];
+  return why;
+}
+
 export function bidFee(game: Game, playerId: string, fee: number, swapPlayerId?: string): NegotiationResult {
   const world = game.world;
   const n = game.negotiations[playerId];
+  const stale = staleTalks(game, n);
+  if (stale) return { status: 'walked', message: stale };
   const p = world.players[playerId];
   const club = myClub(game);
   if (!n || n.stage !== 'fee' || !p.clubId) return { status: 'rejected', message: 'No fee to agree here.' };
@@ -269,6 +287,8 @@ export function bidFee(game: Game, playerId: string, fee: number, swapPlayerId?:
 export function offerContract(game: Game, playerId: string, wage: number, years: number): NegotiationResult {
   const world = game.world;
   const n = game.negotiations[playerId];
+  const stale = staleTalks(game, n);
+  if (stale) return { status: 'walked', message: stale };
   const p = world.players[playerId];
   const club = myClub(game);
   if (!n || n.stage !== 'contract') return { status: 'rejected', message: 'Agree a fee first.' };

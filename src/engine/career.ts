@@ -212,6 +212,8 @@ export function retire(game: Game): void {
   p.stats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
   if (p.clubId) movePlayer(game.world, p, null);
   game.world.freeAgents = game.world.freeAgents.filter((id) => id !== p.id);
+  // Nothing left to answer once the boots are hung up.
+  for (const m of game.inbox) if (m.action && !m.action.resolved) m.action.resolved = 'expired';
 }
 
 

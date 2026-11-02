@@ -180,6 +180,10 @@ export interface World {
   seasonWeeks: number;
   phase: 'season' | 'tournament';
   rngState: number;
+  // The user's match in progress. Its seed is fixed so leaving and coming
+  // back cannot reroll the result; once kicked off, an interrupted match is
+  // simmed to the end rather than replayed.
+  pendingMatch?: { fixtureId: string; seed: number; kicked?: boolean };
   nextId: number;
   nations: Nation[];
   leagues: League[];
@@ -324,6 +328,8 @@ export interface Negotiation {
   playerPatience: number;
   askWage: number;
   askYears: number;
+  // The player's club when talks began. If he moves first, the talks are off.
+  fromClubId?: string | null;
 }
 
 export type GameMode = 'career' | 'manager';

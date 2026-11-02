@@ -83,6 +83,17 @@ const MANAGER_TABS: { href: string; icon: IconName; label: string; color: string
   { href: '/league', icon: 'podium', label: 'League', color: colors.accent },
 ];
 
+// Squad and Market only make sense with a club. A national-team-only
+// manager gets the national squad and tournaments; someone out of work
+// keeps just what still applies.
+function managerTabs(game: ReturnType<typeof useGame>) {
+  const m = game?.manager;
+  if (!m || m.clubId) return MANAGER_TABS;
+  const keep = MANAGER_TABS.filter((t) => t.href === '/manager' || t.href === '/inbox' || t.href === '/league');
+  if (!m.nationalTeamId) return keep;
+  return [keep[0], { href: '/manager/national', icon: 'flag' as IconName, label: 'National', color: colors.accent }, { href: '/tournaments', icon: 'trophy' as IconName, label: 'Cups', color: colors.accent }, ...keep.slice(1)];
+}
+
 function NavItem({ tab, active, onPress, badge }: { tab: (typeof CAREER_TABS)[number]; active: boolean; onPress: () => void; badge?: number }) {
   const s = useState(() => new Animated.Value(active ? 1 : 0))[0];
   useEffect(() => {
@@ -112,7 +123,7 @@ export function BottomNav({ mode }: { mode: 'career' | 'manager' }) {
   const path = usePathname();
   const game = useGame();
   const badges = game ? navBadges(game) : undefined;
-  const tabs = mode === 'career' ? CAREER_TABS : MANAGER_TABS;
+  const tabs = mode === 'career' ? CAREER_TABS : managerTabs(game);
   return (
     <View style={styles.nav}>
       {tabs.map((t) => (

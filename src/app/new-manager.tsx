@@ -93,7 +93,10 @@ export default function NewManager() {
         disabled={!ready}
         onPress={() => {
           const nt = nationOnly || withNation ? nation.teamId : null;
-          setGame(newManagerGame(world, nationOnly ? null : clubId, nt, name));
+          if (!setGame(newManagerGame(world, nationOnly ? null : clubId, nt, name))) {
+            useStore.getState().showToast('All save slots are in use. Delete a save on the title screen first.', '/');
+            return;
+          }
           router.replace('/manager');
         }}
       />

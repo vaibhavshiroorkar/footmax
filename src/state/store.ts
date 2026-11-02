@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { Game } from '../engine/types';
 import { MatchState } from '../engine/match';
-import { deserialize, serialize } from '../engine/save';
+import { loadErrorText, loadSave, serialize } from '../engine/save';
 import { DataPack } from '../data/pack';
 import type { CelebrationData } from '../ui/celebration';
 import { parsePackText } from '../engine/editor';
 import { takeRewards } from '../engine/progress';
 import { actionMessages, readyUpgrades, upgradeCount } from '../engine/alerts';
-import { SlotMeta, newSlotId, slotMeta } from './slots';
-import { PACK_KEY, deleteChunked, deleteLegacySave, deleteSlotData, readChunked, readIndex, readLastSlot, readLegacySave, readSlot, writeChunked, writeIndex, writeLastSlot, writeSlot } from './storage';
+import { MAX_SLOTS, SlotMeta, newSlotId, slotMeta } from './slots';
+import { PACK_KEY, deleteChunked, deleteLegacySave, deleteSlotData, dropOrphanSlots, readChunked, readIndex, readLastSlot, readLegacySave, readSlot, writeChunked, writeIndex, writeLastSlot, writeSlot } from './storage';
 
 interface Toast {
   text: string;
@@ -35,8 +35,8 @@ interface Store {
   lastSaved: number | null;
   celebrate: (c: CelebrationData | null) => void;
   init: () => Promise<void>;
-  // Starts a new game in a fresh slot.
-  startGame: (g: Game) => void;
+  // Starts a new game in a fresh slot. False when every slot is in use.
+  startGame: (g: Game, name?: string) => boolean;
   loadSlot: (id: string) => Promise<boolean>;
   deleteSlot: (id: string) => Promise<void>;
   renameSlot: (id: string, name: string) => Promise<void>;
@@ -110,47 +110,71 @@ export const useStore = create<Store>((set, get) => {
       if (get().ready) return;
       try {
         let slots = await readIndex();
-        // Saves from before slots existed move into the first slot.
+        // Saves from before slots existed move into the first slot. The old
+        // key is only removed once the save has been read and copied.
         const legacy = slots.length ? null : await readLegacySave();
         if (legacy) {
-          const old = deserialize(legacy);
-          const id = newSlotId();
-          if (old) {
+          const old = loadSave(legacy);
+          if (old.ok) {
+            const id = newSlotId();
             await writeSlot(id, legacy);
-            slots = [slotMeta(id, old)];
+            slots = [slotMeta(id, old.game)];
+            await writeIndex(slots);
+            await writeLastSlot(id);
+            await deleteLegacySave();
           }
-          await writeIndex(slots);
-          await writeLastSlot(id);
-          await deleteLegacySave();
         }
         slots = sortSlots(slots);
+        await dropOrphanSlots(slots.map((s) => s.id)).catch(() => {});
         const last = await readLastSlot();
-        const pick = slots.find((s) => s.id === last) ?? slots[0];
-        const [text, packText] = await Promise.all([pick ? readSlot(pick.id) : null, readChunked(PACK_KEY)]);
-        const game = text ? deserialize(text) : null;
+        // Open the last save played; if it cannot be read, try the others.
+        const order = [...slots.filter((s) => s.id === last), ...slots.filter((s) => s.id !== last)];
+        let game: Game | null = null;
+        let slotId: string | null = null;
+        let failed = 0;
+        for (const s of order) {
+          const text = await readSlot(s.id).catch(() => null);
+          const r = text ? loadSave(text) : null;
+          if (r?.ok) {
+            game = r.game;
+            slotId = s.id;
+            break;
+          }
+          failed++;
+        }
+        const packText = await readChunked(PACK_KEY);
         const customPack = packText ? parsePackText(packText).pack ?? null : null;
-        set({ game, slotId: game ? pick!.id : null, slots, customPack, ready: true });
+        set({ game, slotId, slots, customPack, ready: true });
+        if (failed) get().showToast(`${failed} saved game${failed > 1 ? 's' : ''} could not be opened.`);
       } catch (e) {
         console.warn('Load failed', e);
         set({ ready: true });
       }
+      // Ask the browser not to clear our storage under pressure. Safari
+      // otherwise wipes it for sites not visited in 7 days.
+      if (typeof navigator !== 'undefined' && navigator.storage?.persist) navigator.storage.persist().catch(() => {});
     },
-    startGame: (game) => {
+    startGame: (game, name) => {
+      if (get().slots.length >= MAX_SLOTS) return false;
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = null;
       const id = newSlotId();
-      const slots = sortSlots([slotMeta(id, game), ...get().slots]);
+      const slots = sortSlots([slotMeta(id, game, name), ...get().slots]);
       set({ game, slotId: id, slots, rev: get().rev + 1, live: null, celebration: null, queue: [] });
       writeLastSlot(id);
       persist().catch(saveFailed);
+      return true;
     },
     loadSlot: async (id) => {
       if (id === get().slotId && get().game) return true;
       await flush();
-      const text = await readSlot(id);
-      if (!text) return false;
-      const game = deserialize(text);
-      set({ game, slotId: id, rev: get().rev + 1, live: null, celebration: null, queue: [] });
+      const text = await readSlot(id).catch(() => null);
+      const r = text ? loadSave(text) : null;
+      if (!r?.ok) {
+        get().showToast(r ? loadErrorText(r.error) : 'This save could not be read.');
+        return false;
+      }
+      set({ game: r.game, slotId: id, rev: get().rev + 1, live: null, celebration: null, queue: [] });
       await writeLastSlot(id);
       return true;
     },

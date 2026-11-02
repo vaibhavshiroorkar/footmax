@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../state/store';
 import { Toast } from '../ui/kit';
 import { Celebration } from '../ui/celebration';
+import { ScreenError } from '../ui/screenError';
 import { colors, fonts, gradients } from '../ui/theme';
 
 export default function RootLayout() {
@@ -49,7 +50,7 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {loaded ? (
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right' }} />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right' }} unstable_screenErrorBoundary={ScreenError} />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <LinearGradient colors={gradients.sky as unknown as [string, string]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />

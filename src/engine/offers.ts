@@ -7,7 +7,7 @@ import { targetOverall, nationById, majorNations } from './generator';
 import { autoLineup, squad } from './lineup';
 import { MIN_SQUAD, inTransferWindow, loanPlayer, movePlayer } from './transfers';
 import { nationalPool, pickNationalSquad } from './international';
-import { managerClub } from './manager';
+import { jobOffers, managerClub, nationJobOffer } from './manager';
 import { adjustRelation } from './relations';
 
 const ACCEPT: Choice = { id: 'accept', label: 'Accept' };
@@ -138,7 +138,7 @@ export function callUpMessage(game: Game): void {
   addMessage(game, 'national', `Called up by ${nation.name}`, `The ${nation.name} coach has named you in the squad for this international break.`, {
     type: 'callup',
     nationId: nation.id,
-    weeksLeft: 0,
+    weeksLeft: 1,
     choices: [
       { id: 'accept', label: 'Report for duty' },
       { id: 'decline', label: 'Withdraw (rest)' },
@@ -203,9 +203,23 @@ export function ownClubRenewal(game: Game, rng: Rng): void {
 
 // --- Manager: what lands in the manager's inbox -----------------------------
 
+// Out of work: a club offer every few weeks while none is open, so a sacked
+// manager is never stuck. Better records reach bigger clubs.
+function unemployedOffers(game: Game, rng: Rng): void {
+  const m = game.manager!;
+  if (!hasOpen(game, 'job') && rng.chance(0.35)) {
+    const record = m.trophies.length * 4 + m.seasonsManaged * 2;
+    jobOffers(game, rng, 10, Math.min(90, 50 + record), 2);
+  }
+  if (!m.nationalTeamId && !hasOpen(game, 'nation-job') && rng.chance(0.04)) nationJobOffer(game, rng);
+}
+
 export function managerOffers(game: Game, rng: Rng): void {
   const club = managerClub(game);
-  if (!club) return;
+  if (!club) {
+    unemployedOffers(game, rng);
+    return;
+  }
   const world = game.world;
   if (inTransferWindow(world.week)) {
     saleBid(game, rng);
@@ -325,7 +339,11 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
     case 'club-offer':
     case 'renewal':
       if (choiceId === 'counter') return haggle(game, msg, amount ?? 0, 'wage');
-      return done('accepted', signCareerContract(game, msg));
+      {
+        // signCareerContract marks an out-of-date offer expired itself.
+        const text = signCareerContract(game, msg);
+        return a.resolved ? text : done('accepted', text);
+      }
     case 'sponsor':
       if (choiceId === 'counter') return haggle(game, msg, amount ?? 0, 'weekly');
       game.career!.sponsors.push({ name: a.brand ?? 'Sponsor', weekly: a.weekly ?? 0, weeksLeft: 30 });
@@ -460,6 +478,21 @@ function signCareerContract(game: Game, msg: Message): string {
   const p = careerPlayer(game);
   const club = game.world.clubs[a.clubId!];
   const c = game.career!;
+  if (c.retired) {
+    a.resolved = 'expired';
+    return 'You have retired.';
+  }
+  // A renewal is from the club that holds your contract, even while you are
+  // out on loan. If you have left since, it is out of date.
+  if (a.type === 'renewal') {
+    if (p.clubId !== club.id && p.loan?.fromClubId !== club.id) {
+      a.resolved = 'expired';
+      return `You have left ${club.name} since they made this offer.`;
+    }
+    p.wage = a.wage ?? p.wage;
+    p.contractYears = a.years ?? p.contractYears;
+    return `New contract signed with ${club.name}.`;
+  }
   if (p.clubId === club.id) {
     p.wage = a.wage ?? p.wage;
     p.contractYears = a.years ?? p.contractYears;
@@ -467,7 +500,8 @@ function signCareerContract(game: Game, msg: Message): string {
   }
   movePlayer(game.world, p, club.id, a.wage, a.years);
   c.wantsMove = false;
-  for (const m of game.inbox) if (m.action && !m.action.resolved && (m.action.type === 'club-offer' || m.action.type === 'loan-offer') && m !== msg) m.action.resolved = 'expired';
+  // Any other open offer, including renewals from the old club, is now void.
+  for (const m of game.inbox) if (m.action && !m.action.resolved && (m.action.type === 'club-offer' || m.action.type === 'loan-offer' || m.action.type === 'renewal') && m !== msg) m.action.resolved = 'expired';
   addMessage(game, 'news', `Welcome to ${club.name}`, `${fullName(p)} signs for ${club.name}.`);
   return `You joined ${club.name}!`;
 }

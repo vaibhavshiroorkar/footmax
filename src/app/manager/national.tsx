@@ -28,7 +28,7 @@ export default function National() {
     });
 
   return (
-    <Screen title={team.name}>
+    <Screen title={team.name} nav={game.manager?.clubId ? undefined : 'manager'}>
       <Tabs<Tab>
         tabs={[
           { key: 'squad', label: 'Call-ups' },

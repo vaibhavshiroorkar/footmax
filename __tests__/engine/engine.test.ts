@@ -2,16 +2,16 @@ import { generateWorld } from '../../src/engine/generator';
 import { leagueTable, makeFixtures, SEASON_WEEKS } from '../../src/engine/league';
 import { Rng } from '../../src/engine/rng';
 import { createMatch, quickSim, resolveMoment, simToEnd, stepMinute } from '../../src/engine/match';
-import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs } from '../../src/engine/game';
+import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs, interruptedMatch, markKickOff, SAVE_VERSION } from '../../src/engine/game';
 import { fullName, overall } from '../../src/engine/player';
-import { deserialize, serialize } from '../../src/engine/save';
+import { MIGRATIONS, deserialize, loadSave, serialize } from '../../src/engine/save';
 import { train, upgradeSkill } from '../../src/engine/career';
-import { askingPrice, bidFee, offerContract, searchMarket, startNegotiation } from '../../src/engine/transfers';
+import { askingPrice, bidFee, movePlayer, offerContract, searchMarket, startNegotiation } from '../../src/engine/transfers';
 import { autoLineup } from '../../src/engine/lineup';
 import { tournamentsForSummer } from '../../src/engine/international';
 import { exportPack, parsePackText } from '../../src/engine/editor';
-import { respond } from '../../src/engine/offers';
-import { addMessage } from '../../src/engine/inbox';
+import { callUpMessage, respond } from '../../src/engine/offers';
+import { addMessage, expireOffers } from '../../src/engine/inbox';
 import { Game } from '../../src/engine/types';
 import { navBadges, readyUpgrades } from '../../src/engine/alerts';
 import { slotMeta } from '../../src/state/slots';
@@ -500,5 +500,89 @@ describe('save compression', () => {
     expect(decompress(packed)).toBe(text);
     // Saves written before compression load unchanged.
     expect(decompress(text)).toBe(text);
+  });
+});
+
+describe('save migrations', () => {
+  it('upgrades an older save step by step and refuses newer ones', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 81 });
+    const text = serialize(game);
+    const old = JSON.parse(text);
+    old.version = SAVE_VERSION - 1;
+    MIGRATIONS[SAVE_VERSION - 1] = (g) => {
+      (g as { migrated?: boolean }).migrated = true;
+    };
+    try {
+      const r = loadSave(JSON.stringify(old));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect((r.game as unknown as { migrated: boolean }).migrated).toBe(true);
+    } finally {
+      delete MIGRATIONS[SAVE_VERSION - 1];
+    }
+    old.version = SAVE_VERSION + 1;
+    expect(loadSave(JSON.stringify(old))).toEqual({ ok: false, error: 'too-new' });
+    expect(loadSave('not json')).toEqual({ ok: false, error: 'corrupt' });
+  });
+});
+
+describe('audit fixes', () => {
+  it('a restarted match keeps its seed, and an interrupted one is detected', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 82 });
+    const a = startUserMatch(game)!;
+    const b = startUserMatch(game)!;
+    expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+    expect(game.world.pendingMatch?.fixtureId).toBe(a.fixtureId);
+    expect(interruptedMatch(game)).toBe(false);
+    markKickOff(game);
+    expect(interruptedMatch(game)).toBe(true);
+    finishUserMatch(game, b);
+    expect(game.world.pendingMatch).toBeUndefined();
+  });
+
+  it('a call-up can still be answered the week it arrives', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 83 });
+    callUpMessage(game);
+    expireOffers(game);
+    const msg = game.inbox.find((m) => m.action?.type === 'callup')!;
+    expect(msg.action!.resolved).toBeUndefined();
+    const caps = game.world.players[game.career!.playerId].caps;
+    respond(game, msg.id, 'accept');
+    expect(game.world.players[game.career!.playerId].caps).toBeGreaterThan(caps);
+  });
+
+  it('a sacked manager keeps getting job offers', () => {
+    const world = generateWorld(84);
+    const game = newManagerGame(world, world.leagues[0].clubIds[0], null, 'Boss');
+    game.manager!.clubId = null;
+    game.inbox = [];
+    for (let i = 0; i < 15; i++) skipWeek(game);
+    expect(game.inbox.some((m) => m.action?.type === 'job')).toBe(true);
+  });
+
+  it('an old renewal cannot pull the player back after a move', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 85 });
+    const p = game.world.players[game.career!.playerId];
+    const oldClub = p.clubId!;
+    const msg = addMessage(game, 'offer', 'Stay', 'Stay with us', { type: 'renewal', clubId: oldClub, wage: 1000, years: 3, weeksLeft: 30, choices: [{ id: 'accept', label: 'Accept' }] });
+    const other = Object.values(game.world.clubs).find((c) => c.id !== oldClub && c.leagueId)!;
+    movePlayer(game.world, p, other.id, 2000, 2);
+    respond(game, msg.id, 'accept');
+    expect(p.clubId).toBe(other.id);
+    expect(msg.action!.resolved).toBe('expired');
+  });
+
+  it('transfer talks end if the player signs elsewhere first', () => {
+    const world = generateWorld(86);
+    const myId = world.leagues[0].clubIds[0];
+    const game = newManagerGame(world, myId, null, 'Boss');
+    const target = Object.values(game.world.players).find((x) => x.clubId && x.clubId !== myId && !x.loan)!;
+    game.world.week = 2;
+    const n = startNegotiation(game, target.id, 'buy');
+    expect(typeof n).toBe('object');
+    const elsewhere = Object.values(game.world.clubs).find((c) => c.id !== myId && c.id !== target.clubId && c.leagueId)!;
+    movePlayer(game.world, target, elsewhere.id);
+    const r = bidFee(game, target.id, 1_000_000);
+    expect(r.status).toBe('walked');
+    expect(game.negotiations[target.id]).toBeUndefined();
   });
 });

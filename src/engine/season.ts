@@ -80,6 +80,8 @@ export function advanceWeek(game: Game): WeekResult {
   expireOffers(game);
   if (world.week > world.seasonWeeks) {
     closeLeagueSeason(game, rng);
+    // Retirements and releases at the rollover can remove players mid-talks.
+    game.negotiations = {};
     world.rngState = rng.state;
     startTournaments(game);
     world.phase = 'tournament';

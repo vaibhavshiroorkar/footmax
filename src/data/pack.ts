@@ -78,6 +78,15 @@ export function club(name: string, short: string, rep: number, c1: string, c2: s
   return { name, short, rep, colors: [c1, c2], players: parsePlayers(packed) };
 }
 
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+// Every screen draws club colours, so a bad value in a hand-edited pack
+// would break the whole game. Swap it for grey instead of failing.
+function fixColours(c: ClubSeed): void {
+  const ok = Array.isArray(c.colors) && HEX.test(c.colors[0]) && HEX.test(c.colors[1]);
+  if (!ok) c.colors = ['#888888', '#ffffff'];
+}
+
 export function validatePack(raw: unknown): { pack?: DataPack; error?: string } {
   const p = raw as DataPack;
   if (!p || typeof p !== 'object') return { error: 'Not a JSON object.' };
@@ -87,6 +96,7 @@ export function validatePack(raw: unknown): { pack?: DataPack; error?: string } 
     if (!l.id || !l.nation || !Array.isArray(l.clubs) || l.clubs.length < 4) return { error: `League ${l.id ?? '?'} needs an id, a nation and at least 4 clubs.` };
     for (const c of l.clubs) {
       if (!c.name || !Array.isArray(c.players)) return { error: `A club in ${l.id} is missing a name or players list.` };
+      fixColours(c);
       for (const pl of c.players) {
         // JSON packs may put an exact role in pos; split it into pos + role.
         const code: string = pl.pos;
@@ -100,5 +110,6 @@ export function validatePack(raw: unknown): { pack?: DataPack; error?: string } 
     }
   }
   if (!Array.isArray(p.otherClubs)) p.otherClubs = [];
+  for (const o of p.otherClubs) (Array.isArray(o.clubs) ? o.clubs : []).forEach(fixColours);
   return { pack: p };
 }

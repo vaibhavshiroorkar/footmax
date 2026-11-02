@@ -22,7 +22,7 @@ export default function Tournaments() {
   if (!world.tournaments.length) {
     const next = tournamentsForSummer(world.season + 1);
     return (
-      <Screen title="Internationals">
+      <Screen title="Internationals" nav={game.mode === 'manager' && !game.manager?.clubId && game.manager?.nationalTeamId ? 'manager' : undefined}>
         <Card>
           <H2>Summer {world.season + 1}</H2>
           <T muted>Coming after the league season: {next.map((t) => t.name).join(', ')}.</T>
@@ -48,7 +48,7 @@ export default function Tournaments() {
   const stages = [...new Set(t.fixtures.filter((f) => f.stage !== 'Group').map((f) => f.stage!))];
 
   return (
-    <Screen title="Internationals">
+    <Screen title="Internationals" nav={game.mode === 'manager' && !game.manager?.clubId && game.manager?.nationalTeamId ? 'manager' : undefined}>
       <Tabs tabs={world.tournaments.map((x, i) => ({ key: String(i), label: SHORT[x.id.replace(/\d+$/, '')] ?? x.name }))} value={index} onChange={setIndex} />
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>

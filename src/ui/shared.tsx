@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Game, Nation, World } from '../engine/types';
-import { FinishResult, userFixture, startUserMatch, skipSummer, skipWeek } from '../engine/game';
+import { FinishResult, interruptedMatch, userFixture, startUserMatch, skipSummer, skipWeek } from '../engine/game';
 import { leagueOf, tablePosition } from '../engine/league';
 import { ordinal } from '../engine/manager';
 import { inTransferWindow } from '../engine/transfers';
@@ -109,8 +109,10 @@ export function MatchdayButton({ game }: { game: Game }) {
   const setLive = useStore((s) => s.setLive);
   const feedback = useResultFeedback();
   const f = userFixture(game);
+  const live = useStore((s) => s.live);
   const summer = game.world.phase === 'tournament';
   const next = () => feedback(mutate((g) => skipWeek(g)));
+  const resumable = !!live && !!f && live.fixtureId === f.id;
 
   if (!f) {
     return (
@@ -119,6 +121,12 @@ export function MatchdayButton({ game }: { game: Game }) {
         {summer && <Button label="Skip summer" icon="play-skip-forward" variant="secondary" style={{ flex: 1 }} onPress={() => feedback(mutate((g) => skipSummer(g)))} />}
       </Row>
     );
+  }
+  if (resumable) {
+    return <Button label="Resume match" icon="play" sub="Your match is still on" onPress={() => router.push('/match')} />;
+  }
+  if (interruptedMatch(game)) {
+    return <Button label="Finish match" icon="play-forward" sub="It was interrupted, so the rest is simmed" onPress={next} />;
   }
   return (
     <Row>

@@ -77,7 +77,11 @@ function checkSacking(game: Game) {
 
 export function jobOffers(game: Game, rng: Rng, minRep: number, maxRep: number, count: number, excludeId?: string): void {
   const current = game.manager!.clubId ?? excludeId;
-  const options = Object.values(game.world.clubs).filter((c) => c.id !== current && c.leagueId && c.reputation >= minRep && c.reputation <= maxRep);
+  const all = Object.values(game.world.clubs).filter((c) => c.id !== current && c.leagueId);
+  let options = all.filter((c) => c.reputation >= minRep && c.reputation <= maxRep);
+  // The band can be empty (a low-reputation club sacked you). Fall back to
+  // the smallest clubs so there is always a way back into work.
+  if (options.length < count) options = [...options, ...all.filter((c) => !options.includes(c)).sort((a, b) => a.reputation - b.reputation).slice(0, count * 3)];
   for (const club of rng.shuffle(options).slice(0, count)) {
     addMessage(game, 'offer', `Job offer: ${club.name}`, `${club.name} (rep ${club.reputation}) want you as manager.`, {
       type: 'job',

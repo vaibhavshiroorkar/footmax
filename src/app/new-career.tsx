@@ -135,12 +135,17 @@ export default function NewCareer() {
   const start = () => {
     setBusy(true);
     setTimeout(() => {
-      setGame(
+      const ok = setGame(
         newCareerGame(
           { firstName: first, lastName: last, nickname, number, nationId: nation, role, foot, weakFoot, heightCm: height, build, style: styleId, allocation: alloc, look, celebration, clubId: clubId ?? undefined },
           world,
         ),
       );
+      if (!ok) {
+        setBusy(false);
+        useStore.getState().showToast('All save slots are in use. Delete a save on the title screen first.', '/');
+        return;
+      }
       router.replace('/career');
     }, 30);
   };

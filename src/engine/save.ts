@@ -11,19 +11,43 @@ export function serialize(game: Game): string {
   });
 }
 
-export function deserialize(text: string): Game | null {
+// Upgrades a parsed save one version at a time. The key is the version a
+// step upgrades FROM. Add a step whenever SAVE_VERSION goes up, so older
+// saves (local and cloud) keep loading instead of being thrown away.
+export const MIGRATIONS: Record<number, (g: Record<string, unknown>) => void> = {};
+
+export type LoadResult = { ok: true; game: Game } | { ok: false; error: 'corrupt' | 'too-new' };
+
+export function loadSave(text: string): LoadResult {
+  let g: Record<string, unknown> & { version?: number; world?: unknown };
   try {
-    const g = JSON.parse(text, (key, v) => {
+    g = JSON.parse(text, (key, v) => {
       if (key === 'attrs' && Array.isArray(v)) {
         const out = {} as Attributes;
         ATTR_KEYS.forEach((k, i) => (out[k] = v[i]));
         return out;
       }
       return v;
-    }) as Game;
-    if (!g || typeof g !== 'object' || !g.world || g.version !== SAVE_VERSION) return null;
-    return g;
+    });
   } catch {
-    return null;
+    return { ok: false, error: 'corrupt' };
   }
+  if (!g || typeof g !== 'object' || !g.world || typeof g.version !== 'number') return { ok: false, error: 'corrupt' };
+  if (g.version > SAVE_VERSION) return { ok: false, error: 'too-new' };
+  while (g.version < SAVE_VERSION) {
+    const step = MIGRATIONS[g.version];
+    if (!step) return { ok: false, error: 'corrupt' };
+    step(g);
+    g.version++;
+  }
+  return { ok: true, game: g as unknown as Game };
+}
+
+export function deserialize(text: string): Game | null {
+  const r = loadSave(text);
+  return r.ok ? r.game : null;
+}
+
+export function loadErrorText(error: 'corrupt' | 'too-new'): string {
+  return error === 'too-new' ? 'This save was made by a newer version of FootMax. Refresh the page to update.' : 'This save is damaged and cannot be opened.';
 }

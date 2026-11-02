@@ -6,6 +6,8 @@ import { Badge, Button, Card, H2, Row, Screen, T, inputStyle } from '../../../ui
 import { colors } from '../../../ui/theme';
 import { editClub } from '../../../engine/editor';
 
+const HEX = /^#[0-9a-f]{6}$/i;
+
 export default function EditClub() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const game = useGame();
@@ -19,7 +21,7 @@ export default function EditClub() {
   const [c1, setC1] = useState(club?.colors[0] ?? '#ffffff');
   const [c2, setC2] = useState(club?.colors[1] ?? '#000000');
   if (!game || !club) return <Redirect href="/editor" />;
-  const preview = { ...club, name, short: short.toUpperCase(), colors: [/^#[0-9a-f]{6}$/i.test(c1) ? c1 : club.colors[0], /^#[0-9a-f]{6}$/i.test(c2) ? c2 : club.colors[1]] as [string, string] };
+  const preview = { ...club, name, short: short.toUpperCase(), colors: [HEX.test(c1) ? c1 : club.colors[0], HEX.test(c2) ? c2 : club.colors[1]] as [string, string] };
 
   return (
     <Screen title="Edit club">
@@ -57,6 +59,10 @@ export default function EditClub() {
       <Button
         label="Save changes"
         onPress={() => {
+          if (!club.national && !(HEX.test(c1) && HEX.test(c2))) {
+            showToast('Colours must look like #1a2b3c (a # and six hex digits).');
+            return;
+          }
           mutate((g) => editClub(g.world, club.id, { name, short, reputation: rep, colors: [c1, c2] }));
           showToast('Club updated.');
           router.back();

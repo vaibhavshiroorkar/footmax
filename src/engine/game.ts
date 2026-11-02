@@ -191,10 +191,26 @@ export function matchFocus(game: Game): MatchFocus {
 export function startUserMatch(game: Game): MatchState | null {
   const f = userFixture(game);
   if (!f) return null;
-  const rng = new Rng(game.world.rngState);
-  const seed = rng.int(1, 2 ** 31);
-  game.world.rngState = rng.state;
-  return createMatch(game.world, f, matchFocus(game), seed);
+  const world = game.world;
+  let seed = world.pendingMatch?.fixtureId === f.id ? world.pendingMatch.seed : 0;
+  if (!seed) {
+    const rng = new Rng(world.rngState);
+    seed = rng.int(1, 2 ** 31);
+    world.rngState = rng.state;
+    world.pendingMatch = { fixtureId: f.id, seed };
+  }
+  return createMatch(world, f, matchFocus(game), seed);
+}
+
+// Marks this week's match as started; from now on leaving it sims the rest.
+export function markKickOff(game: Game): void {
+  if (game.world.pendingMatch) game.world.pendingMatch.kicked = true;
+}
+
+// A match that was kicked off but never finished, e.g. after a reload.
+export function interruptedMatch(game: Game): boolean {
+  const p = game.world.pendingMatch;
+  return !!p?.kicked && p.fixtureId === userFixture(game)?.id;
 }
 
 export interface FinishResult extends WeekResult {
@@ -205,6 +221,7 @@ export interface FinishResult extends WeekResult {
 export function finishUserMatch(game: Game, s: MatchState): FinishResult {
   const f = userFixture(game);
   let levelUp: string | null = null;
+  game.world.pendingMatch = undefined;
   if (f && f.id === s.fixtureId) {
     if (!s.finished) simToEnd(game.world, s);
     commitMatch(game.world, s, f);

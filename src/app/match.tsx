@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore, useGame } from '../state/store';
 import { Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { KeyMoment, MatchEvent, MatchState, SideKey, makeSub, possessionPct, resolveMoment, resumeFromHalf, simToEnd, stepMinute } from '../engine/match';
-import { finishUserMatch } from '../engine/game';
+import { finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { skillLevel } from '../engine/skills';
 import { useResultFeedback } from '../ui/shared';
@@ -48,6 +48,12 @@ export default function MatchScreen() {
   // Before kick-off the lineups are shown and the clock waits.
   const [kicked, setKicked] = useState(() => !!useStore.getState().live && useStore.getState().live!.minute > 0);
   const seenGoals = useRef(0);
+  // The navigation held back while the user decides whether to leave.
+  const [leaving, setLeaving] = useState<{ repeat: () => void } | null>(null);
+  // Back gestures and browser back would drop a live match. Ask first; a
+  // match that has kicked off is simmed to the end rather than abandoned.
+  const guarded = kicked && !!live && !live.finished;
+  const allowLeave = usePreventRemove(guarded, ({ repeat }) => setLeaving({ repeat }));
   const flash = useState(() => new Animated.Value(0))[0];
 
   const running = kicked && !!live && !live.finished && !live.pending && !live.pausedAtHalf && !paused;
@@ -97,7 +103,19 @@ export default function MatchScreen() {
     const r = mutate((g) => finishUserMatch(g, live));
     setLive(null);
     feedback(r);
+    allowLeave();
     router.back();
+  };
+
+  const simAndLeave = () => {
+    const repeat = leaving?.repeat;
+    const r = mutate((g) => finishUserMatch(g, live));
+    setLive(null);
+    feedback(r);
+    setLeaving(null);
+    allowLeave();
+    if (repeat) repeat();
+    else router.back();
   };
 
   const myGoals = live[mySide].goals;
@@ -108,10 +126,28 @@ export default function MatchScreen() {
     <Screen title="Match day" back={false} scroll>
       <Scoreboard game={game} live={live} home={home} away={away} flash={flash} />
 
+      {leaving && (
+        <Card glow={colors.gold}>
+          <H2>Leave the match?</H2>
+          <T muted>The rest of the match will be simmed and the result counts.</T>
+          <Row>
+            <Button label="Stay" variant="secondary" style={{ flex: 1 }} onPress={() => setLeaving(null)} />
+            <Button label="Sim and leave" icon="play-forward" style={{ flex: 1 }} onPress={simAndLeave} />
+          </Row>
+        </Card>
+      )}
+
       {!kicked && (
         <>
           <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
-          <Button label="Kick off" icon="football" onPress={() => setKicked(true)} />
+          <Button
+            label="Kick off"
+            icon="football"
+            onPress={() => {
+              mutate((g) => markKickOff(g));
+              setKicked(true);
+            }}
+          />
         </>
       )}
 

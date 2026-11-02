@@ -9,6 +9,7 @@ import { userFixture } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { Avatar } from '../ui/avatar';
 import { MAX_SLOTS, SlotMeta } from '../state/slots';
+import { exportSaveFile, pickSaveFile } from '../state/saveFiles';
 
 function ago(t: number): string {
   const s = Math.max(0, Math.round((Date.now() - t) / 1000));
@@ -50,7 +51,8 @@ function SlotRow({ slot, current, index }: { slot: SlotMeta; current: boolean; i
     setBusy(true);
     const ok = await loadSlot(slot.id);
     setBusy(false);
-    if (!ok) return showToast('That save could not be read.');
+    // loadSlot explains why in a toast.
+    if (!ok) return;
     router.push(slot.mode === 'career' ? '/career' : '/manager');
   };
 
@@ -86,6 +88,18 @@ function SlotRow({ slot, current, index }: { slot: SlotMeta; current: boolean; i
         {menu === 'open' && (
           <Row style={{ paddingHorizontal: 12, paddingBottom: 12 }} gap={8}>
             <Button label="Rename" icon="pencil" small variant="secondary" style={{ flex: 1 }} onPress={() => setMenu('rename')} />
+            <Button
+              label="Export"
+              icon="download-outline"
+              small
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={async () => {
+                const err = await exportSaveFile(slot.id, slot.name ?? slot.title);
+                showToast(err ?? 'Save file exported. Keep it somewhere safe; Import loads it back.');
+                setMenu('closed');
+              }}
+            />
             <Button label="Delete" icon="trash-outline" small variant="secondary" style={{ flex: 1 }} onPress={() => setMenu('delete')} />
           </Row>
         )}
@@ -161,6 +175,8 @@ export default function Title() {
   const current = slots.find((s) => s.id === slotId);
   const next = game ? userFixture(game) : undefined;
   const full = slots.length >= MAX_SLOTS;
+  const startGame = useStore((s) => s.startGame);
+  const showToast = useStore((s) => s.showToast);
 
   return (
     <Screen>
@@ -231,6 +247,21 @@ export default function Title() {
         <ModeCard icon="person" color={colors.accent} title="Player career" text="Pick any nation, start small at home and earn your big move." onPress={() => router.push('/new-career')} disabled={full} />
         <ModeCard icon="clipboard" color={colors.blue} title="Manager" text="Run a real club, a national team or both. Buy anyone." onPress={() => router.push('/new-manager')} disabled={full} />
       </Row>
+      <Button
+        label="Import save file"
+        icon="folder-open-outline"
+        variant="secondary"
+        small
+        disabled={full}
+        onPress={async () => {
+          const r = await pickSaveFile();
+          if (!r) return;
+          if ('error' in r) return showToast(r.error);
+          if (!startGame(r.game)) return showToast(`All ${MAX_SLOTS} slots are in use. Delete a save first.`);
+          showToast('Save imported.');
+          router.push(r.game.mode === 'career' ? '/career' : '/manager');
+        }}
+      />
       <Pressable onPress={() => router.push('/editor')} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
         <Row gap={10} style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
           <Icon name="create-outline" size={20} color={colors.purple} />

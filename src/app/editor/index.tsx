@@ -28,6 +28,7 @@ export default function Editor() {
   const [tab, setTab] = useState<Tab>(game ? 'players' : 'pack');
   const [q, setQ] = useState('');
   const [paste, setPaste] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
   const [parsed, setParsed] = useState<{ pack?: DataPack; error?: string } | null>(null);
 
   const players = useMemo(() => (game && q.trim().length >= 2 ? searchMarket(game.world, null, { text: q }, 0, 40).rows : []), [game, q]);
@@ -96,7 +97,27 @@ export default function Editor() {
               New careers and manager games are built from a data pack: leagues, clubs and players as JSON. The built-in pack covers the 2025/26 season with estimated ratings.
             </T>
             <T>In use: {customPack ? `${customPack.name} (${packSummary(customPack)})` : `Built-in (${packSummary(BUILTIN_PACK)})`}</T>
-            {customPack && <Button label="Go back to the built-in pack" small variant="secondary" onPress={() => setCustomPack(null)} />}
+            {customPack && !confirmReset && <Button label="Go back to the built-in pack" small variant="secondary" onPress={() => setConfirmReset(true)} />}
+            {customPack && confirmReset && (
+              <View style={{ gap: 8 }}>
+                <T muted style={{ fontSize: 13 }}>
+                  This deletes {customPack.name} from this device. Existing saves keep their world. Export it first if you want to use it again.
+                </T>
+                <Row>
+                  <Button label="Keep it" small variant="secondary" style={{ flex: 1 }} onPress={() => setConfirmReset(false)} />
+                  <Button
+                    label="Delete pack"
+                    small
+                    variant="danger"
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      setCustomPack(null);
+                      setConfirmReset(false);
+                    }}
+                  />
+                </Row>
+              </View>
+            )}
           </Card>
           <Card>
             <H2>Export</H2>
