@@ -4,7 +4,7 @@ import { Rng, clamp } from './rng';
 import { avgRating, fairWage, formatMoney, fullName, marketValue, overall, roundMoney } from './player';
 import { addMessage, hasOpen } from './inbox';
 import { addXp, careerPlayer, squadStatus } from './career';
-import { targetOverall, nationById, majorNations } from './generator';
+import { ensureDomesticLeague, isCareerClub, targetOverall, nationById, majorNations } from './generator';
 import { autoLineup, squad } from './lineup';
 import { MIN_SQUAD, inTransferWindow, loanPlayer, movePlayer } from './transfers';
 import { nationalPool, pickNationalSquad } from './international';
@@ -59,7 +59,7 @@ function clubOffer(game: Game, rng: Rng) {
   const interestP = current ? (ovr - targetOverall(current.reputation)) / 30 + c.fame / 300 + (agent ? 0.08 : 0) + (c.wantsMove ? 0.25 : 0) : 0.8;
   if (!rng.chance(clamp(interestP, 0, 0.7))) return;
   const fits = Object.values(world.clubs).filter(
-    (club) => club.leagueId && club.id !== p.clubId && Math.abs(targetOverall(club.reputation) - ovr) <= 6 && (!current || club.reputation >= current.reputation - 3),
+    (club) => isCareerClub(world, club) && club.id !== p.clubId && Math.abs(targetOverall(club.reputation) - ovr) <= 6 && (!current || club.reputation >= current.reputation - 3),
   );
   if (!fits.length) return;
   const club = rng.pick(fits);
@@ -521,6 +521,9 @@ function signCareerContract(game: Game, msg: Message): string {
     return `New contract signed with ${club.name}.`;
   }
   movePlayer(game.world, p, club.id, a.wage, a.years);
+  // A club outside the simulated leagues gets its league built now, so the
+  // player has games from next week.
+  if (!club.leagueId) ensureDomesticLeague(game.world, club.nationId);
   c.wantsMove = false;
   // Any other open offer, including renewals from the old club, is now void.
   for (const m of game.inbox) if (m.action && !m.action.resolved && (m.action.type === 'club-offer' || m.action.type === 'loan-offer' || m.action.type === 'renewal') && m !== msg) m.action.resolved = 'expired';

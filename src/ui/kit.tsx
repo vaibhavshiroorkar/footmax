@@ -15,11 +15,12 @@ import { hapticsOn, motionReduced } from '../state/settings';
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const NATIVE = Platform.OS !== 'web';
 
-export function haptic(kind: 'light' | 'medium' | 'success' = 'light') {
+export function haptic(kind: 'light' | 'medium' | 'heavy' | 'success' | 'warning' = 'light') {
   if (!NATIVE || !hapticsOn()) return;
   try {
     if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+    else if (kind === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    else Haptics.impactAsync(kind === 'heavy' ? Haptics.ImpactFeedbackStyle.Heavy : kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
   } catch {
     // Haptics are a nicety; some devices have none.
   }
@@ -44,9 +45,10 @@ export function FadeIn({ children, index = 0, style }: { children: ReactNode; in
   const v = useState(() => new Animated.Value(motionReduced() ? 1 : 0))[0];
   useEffect(() => {
     if (motionReduced()) return;
-    Animated.timing(v, { toValue: 1, duration: 420, delay: Math.min(index, 12) * 50, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE }).start();
+    Animated.timing(v, { toValue: 1, duration: 260, delay: Math.min(index, 12) * 30, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE }).start();
   }, [v, index]);
-  return <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>{children}</Animated.View>;
+  // Fades only: content appears where it will stay, it never slides into place.
+  return <Animated.View style={[style, { opacity: v }]}>{children}</Animated.View>;
 }
 
 // The value, but only after it has stopped changing for `ms`. Searches

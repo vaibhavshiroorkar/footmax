@@ -3,36 +3,37 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensi
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore, useGame } from '../state/store';
-import { Badge, Button, Card, Choice, ConfirmButton, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
+import { AnimatedNumber, Badge, Button, Card, Choice, ConfirmButton, H2, Icon, IconName, Pill, Row, Screen, StatBar, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { KeyMoment, MatchEvent, MatchState, SideKey, makeSub, possessionPct, resolveMoment, resumeFromHalf, simToEnd, stepMinute } from '../engine/match';
-import { finishUserMatch, markKickOff } from '../engine/game';
+import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
-import { skillLevel } from '../engine/skills';
 import { useResultFeedback } from '../ui/shared';
-import { fullName, shortName } from '../engine/player';
-import { Club, Game, Style } from '../engine/types';
+import { formatMoney, fullName, shortName } from '../engine/player';
+import { Club, Game, MatchReward, Style } from '../engine/types';
+import { skillLevel, xpForLevel } from '../engine/skills';
 import { ShotGame } from '../ui/moments/ShotGame';
 import { PassGame } from '../ui/moments/PassGame';
 import { DribbleGame } from '../ui/moments/DribbleGame';
-import { LivePitch } from '../ui/livePitch';
+import { LivePitch, playDuration } from '../ui/livePitch';
 import { LineupsCard } from '../ui/lineups';
 import { SaveGame } from '../ui/moments/SaveGame';
 import { motionReduced, useSettings } from '../state/settings';
 
 const NATIVE = Platform.OS !== 'web';
-// 1x is slow enough to follow the ball on the live pitch.
+// ms: a minute without the live pitch. step: one pass or run on the pitch.
+// 1x is slow enough to follow every pass.
 const SPEEDS = [
-  { key: '1', label: '1x', ms: 900 },
-  { key: '2', label: '2x', ms: 380 },
-  { key: '4', label: '4x', ms: 120 },
+  { key: '1', label: '1x', ms: 900, step: 340 },
+  { key: '2', label: '2x', ms: 380, step: 170 },
+  { key: '4', label: '4x', ms: 120, step: 70 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
 
 export default function MatchScreen() {
   const game = useGame();
   const router = useRouter();
-  useStore((s) => s.liveRev);
+  const liveRev = useStore((s) => s.liveRev);
   const live = useStore((s) => s.live);
   const mutateLive = useStore((s) => s.mutateLive);
   const mutate = useStore((s) => s.mutate);
@@ -46,9 +47,12 @@ export default function MatchScreen() {
   const [showPitch, setShowPitch] = useState(true);
   const { width } = useWindowDimensions();
   const pitchWidth = Math.min(width, 600) - 32;
+  const pace = SPEEDS.find((s) => s.key === speed)!;
   // Before kick-off the lineups are shown and the clock waits.
   const [kicked, setKicked] = useState(() => !!useStore.getState().live && useStore.getState().live!.minute > 0);
-  const seenGoals = useRef(0);
+  // Set once the result is in the books, so leaving can never replay it.
+  const [done, setDone] = useState<FinishResult | null>(null);
+  const seenGoals = useRef(useStore.getState().live ? useStore.getState().live!.home.goals + useStore.getState().live!.away.goals : 0);
   // The navigation held back while the user decides whether to leave.
   const [leaving, setLeaving] = useState<{ repeat: () => void } | null>(null);
   // Back gestures and browser back would drop a live match. Ask first; a
@@ -56,38 +60,93 @@ export default function MatchScreen() {
   const guarded = kicked && !!live && !live.finished;
   const allowLeave = usePreventRemove(guarded, ({ repeat }) => setLeaving({ repeat }));
   const flash = useState(() => new Animated.Value(0))[0];
+  const flashBad = useState(() => new Animated.Value(0))[0];
+  // While a goal move is still playing on the pitch, the scoreboard waits
+  // until the pitch reports the ball in the net.
+  const [shownGoal, setShownGoal] = useState<string | null>(null);
+  // A key moment opens once the move that led to it has played out.
+  const [readyMoment, setReadyMoment] = useState<string | null>(null);
+  const pendingKey = live?.pending ? momentKey(live) : null;
+  const watching = showPitch && kicked;
+
+  // The result counts the moment the whistle goes, before any button.
+  const commitIfDone = () => {
+    const m = useStore.getState().live;
+    if (!m?.finished || done) return;
+    const r = mutate((g) => finishUserMatch(g, m));
+    setDone(r);
+    feedback(r);
+    const g = useStore.getState().game;
+    const reward = g?.career?.lastMatch;
+    const won = reward ? reward.result === 'W' : !!g && verdictOf(g, m) === 'WIN';
+    if (won) {
+      haptic('success');
+      celebrate({ title: 'Victory!', sub: reward?.played ? `Rated ${reward.rating.toFixed(1)}. +${reward.xp} XP${reward.money ? `, +${formatMoney(reward.money)} win bonus` : ''}.` : 'Three points.', icon: 'trophy', duration: 2200 });
+    }
+  };
 
   const running = kicked && !!live && !live.finished && !live.pending && !live.pausedAtHalf && !paused;
   useEffect(() => {
     if (!running) return;
-    const ms = SPEEDS.find((s) => s.key === speed)!.ms;
-    const id = setInterval(() => mutateLive((m, g) => stepMinute(g.world, m)), ms);
-    return () => clearInterval(id);
-  }, [running, speed, mutateLive]);
+    const delay = watching ? playDuration(useStore.getState().live?.play, pace.step) : pace.ms;
+    const t = setTimeout(() => {
+      mutateLive((m, g) => stepMinute(g.world, m));
+      commitIfDone();
+    }, delay);
+    return () => clearTimeout(t);
+    // liveRev: the match changes in place; each change schedules the next minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, liveRev, pace, watching]);
+
+  useEffect(() => {
+    if (!pendingKey) return;
+    const steps = useStore.getState().live?.play?.length ?? 0;
+    const t = setTimeout(() => setReadyMoment(pendingKey), watching ? steps * pace.step : 0);
+    return () => clearTimeout(t);
+  }, [pendingKey, watching, pace]);
+  const momentOpen = !!pendingKey && readyMoment === pendingKey;
 
   // With auto moments on, the sim resolves moments by itself.
   useEffect(() => {
-    if (live?.pending && autoMoments) mutateLive((m, g) => resolveMoment(g.world, m, null));
-  }, [live?.pending, autoMoments, mutateLive]);
+    if (momentOpen && autoMoments) mutateLive((m, g) => resolveMoment(g.world, m, null));
+  }, [momentOpen, autoMoments, mutateLive]);
 
-  // Goals flash the scoreboard; the user's team's goals get confetti.
+  // Goals: the pitch plays the move, then the scoreboard ticks over with a
+  // flash. Your own goals get the big celebration.
+  const announce = (m: MatchState) => {
+    if (!game) return;
+    const last = [...m.events].reverse().find((e) => e.type === 'goal');
+    if (!last?.side) return;
+    const ours = last.side === userSide(game, m);
+    const focus = m.focus.playerId;
+    const pulse = ours ? flash : flashBad;
+    pulse.setValue(1);
+    Animated.timing(pulse, { toValue: 0, duration: 1100, useNativeDriver: NATIVE }).start();
+    haptic(ours ? 'heavy' : 'warning');
+    if (ours && focus && last.playerId === focus) {
+      const season = game.world.players[focus].stats.goals + 1;
+      celebrate({ title: 'GOAL!', sub: `${last.text}\n+15 XP  |  Goal ${season} this season`, icon: 'football', duration: 2400 });
+    } else if (ours && !focus) celebrate({ title: 'GOAL!', sub: last.text, icon: 'football', duration: 1600 });
+  };
+  // On the live pitch, the pitch says when the ball hits the net.
+  const playKey = live ? `${live.minute}-${live.events.length}` : '';
+  const goalMove = live?.play?.[live.play.length - 1]?.act === 'goal' ? live.play[live.play.length - 1] : undefined;
+  const held: SideKey | null = watching && goalMove && !live?.finished && shownGoal !== playKey ? goalMove.side : null;
+  const onGoalShown = () => {
+    if (!live || shownGoal === playKey) return;
+    setShownGoal(playKey);
+    announce(live);
+  };
+  // Without the pitch (or skipping to the end) goals land straight away.
   const goalCount = live ? live.home.goals + live.away.goals : 0;
   useEffect(() => {
-    if (!live || !game) return;
-    if (goalCount > seenGoals.current) {
-      const last = [...live.events].reverse().find((e) => e.type === 'goal');
-      const focus = live.focus.playerId;
-      // In career mode only your own goals and assists earn confetti.
-      const involved = !focus || (last && (last.playerId === focus || last.text.includes(game.world.players[focus].lastName)));
-      const mine = last?.side === userSide(game, live) && involved;
-      flash.setValue(1);
-      Animated.timing(flash, { toValue: 0, duration: 900, useNativeDriver: NATIVE }).start();
-      if (mine && !live.finished && last) {
-        haptic('success');
-        celebrate({ title: 'GOAL!', sub: last.text, icon: 'football', duration: 1700 });
-      }
+    const m = useStore.getState().live;
+    if (!m || goalCount <= seenGoals.current) {
+      seenGoals.current = goalCount;
+      return;
     }
     seenGoals.current = goalCount;
+    if (!watching || m.finished) announce(m);
     // Only goal count changes matter here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goalCount]);
@@ -100,10 +159,8 @@ export default function MatchScreen() {
   const away = teamById(world, live.away.clubId);
   const mySide: SideKey = userSide(game, live);
 
-  const finish = () => {
-    const r = mutate((g) => finishUserMatch(g, live));
+  const leave = () => {
     setLive(null);
-    feedback(r);
     allowLeave();
     router.back();
   };
@@ -119,13 +176,12 @@ export default function MatchScreen() {
     else router.back();
   };
 
-  const myGoals = live[mySide].goals;
-  const theirGoals = live[mySide === 'home' ? 'away' : 'home'].goals;
-  const verdict = myGoals > theirGoals || live.penaltyWinner === live[mySide].clubId ? 'WIN' : myGoals < theirGoals || live.penaltyWinner ? 'LOSS' : 'DRAW';
+  const verdict = verdictOf(game, live);
+  const reward = done && game.career?.lastMatch?.fixtureId === live.fixtureId ? game.career.lastMatch : null;
 
   return (
     <Screen title="Match day" back={false} scroll>
-      <Scoreboard game={game} live={live} home={home} away={away} flash={flash} />
+      <Scoreboard game={game} live={live} home={home} away={away} flash={flash} flashBad={flashBad} held={held} />
 
       {leaving && (
         <Card glow={colors.gold}>
@@ -138,9 +194,10 @@ export default function MatchScreen() {
         </Card>
       )}
 
+      {(showPitch || !kicked) && <LivePitch world={world} live={live} focusId={game.career?.playerId} stepMs={pace.step} width={pitchWidth} onGoal={onGoalShown} />}
+
       {!kicked && (
         <>
-          <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
           <Button
             label="Kick off"
             icon="football"
@@ -149,16 +206,15 @@ export default function MatchScreen() {
               setKicked(true);
             }}
           />
+          <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
         </>
       )}
 
-      {kicked && showPitch && !live.pending && <LivePitch world={world} live={live} focusId={game.career?.playerId} tickMs={SPEEDS.find((x) => x.key === speed)!.ms} width={pitchWidth} />}
-
-      {live.pending && !autoMoments && <MomentPanel key={momentKey(live)} game={game} moment={live.pending} />}
+      {momentOpen && !autoMoments && <MomentPanel key={pendingKey} game={game} moment={live.pending!} />}
 
       {live.pausedAtHalf && <HalfTimePanel game={game} live={live} side={mySide} />}
 
-      {kicked && !live.finished && !live.pending && !live.pausedAtHalf && (
+      {kicked && !live.finished && !momentOpen && !live.pausedAtHalf && (
         <Card>
           <Row style={{ justifyContent: 'space-between' }}>
             <Row gap={6} style={styles.segment}>
@@ -180,44 +236,134 @@ export default function MatchScreen() {
             </Row>
             <Button label={paused ? 'Resume' : 'Pause'} icon={paused ? 'play' : 'pause'} small variant="secondary" onPress={() => setPaused(!paused)} />
           </Row>
-          <Choice active={showPitch} label="Show live pitch" sub="Watch the ball move between the two teams." onPress={() => setShowPitch(!showPitch)} />
+          <Choice active={showPitch} label="Show live pitch" sub="Watch every pass, shot and goal." onPress={() => setShowPitch(!showPitch)} />
           <Choice active={autoMoments} label="Auto-play key moments" sub="Let the sim handle the big chances for the rest of this match." onPress={() => setAutoMoments(!autoMoments)} />
-          <ConfirmButton label="Skip to full time" confirmLabel="Sim the rest? Tap again" icon="play-skip-forward" variant="secondary" small onPress={() => mutateLive((m, g) => simToEnd(g.world, m))} />
+          <ConfirmButton
+            label="Skip to full time"
+            confirmLabel="Sim the rest? Tap again"
+            icon="play-skip-forward"
+            variant="secondary"
+            small
+            onPress={() => {
+              mutateLive((m, g) => simToEnd(g.world, m));
+              commitIfDone();
+            }}
+          />
         </Card>
       )}
 
-      {live.finished && (
-        <Card glow={verdict === 'WIN' ? colors.accent : verdict === 'LOSS' ? colors.red : colors.gold}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <View>
-              <Text style={[styles.verdict, { color: verdict === 'WIN' ? colors.accent : verdict === 'LOSS' ? colors.red : colors.gold }]}>{verdict}</Text>
-              <T muted style={{ fontSize: 12.5 }}>
-                Full time{live.penaltyWinner ? ', decided on penalties' : ''}
-              </T>
-            </View>
-            <Icon name={verdict === 'WIN' ? 'trophy' : verdict === 'LOSS' ? 'sad-outline' : 'remove-circle-outline'} size={36} color={verdict === 'WIN' ? colors.gold : colors.muted} />
-          </Row>
-          <Button label="Continue" icon="arrow-forward" onPress={finish} />
-        </Card>
-      )}
+      {live.finished && <FullTime game={game} live={live} verdict={verdict} reward={reward} onContinue={leave} />}
 
-      <Tabs
-        tabs={[
-          { key: 'feed', label: 'Commentary' },
-          { key: 'lineups', label: 'Lineups' },
-          { key: 'stats', label: 'Stats' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
-      {tab === 'feed' && <Feed game={game} live={live} />}
-      {tab === 'lineups' && <LineupsCard game={game} live={live} focusId={game.career?.playerId} />}
-      {tab === 'stats' && <Stats game={game} live={live} side={mySide} />}
+      {kicked && (
+        <>
+          <Tabs
+            tabs={[
+              { key: 'feed', label: 'Commentary' },
+              { key: 'lineups', label: 'Lineups' },
+              { key: 'stats', label: 'Stats' },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+          {tab === 'feed' && <Feed game={game} live={live} />}
+          {tab === 'lineups' && <LineupsCard game={game} live={live} focusId={game.career?.playerId} />}
+          {tab === 'stats' && <Stats game={game} live={live} side={mySide} />}
+        </>
+      )}
     </Screen>
   );
 }
 
-function Scoreboard({ game, live, home, away, flash }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value }) {
+function verdictOf(game: Game, live: MatchState): 'WIN' | 'LOSS' | 'DRAW' {
+  const side = userSide(game, live);
+  const mine = live[side].goals;
+  const theirs = live[side === 'home' ? 'away' : 'home'].goals;
+  return mine > theirs || live.penaltyWinner === live[side].clubId ? 'WIN' : mine < theirs || live.penaltyWinner ? 'LOSS' : 'DRAW';
+}
+
+// Full time: the result, then what it earned, counted up in place.
+function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; live: MatchState; verdict: 'WIN' | 'LOSS' | 'DRAW'; reward: MatchReward | null; onContinue: () => void }) {
+  const color = verdict === 'WIN' ? colors.accent : verdict === 'LOSS' ? colors.red : colors.gold;
+  const pop = useState(() => new Animated.Value(0))[0];
+  useEffect(() => {
+    if (motionReduced()) pop.setValue(1);
+    else Animated.spring(pop, { toValue: 1, friction: 5, tension: 90, useNativeDriver: NATIVE }).start();
+  }, [pop]);
+  const c = game.career;
+  const best = Object.entries(live.ratings).sort((a, b) => b[1] - a[1])[0];
+  const motm = best ? game.world.players[best[0]] : undefined;
+  return (
+    <Card glow={color}>
+      <Row style={{ justifyContent: 'space-between' }}>
+        <Animated.View style={{ transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }], opacity: pop }}>
+          <Text style={[styles.verdict, { color }]}>{verdict === 'WIN' ? 'VICTORY' : verdict === 'LOSS' ? 'DEFEAT' : 'DRAW'}</Text>
+          <T muted style={{ fontSize: 12.5 }}>
+            Full time{live.penaltyWinner ? ', decided on penalties' : ''}
+          </T>
+        </Animated.View>
+        <Icon name={verdict === 'WIN' ? 'trophy' : verdict === 'LOSS' ? 'sad-outline' : 'remove-circle-outline'} size={40} color={verdict === 'WIN' ? colors.gold : colors.muted} />
+      </Row>
+      {reward?.played && (
+        <View style={{ gap: 10 }}>
+          <Row gap={12}>
+            <View style={[styles.rateBox, { borderColor: matchRatingColor(reward.rating) }]}>
+              <AnimatedNumber value={reward.rating} format={(n) => n.toFixed(1)} duration={900} style={{ fontFamily: fonts.display, fontSize: 34, color: matchRatingColor(reward.rating) }} />
+              <Text style={styles.rateLabel}>RATING</Text>
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              {reward.motm && <Pill label="Player of the match" icon="star" color={colors.gold} solid />}
+              <Row gap={6} style={{ flexWrap: 'wrap' }}>
+                {reward.goals > 0 && <Pill label={`${reward.goals} goal${reward.goals > 1 ? 's' : ''}`} icon="football" color={colors.accent} />}
+                {reward.assists > 0 && <Pill label={`${reward.assists} assist${reward.assists > 1 ? 's' : ''}`} icon="git-branch" color={colors.teal} />}
+              </Row>
+            </View>
+          </Row>
+          <Row gap={8}>
+            <Gain label="XP" value={reward.xp} color={colors.gold} icon="sparkles" />
+            <Gain label="Fame" value={reward.fame} color={colors.pink} icon="flame" decimals={1} />
+            <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />
+          </Row>
+          {c && <StatBar label={`Level ${c.level}`} icon="star" value={c.xp} max={xpForLevel(c.level)} color={colors.gold} right={`${c.xp}/${xpForLevel(c.level)}`} />}
+          {reward.levels > 0 && c && (
+            <View style={styles.banner}>
+              <Icon name="star" size={20} color={colors.ink} />
+              <Text style={styles.bannerText}>LEVEL UP! Level {c.level}</Text>
+              <Text style={styles.bannerSub}>+{reward.levels} skill point{reward.levels > 1 ? 's' : ''}</Text>
+            </View>
+          )}
+          {(reward.unlocks ?? []).slice(0, 3).map((u) => (
+            <Row key={u} gap={8} style={styles.unlock}>
+              <Icon name="ribbon" size={16} color={colors.gold} />
+              <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.text }}>{u}</Text>
+            </Row>
+          ))}
+        </View>
+      )}
+      {reward && !reward.played && <T muted>You did not get on the pitch this time. Train hard and earn your place.</T>}
+      {!reward && motm && best && (
+        <Row gap={8}>
+          <Icon name="star" size={16} color={colors.gold} />
+          <T style={{ flex: 1 }}>
+            Player of the match: {fullName(motm)} ({best[1].toFixed(1)})
+          </T>
+        </Row>
+      )}
+      <Button label="Continue" icon="arrow-forward" onPress={onContinue} />
+    </Card>
+  );
+}
+
+function Gain({ label, value, color, icon, decimals = 0, money }: { label: string; value: number; color: string; icon: IconName; decimals?: number; money?: boolean }) {
+  return (
+    <View style={[styles.gain, { borderColor: alpha(color, 0.35), backgroundColor: alpha(color, 0.08) }]}>
+      <Icon name={icon} size={16} color={color} />
+      <AnimatedNumber value={value} duration={1100} format={(n) => (money ? `+${formatMoney(Math.round(n))}` : `+${n.toFixed(decimals)}`)} style={{ fontFamily: fonts.display, fontSize: 20, color }} />
+      <Text style={styles.rateLabel}>{label.toUpperCase()}</Text>
+    </View>
+  );
+}
+
+function Scoreboard({ game, live, home, away, flash, flashBad, held }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value; flashBad: Animated.Value; held: SideKey | null }) {
   const pulse = useState(() => new Animated.Value(0))[0];
   // The live dot pulses only while the clock runs.
   const ticking = !live.finished && !live.pausedAtHalf;
@@ -228,9 +374,13 @@ function Scoreboard({ game, live, home, away, flash }: { game: Game; live: Match
     return () => loop.stop();
   }, [pulse, ticking]);
   const [hp] = possessionPct(live);
-  const clock = live.finished ? 'FULL TIME' : live.pausedAtHalf ? 'HALF TIME' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
+  const clock = live.finished ? 'FULL TIME' : live.pausedAtHalf ? 'HALF TIME' : live.minute === 0 ? 'KICK OFF' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
+  // A goal still being played out on the pitch is not on the board yet.
+  const hg = live.home.goals - (held === 'home' ? 1 : 0);
+  const ag = live.away.goals - (held === 'away' ? 1 : 0);
+  const shown = held ? live.scorers.slice(0, -1) : live.scorers;
   const scorers = (side: SideKey) =>
-    live.scorers
+    shown
       .filter((s) => s.clubId === live[side].clubId)
       .map((s) => `${game.world.players[s.playerId].lastName} ${s.minute}'`)
       .join(', ');
@@ -239,10 +389,11 @@ function Scoreboard({ game, live, home, away, flash }: { game: Game; live: Match
       <LinearGradient colors={[alpha(teamColor(home.colors), 0.42), colors.card, colors.card, alpha(teamColor(away.colors), 0.42)]} locations={[0, 0.4, 0.6, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
       <View style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: 3, backgroundColor: teamColor(home.colors) }} />
       <View style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: 3, backgroundColor: teamColor(away.colors) }} />
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.22] }) }]} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.32] }) }]} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.red, opacity: flashBad.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }) }]} />
       <View style={{ padding: 16, gap: 12 }}>
         <Row style={{ justifyContent: 'center' }} gap={8}>
-          {!live.finished && !live.pausedAtHalf && <Animated.View style={[styles.liveDot, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }) }]} />}
+          {ticking && live.minute > 0 && <Animated.View style={[styles.liveDot, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }) }]} />}
           <Text style={styles.clock}>{clock}</Text>
         </Row>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -251,19 +402,23 @@ function Scoreboard({ game, live, home, away, flash }: { game: Game; live: Match
             <Text style={styles.teamName} numberOfLines={2}>
               {home.name}
             </Text>
-            <Text style={styles.scorers}>{scorers('home')}</Text>
+            <Text style={styles.scorers} numberOfLines={2}>
+              {scorers('home')}
+            </Text>
           </View>
-          <Text style={styles.score} numberOfLines={1}>
-            {live.home.goals}
-            <Text style={{ color: colors.faint }}> : </Text>
-            {live.away.goals}
-          </Text>
+          <Row style={{ alignItems: 'center', marginTop: 4 }}>
+            <Score value={hg} />
+            <Text style={[styles.score, { color: colors.faint, minWidth: 0 }]}>:</Text>
+            <Score value={ag} />
+          </Row>
           <View style={styles.team}>
             <Badge club={away} size={56} />
             <Text style={styles.teamName} numberOfLines={2}>
               {away.name}
             </Text>
-            <Text style={styles.scorers}>{scorers('away')}</Text>
+            <Text style={styles.scorers} numberOfLines={2}>
+              {scorers('away')}
+            </Text>
           </View>
         </Row>
         <View>
@@ -280,6 +435,19 @@ function Scoreboard({ game, live, home, away, flash }: { game: Game; live: Match
       </View>
     </View>
   );
+}
+
+// One side's goals. When the number changes, it pops.
+function Score({ value }: { value: number }) {
+  const pop = useState(() => new Animated.Value(0))[0];
+  const [last, setLast] = useState(value);
+  if (last !== value) setLast(value);
+  useEffect(() => {
+    if (motionReduced()) return;
+    pop.setValue(1);
+    Animated.spring(pop, { toValue: 0, friction: 3, tension: 80, useNativeDriver: NATIVE }).start();
+  }, [last, pop]);
+  return <Animated.Text style={[styles.score, { transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }] }]}>{value}</Animated.Text>;
 }
 
 function momentKey(s: MatchState) {
@@ -533,13 +701,20 @@ const styles = StyleSheet.create({
   team: { alignItems: 'center', flex: 1, gap: 6 },
   teamName: { fontFamily: fonts.display, fontSize: 17, color: '#ffffff', textAlign: 'center', letterSpacing: 0.4, textTransform: 'uppercase' },
   scorers: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center' },
-  score: { fontFamily: fonts.display, fontSize: 60, color: '#ffffff', lineHeight: 64, letterSpacing: 1, marginTop: 4, minWidth: 110, textAlign: 'center' },
+  score: { fontFamily: fonts.display, fontSize: 60, color: '#ffffff', lineHeight: 64, letterSpacing: 1, minWidth: 44, textAlign: 'center' },
   possLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.text, letterSpacing: 1 },
   possTrack: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 4, gap: 2 },
   segment: { backgroundColor: colors.bgElev, borderRadius: 12, padding: 3, borderWidth: 1, borderColor: colors.border },
   segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
   segText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
-  verdict: { fontFamily: fonts.display, fontSize: 40, letterSpacing: 2 },
+  verdict: { fontFamily: fonts.display, fontSize: 44, letterSpacing: 2 },
+  rateBox: { width: 92, height: 80, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev },
+  rateLabel: { fontFamily: fonts.bold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 },
+  gain: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14 },
+  bannerText: { flex: 1, fontFamily: fonts.display, fontSize: 20, color: colors.ink, letterSpacing: 0.8 },
+  bannerSub: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.ink },
+  unlock: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, backgroundColor: alpha(colors.gold, 0.1), borderWidth: 1, borderColor: alpha(colors.gold, 0.3) },
   momentIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   momentTitle: { fontFamily: fonts.display, fontSize: 26, color: colors.accent, letterSpacing: 0.6, textTransform: 'uppercase' },
   colHead: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.muted, letterSpacing: 1.2 },

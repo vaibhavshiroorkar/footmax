@@ -2,7 +2,7 @@ import { generateWorld } from '../../src/engine/generator';
 import { leagueTable, makeFixtures, SEASON_WEEKS } from '../../src/engine/league';
 import { Rng } from '../../src/engine/rng';
 import { createMatch, quickSim, resolveMoment, simToEnd, stepMinute } from '../../src/engine/match';
-import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs, interruptedMatch, markKickOff, SAVE_VERSION } from '../../src/engine/game';
+import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs, starterNations, interruptedMatch, markKickOff, SAVE_VERSION } from '../../src/engine/game';
 import { fullName, overall, seasonRows } from '../../src/engine/player';
 import { MIGRATIONS, deserialize, loadSave, serialize } from '../../src/engine/save';
 import { train, upgradeSkill } from '../../src/engine/career';
@@ -61,10 +61,11 @@ describe('world from the real database', () => {
     expect(overall(haaland)).toBeGreaterThanOrEqual(89);
   });
 
-  it('gives every major nation enough players for a squad', () => {
+  it('gives every nation enough players for a squad', () => {
+    // The smallest nations get 18; the rest at least a full 26.
     for (const n of WORLD.nations.filter((x) => !x.minor)) {
       const count = Object.values(WORLD.players).filter((p) => p.nationId === n.id && p.clubId).length;
-      expect(count).toBeGreaterThanOrEqual(26);
+      expect(count).toBeGreaterThanOrEqual(n.strength >= 45 ? 24 : 18);
     }
   });
 
@@ -129,21 +130,32 @@ describe('matches', () => {
 });
 
 describe('career', () => {
-  it('starts at a club in your own nation', () => {
+  it('starts at a small club in one of the weakest leagues of your confederation', () => {
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ESP', position: 'MID', seed: 2 });
     const p = game.world.players[game.career!.playerId];
-    expect(game.world.clubs[p.clubId!].nationId).toBe('ESP');
+    const club = game.world.clubs[p.clubId!];
+    expect(starterNations(game.world, 'UEFA').map((n) => n.id)).toContain(club.nationId);
+    expect(club.nationId).not.toBe('ESP');
   });
 
-  it('builds a domestic league for a nation without one', () => {
+  it('builds a domestic league for the starter nation, with a game most weeks', () => {
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'GHA', position: 'FWD', seed: 3 });
     const p = game.world.players[game.career!.playerId];
     const club = game.world.clubs[p.clubId!];
-    expect(club.nationId).toBe('GHA');
+    expect(game.world.nations.find((n) => n.id === club.nationId)!.conf).toBe('CAF');
     const league = game.world.leagues.find((l) => l.id === club.leagueId)!;
-    expect(league.clubIds.length).toBeGreaterThanOrEqual(8);
-    expect(league.fixtures.length).toBeGreaterThan(0);
-    expect(starterClubs(game.world, 'GHA')).toContain(club.id);
+    expect(league.clubIds.length).toBeGreaterThanOrEqual(6);
+    expect(starterClubs(game.world, club.nationId)).toContain(club.id);
+    const games = league.fixtures.filter((f) => f.homeId === club.id || f.awayId === club.id);
+    expect(games.length).toBeGreaterThanOrEqual(24);
+    expect(new Set(games.map((f) => f.week)).size).toBe(games.length);
+  });
+
+  it('has every FIFA member nation', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'FIJ', position: 'FWD', seed: 5 });
+    expect(game.world.nations.filter((n) => !n.minor)).toHaveLength(211);
+    const fiji = game.world.nations.find((n) => n.id === 'FIJ')!;
+    expect(game.world.nationalTeams[fiji.teamId].playerIds.length).toBeGreaterThanOrEqual(11);
   });
 
   it('training raises attributes and earns XP; skills need points and attributes', () => {
@@ -154,6 +166,7 @@ describe('career', () => {
     expect(p.attrs.passing).toBeGreaterThan(before);
     expect(game.career!.xp).toBeGreaterThan(0);
     // Too weak for Playmaker yet.
+    p.attrs.vision = 30;
     expect(upgradeSkill(game, 'playmaker').ok).toBe(false);
     p.attrs.vision = 70;
     expect(upgradeSkill(game, 'playmaker').ok).toBe(true);
@@ -480,6 +493,9 @@ describe('alerts and save slots', () => {
     expect(readyUpgrades(game)).toHaveLength(0);
     c.skillPoints = 1;
     expect(readyUpgrades(game).map((s) => s.id)).toContain('finisher');
+    // One point buys one upgrade, however many skills qualify.
+    expect(navBadges(game)['/career/skills']).toBe(1);
+    c.skillPoints = 20;
     expect(navBadges(game)['/career/skills']).toBe(readyUpgrades(game).length);
   });
 

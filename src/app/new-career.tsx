@@ -3,23 +3,23 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { usePreventRemove, useRouter } from 'expo-router';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { useStore } from '../state/store';
-import { Badge, Button, Card, Choice, H2, Icon, Pill, Row, Screen, StatTile, T, Tabs, haptic, inputStyle } from '../ui/kit';
+import { Button, Card, Choice, H2, Icon, Pill, Row, Screen, StatTile, T, Tabs, haptic, inputStyle } from '../ui/kit';
 import { NationPicker } from '../ui/shared';
 import { Avatar, BOOT_COLORS, HAIR_COLORS, HAIR_STYLES, SKINS } from '../ui/avatar';
 import { alpha, colors, fonts, ratingColor } from '../ui/theme';
-import { generateWorld, newCareerGame, newSeed, starterClubs } from '../engine/game';
-import { leagueOf } from '../engine/league';
+import { generateWorld, newCareerGame, newSeed, starterNations } from '../engine/game';
 import { nationById } from '../engine/generator';
 import { ROLES, Role, rolesFor } from '../engine/roles';
 import { ATTR_LABELS, overall } from '../engine/player';
-import { Allocation, CELEBRATIONS, MAX_PER_ATTR, STAT_POINTS, STYLE_PRESETS, allocatable, applyAllocation, autoAllocate, pointsSpent, weakFootCost } from '../engine/creation';
-import { Build, Look, Position, World } from '../engine/types';
+import { Allocation, CELEBRATIONS, MAX_PER_ATTR, STAT_POINTS, STYLE_PRESETS, allocatable, applyAllocation, autoAllocate, bodyEffects, pointsSpent, weakFootCost } from '../engine/creation';
+import { ATTR_KEYS, AttrKey, Build, Look, Position, World } from '../engine/types';
+import { AttributeGrid, attrOrder } from '../ui/attributes';
 
-const STEPS = ['Identity', 'Nation', 'Position', 'Body', 'Stats', 'Look', 'Club'];
+const STEPS = ['Identity', 'Nation', 'Position', 'Body', 'Stats', 'Look', 'Sign'];
 const BUILDS: { key: Build; label: string; hint: string }[] = [
-  { key: 'lean', label: 'Lean', hint: '+pace, +dribbling, -physical' },
-  { key: 'athletic', label: 'Athletic', hint: 'Balanced, a little of everything' },
-  { key: 'stocky', label: 'Stocky', hint: '+physical, -pace' },
+  { key: 'lean', label: 'Lean', hint: 'Pace +3, dribbling +2, physical -4' },
+  { key: 'athletic', label: 'Athletic', hint: 'Pace +1, physical +1' },
+  { key: 'stocky', label: 'Stocky', hint: 'Physical +4, pace -3, dribbling -1' },
 ];
 
 function MiniPitch({ role, active }: { role: Role; active: boolean }) {
@@ -103,7 +103,6 @@ export default function NewCareer() {
   const [alloc, setAlloc] = useState<Allocation>(() => autoAllocate('ST', STYLE_PRESETS.ST[0].weights, STAT_POINTS));
   const [look, setLook] = useState<Look>({ skin: 2, hair: 0, hairColor: 0, boots: 0 });
   const [celebration, setCelebration] = useState(CELEBRATIONS[0].id);
-  const [clubId, setClubId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const body = { heightCm: height, build };
@@ -119,8 +118,20 @@ export default function NewCareer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, height, build, alloc, weakFoot]);
   const ovr = attrs ? overall({ attrs, position: ROLES[role].broad, role }) : 0;
-  const clubs = useMemo(() => (step >= 6 && world ? starterClubs(world, nation) : []), [world, nation, step]);
-  const kit: [string, string] = (world && clubId ? world.clubs[clubId]?.colors : undefined) ?? (world ? nationById(world, nation)?.colors : undefined) ?? ['#5b8cff', '#ffffff'];
+  // What height and build change, against an average 180 cm athletic player.
+  const bodyNotes = useMemo(() => {
+    const mine = bodyEffects({ heightCm: height, build }, role);
+    const base = bodyEffects({ heightCm: 180, build: 'athletic' }, role);
+    const out: Partial<Record<AttrKey, { text: string; color: string }>> = {};
+    for (const k of ATTR_KEYS) {
+      const d = Math.round((mine[k] ?? 0) - (base[k] ?? 0));
+      if (d) out[k] = { text: `${d > 0 ? '+' : ''}${d} body`, color: d > 0 ? colors.accent : colors.red };
+    }
+    return out;
+  }, [height, build, role]);
+  const conf = world ? nationById(world, nation)?.conf : undefined;
+  const ladderStart = useMemo(() => (world && conf ? starterNations(world, conf) : []), [world, conf]);
+  const kit: [string, string] = (world ? nationById(world, nation)?.colors : undefined) ?? ['#5b8cff', '#ffffff'];
 
   // Leaving part-way loses every choice, so ask first.
   const [leaving, setLeaving] = useState<{ repeat: () => void } | null>(null);
@@ -155,18 +166,19 @@ export default function NewCareer() {
     if (!world) return;
     setBusy(true);
     setTimeout(() => {
-      const ok = setGame(
-        newCareerGame(
-          { firstName: first, lastName: last, nickname, number, nationId: nation, role, foot, weakFoot, heightCm: height, build, style: styleId, allocation: alloc, look, celebration, clubId: clubId ?? undefined },
-          world,
-        ),
-      );
+      const g = newCareerGame({ firstName: first, lastName: last, nickname, number, nationId: nation, role, foot, weakFoot, heightCm: height, build, style: styleId, allocation: alloc, look, celebration }, world);
+      const ok = setGame(g);
       if (!ok) {
         setBusy(false);
         useStore.getState().showToast('All save slots are in use. Delete a save on the title screen first.', '/');
         return;
       }
       allowLeave();
+      // The draw is the first big moment of the career, so it gets a reveal.
+      const me = g.world.players[g.career!.playerId];
+      const club = me.clubId ? g.world.clubs[me.clubId] : null;
+      const league = club ? g.world.leagues.find((l) => l.id === club.leagueId) : undefined;
+      if (club) useStore.getState().celebrate({ title: 'Signed!', sub: `${club.name}, ${league?.name ?? nationById(g.world, club.nationId)?.name}. Start at the bottom, finish at the top.`, icon: 'create-outline', duration: 3500 });
       router.replace('/career');
     }, 30);
   };
@@ -222,10 +234,10 @@ export default function NewCareer() {
         <Card>
           <H2>Your nation</H2>
           <T muted style={{ fontSize: 13 }}>
-            You start at a smaller club in its league and can play for its national team.
+            You can play for its national team. Your first club is drawn from the smallest leagues in its confederation.
           </T>
           {!world && <ActivityIndicator color={colors.accent} />}
-          {world && <NationPicker world={world} value={nation} onChange={(id) => { setNation(id); setClubId(null); }} />}
+          {world && <NationPicker world={world} value={nation} onChange={setNation} />}
         </Card>
       )}
 
@@ -289,12 +301,24 @@ export default function NewCareer() {
           </T>
           <Stepper label="Height" value={`${height} cm`} onMinus={() => setHeight(Math.max(160, height - 2))} onPlus={() => setHeight(Math.min(204, height + 2))} />
           <T muted style={{ fontSize: 12 }}>
-            Taller: stronger{role === 'GK' ? ' and better in goal' : ''}, a little slower and less nimble.
+            Taller: stronger, better in the air{role === 'GK' ? ' and in goal' : ''}, but slower and less nimble. Shorter: the opposite.
           </T>
           <T bold>Build</T>
           {BUILDS.map((b) => (
             <Choice key={b.key} active={build === b.key} label={b.label} sub={b.hint} onPress={() => setBuild(b.key)} />
           ))}
+        </Card>
+      )}
+      {step === 3 && attrs && (
+        <Card>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <H2>Your stats</H2>
+            <Pill label={`OVR ${ovr}`} color={ratingColor(ovr)} icon="person" />
+          </Row>
+          <T muted style={{ fontSize: 12 }}>
+            The column in the middle is what your height and build add or take away, compared with an average 180 cm, athletic player.
+          </T>
+          <AttributeGrid attrs={attrs} keeper={role === 'GK'} weights={ROLES[role].weights} notes={bodyNotes} />
         </Card>
       )}
 
@@ -316,24 +340,37 @@ export default function NewCareer() {
               <StatTile label="Pool" value={String(pool)} icon="wallet" color={colors.purple} />
             </Row>
             {attrs &&
-              allocatable(role).map((k) => (
-                <Row key={k} gap={8}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.medium, color: colors.text, fontSize: 13.5 }}>{ATTR_LABELS[k]}</Text>
-                    <View style={{ height: 6, backgroundColor: colors.bgElev, borderRadius: 3, marginTop: 3, flexDirection: 'row', overflow: 'hidden' }}>
-                      <View style={{ width: `${attrs[k] - (alloc[k] ?? 0)}%`, backgroundColor: colors.borderStrong }} />
-                      <View style={{ width: `${alloc[k] ?? 0}%`, backgroundColor: colors.accent }} />
+              attrOrder(role === 'GK').map((k) => {
+                const can = allocatable(role).includes(k);
+                const note = bodyNotes[k];
+                return (
+                  <Row key={k} gap={8}>
+                    <View style={{ flex: 1 }}>
+                      <Row gap={6}>
+                        <Text style={{ fontFamily: fonts.medium, color: can ? colors.text : colors.muted, fontSize: 13.5 }}>{ATTR_LABELS[k]}</Text>
+                        {note && <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: note.color }}>{note.text}</Text>}
+                      </Row>
+                      <View style={{ height: 6, backgroundColor: colors.bgElev, borderRadius: 3, marginTop: 3, flexDirection: 'row', overflow: 'hidden' }}>
+                        <View style={{ width: `${attrs[k] - (alloc[k] ?? 0)}%`, backgroundColor: colors.borderStrong }} />
+                        <View style={{ width: `${alloc[k] ?? 0}%`, backgroundColor: colors.accent }} />
+                      </View>
                     </View>
-                  </View>
-                  <Text style={{ width: 32, textAlign: 'right', fontFamily: fonts.display, fontSize: 18, color: ratingColor(attrs[k]) }}>{attrs[k]}</Text>
-                  <Pressable onPress={() => bump(k, -1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Remove a point from ${ATTR_LABELS[k]}`}>
-                    <Icon name="remove" size={14} />
-                  </Pressable>
-                  <Pressable onPress={() => bump(k, 1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Add a point to ${ATTR_LABELS[k]}`}>
-                    <Icon name="add" size={14} />
-                  </Pressable>
-                </Row>
-              ))}
+                    <Text style={{ width: 32, textAlign: 'right', fontFamily: fonts.display, fontSize: 18, color: ratingColor(attrs[k]) }}>{Math.floor(attrs[k])}</Text>
+                    {can ? (
+                      <>
+                        <Pressable onPress={() => bump(k, -1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Remove a point from ${ATTR_LABELS[k]}`}>
+                          <Icon name="remove" size={14} />
+                        </Pressable>
+                        <Pressable onPress={() => bump(k, 1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Add a point to ${ATTR_LABELS[k]}`}>
+                          <Icon name="add" size={14} />
+                        </Pressable>
+                      </>
+                    ) : (
+                      <View style={{ width: 88 }} />
+                    )}
+                  </Row>
+                );
+              })}
             <Row>
               <Button label="Reset to style" icon="refresh" small variant="secondary" style={{ flex: 1 }} onPress={() => applyStyle(role, styleId)} />
               <Button label="Clear" icon="trash-outline" small variant="ghost" style={{ flex: 1 }} onPress={() => setAlloc({})} />
@@ -390,36 +427,26 @@ export default function NewCareer() {
             </Row>
           </Card>
           <Card>
-            <H2>Starter club</H2>
+            <H2>Your first club</H2>
             <T muted style={{ fontSize: 13 }}>
-              {clubs.length && world ? `${leagueOf(world, clubs[0])?.name}. Leave it on random for a surprise.` : ''}
+              Every career starts at the bottom. You sign for a small club, drawn at random from one of the weakest leagues in {conf ?? 'your confederation'}. Play well and bigger clubs come calling, league by league.
             </T>
-            <Choice active={clubId === null} label="Random" onPress={() => setClubId(null)} />
-            {clubs.map((id) => {
-              const c = world!.clubs[id];
-              const active = clubId === id;
-              return (
-                <Pressable key={id} onPress={() => setClubId(id)} style={{ padding: 8, borderRadius: 10, borderWidth: 1, borderColor: active ? colors.accent : 'transparent', backgroundColor: active ? alpha(colors.accent, 0.08) : 'transparent' }}>
-                  <Row>
-                    <Badge club={c} size={30} />
-                    <View style={{ flex: 1 }}>
-                      <T bold={active}>{c.name}</T>
-                      <T muted style={{ fontSize: 12 }}>
-                        Reputation {c.reputation}
-                      </T>
-                    </View>
-                  </Row>
-                </Pressable>
-              );
-            })}
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {ladderStart.map((n) => (
+                <Pill key={n.id} label={n.name} icon="football-outline" color={colors.muted} />
+              ))}
+            </Row>
+            <Row gap={8}>
+              <Icon name="trending-up" size={18} color={colors.accent} />
+              <T style={{ flex: 1, fontSize: 13 }}>Grassroots, semi-pro, professional, top flight, elite. How high can you climb?</T>
+            </Row>
           </Card>
           {customPack && (
             <Card>
               <Choice active={usePack} label={`Use imported data pack: ${customPack.name}`} sub="Otherwise the built-in 2025/26 database is used." onPress={() => {
-                // A different database has different clubs; the old pick would point at nothing.
+                // A different database means a different world.
                 setUsePack(!usePack);
                 setWorld(null);
-                setClubId(null);
               }} />
             </Card>
           )}

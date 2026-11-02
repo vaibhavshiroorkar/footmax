@@ -17,13 +17,15 @@ export interface Drill {
   energy: number;
 }
 
+// Two sessions a week, each worth a lot, instead of four small ones: fewer
+// taps for the same growth, and every session lands a visible point.
 export const DRILLS: Drill[] = [
-  { id: 'finishing', label: 'Finishing', attrs: ['shooting', 'composure'], energy: 25 },
-  { id: 'speed', label: 'Sprints and gym', attrs: ['pace', 'physical'], energy: 25 },
-  { id: 'playmaking', label: 'Passing patterns', attrs: ['passing', 'vision'], energy: 25 },
-  { id: 'technique', label: 'Ball mastery', attrs: ['dribbling', 'composure'], energy: 25 },
-  { id: 'defending', label: 'Defensive shape', attrs: ['defending', 'physical'], energy: 25 },
-  { id: 'keeping', label: 'Goalkeeping', attrs: ['goalkeeping', 'composure'], energy: 25 },
+  { id: 'finishing', label: 'Finishing', attrs: ['shooting', 'composure'], energy: 40 },
+  { id: 'speed', label: 'Sprints and gym', attrs: ['pace', 'physical'], energy: 40 },
+  { id: 'playmaking', label: 'Passing patterns', attrs: ['passing', 'vision'], energy: 40 },
+  { id: 'technique', label: 'Ball mastery', attrs: ['dribbling', 'composure'], energy: 40 },
+  { id: 'defending', label: 'Defensive shape', attrs: ['defending', 'physical'], energy: 40 },
+  { id: 'keeping', label: 'Goalkeeping', attrs: ['goalkeeping', 'composure'], energy: 40 },
 ];
 
 // Keepers get their own drill; outfield players do not see it.
@@ -43,7 +45,7 @@ export interface ShopItem {
 export const SHOP: ShopItem[] = [
   { id: 'nutrition', label: 'Nutritionist', price: 10_000, description: 'Recover 6 more fitness each week. Slower decline with age.' },
   { id: 'physio', label: 'Private physio', price: 25_000, description: 'Injuries heal twice as fast.' },
-  { id: 'trainer', label: 'Personal trainer', price: 40_000, description: 'Training gains up 25% and +5 XP per session.' },
+  { id: 'trainer', label: 'Personal trainer', price: 40_000, description: 'Training gains up 25% and +10 XP per session.' },
   { id: 'agent', label: 'Top agent', price: 80_000, description: 'Better contracts and more offers.' },
   { id: 'car', label: 'Sports car', price: 150_000, description: 'A big fame boost. Fans love it.' },
   { id: 'house', label: 'Seaside villa', price: 1_500_000, description: 'Morale stays high all season.' },
@@ -74,11 +76,11 @@ export function trainingGain(p: Player, hasTrainer: boolean): number {
   // tapers so the peak arrives in the mid-to-late twenties, not at 21.
   const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 0.9 : p.age <= 21 ? 0.6 : p.age <= 23 ? 0.45 : p.age <= 27 ? 0.35 : p.age <= 30 ? 0.2 : 0.1;
   const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
-  return 0.12 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+  return 0.24 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
 }
 
 // score is the training mini-game result, 0..1. Quick training uses 0.35.
-export function train(game: Game, drillId: string, score = 0.35): ActionResult & { gains?: Partial<Record<AttrKey, number>> } {
+export function train(game: Game, drillId: string, score = 0.35): ActionResult & { gains?: Partial<Record<AttrKey, number>>; xp?: number } {
   const c = game.career!;
   const drill = DRILLS.find((d) => d.id === drillId);
   const p = careerPlayer(game);
@@ -100,7 +102,7 @@ export function train(game: Game, drillId: string, score = 0.35): ActionResult &
     gains.push(`${k} +${g.toFixed(1)}`);
   }
   p.fitness = clamp(p.fitness - 4 * (1 - 0.15 * skillLevel(p, 'engine')), 0, 100);
-  const xp = Math.round((c.items.includes('trainer') ? 15 : 10) * (0.7 + score));
+  const xp = Math.round((c.items.includes('trainer') ? 30 : 20) * (0.7 + score));
   let text = `${drill.label}: ${gains.join(', ')}. +${xp} XP.`;
   const lvl = addXp(game, xp);
   recordTraining(game);
@@ -111,7 +113,7 @@ export function train(game: Game, drillId: string, score = 0.35): ActionResult &
     text += ` You felt something go. Out for ${p.injuryWeeks} week(s).`;
   }
   game.world.rngState = rng.state;
-  return { ok: true, text, gains: deltas };
+  return { ok: true, text, gains: deltas, xp };
 }
 
 export function upgradeSkill(game: Game, skillId: string): ActionResult {
@@ -187,8 +189,13 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const c = game.career!;
   const p = careerPlayer(game);
   const played = s.home.usedIds.includes(p.id) || s.away.usedIds.includes(p.id);
+  const homeSide = played ? s.home.usedIds.includes(p.id) : s.home.bench.includes(p.id);
+  const mine = homeSide ? s.home : s.away;
+  const theirs = homeSide ? s.away : s.home;
+  const result: 'W' | 'D' | 'L' = mine.goals > theirs.goals || s.penaltyWinner === mine.clubId ? 'W' : mine.goals < theirs.goals || s.penaltyWinner ? 'L' : 'D';
   if (!played) {
     p.morale = clamp(p.morale - 3, 0, 100);
+    c.lastMatch = { fixtureId: s.fixtureId, played: false, result, rating: 0, goals: 0, assists: 0, xp: 0, fame: 0, money: 0, levels: 0, motm: false };
     return null;
   }
   const rating = s.ratings[p.id] ?? 6;
@@ -198,11 +205,20 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const myTeamId = s.home.usedIds.includes(p.id) ? s.home.clubId : s.away.clubId;
   const team = game.world.clubs[myTeamId] ?? game.world.nationalTeams[myTeamId] ?? homeTeam;
   const stage = 0.6 + team.reputation / 100 + (team.national ? 0.5 : 0);
-  gainFame(c, stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5));
+  const fameBefore = c.fame;
+  gainFame(c, stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5 + (result === 'W' ? 0.15 : 0)));
+  // A win bonus, so winning pays as well as feeling good.
+  const bonus = result === 'W' && !team.national ? Math.max(250, Math.round((p.wage * 0.5) / 50) * 50) : 0;
+  c.money += bonus;
+  const best = Math.max(...Object.values(s.ratings));
   const w = weightsFor(p);
   const young = p.age <= 19 ? 1 : p.age <= 23 ? 0.5 : 0.2;
   for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.04 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
-  return addXp(game, Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10));
+  const xp = Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
+  const levelBefore = c.level;
+  const lvl = addXp(game, xp);
+  c.lastMatch = { fixtureId: s.fixtureId, played: true, result, rating, goals, assists, xp, fame: c.fame - fameBefore, money: bonus, levels: c.level - levelBefore, motm: rating >= best };
+  return lvl;
 }
 
 export function retire(game: Game): void {

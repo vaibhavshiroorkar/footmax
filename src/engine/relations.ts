@@ -1,7 +1,7 @@
 import { Game } from './types';
 import { Rng, clamp } from './rng';
 import { fairWage, fullName, overall, roundMoney, formatMoney } from './player';
-import { targetOverall } from './generator';
+import { isCareerClub, targetOverall } from './generator';
 import { addMessage, hasOpen } from './inbox';
 import { careerPlayer } from './careerBase';
 import { formAverage } from './lineup';
@@ -51,7 +51,7 @@ export function interestedClubs(game: Game, limit = 25): { clubId: string; inter
   const p = careerPlayer(game);
   const ovr = overall(p);
   return Object.values(game.world.clubs)
-    .filter((c) => c.leagueId && c.id !== p.clubId && targetOverall(c.reputation) <= ovr + 18 && targetOverall(c.reputation) >= ovr - 14)
+    .filter((c) => isCareerClub(game.world, c) && c.id !== p.clubId && targetOverall(c.reputation) <= ovr + 18 && targetOverall(c.reputation) >= ovr - 14)
     .map((c) => ({ clubId: c.id, interest: clubInterest(game, c.id) }))
     .sort((a, b) => b.interest - a.interest)
     .slice(0, limit);

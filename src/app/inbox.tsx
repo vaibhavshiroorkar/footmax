@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../state/store';
-import { Button, ConfirmButton, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, T, Tabs, inputStyle } from '../ui/kit';
+import { Button, ConfirmButton, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, T, Tabs, haptic, inputStyle } from '../ui/kit';
+import { RUNGS, rungOf } from '../ui/ladder';
+import { leagueStrength } from '../engine/generator';
 import { alpha, colors, fonts } from '../ui/theme';
 import { ActionType, Message } from '../engine/types';
 import { respond } from '../engine/offers';
@@ -31,6 +33,7 @@ function deadline(weeksLeft: number | undefined): { text: string; urgent: boolea
 function ActionCard({ m, index }: { m: Message; index: number }) {
   const mutate = useStore((s) => s.mutate);
   const showToast = useStore((s) => s.showToast);
+  const celebrate = useStore((s) => s.celebrate);
   const [amount, setAmount] = useState('');
   const a = m.action!;
   const k = KIND[m.kind];
@@ -73,7 +76,18 @@ function ActionCard({ m, index }: { m: Message; index: number }) {
                 variant: (c.id === 'accept' ? 'primary' : 'secondary') as 'primary' | 'secondary',
                 style: { flexGrow: 1 },
                 disabled: c.needsAmount && !amount,
-                onPress: () => showToast(mutate((g) => respond(g, m.id, c.id, c.needsAmount ? Number(amount) * 1000 : undefined))),
+                onPress: () => {
+                  const text = mutate((g) => respond(g, m.id, c.id, c.needsAmount ? Number(amount) * 1000 : undefined));
+                  // A move up is a big moment: the new club and where it sits on the ladder.
+                  const g = useStore.getState().game;
+                  const me = g?.career ? g.world.players[g.career.playerId] : undefined;
+                  const club = me?.clubId ? g!.world.clubs[me.clubId] : undefined;
+                  const league = club?.leagueId ? g!.world.leagues.find((l) => l.id === club.leagueId) : undefined;
+                  if (/^You joined/.test(text) && club && league && g) {
+                    haptic('success');
+                    celebrate({ title: 'Transfer done!', sub: `Welcome to ${club.name}. ${league.name}, ${RUNGS[rungOf(leagueStrength(g.world, league))].label.toLowerCase()} level.`, icon: 'swap-horizontal', duration: 3000 });
+                  } else showToast(text);
+                },
               };
               // Moves and nationality switches are hard to undo: ask twice.
               return c.id === 'accept' && BIG_MOVES.includes(a.type) ? <ConfirmButton key={c.id} {...props} confirmLabel="Sure? Tap again" /> : <Button key={c.id} {...props} />;

@@ -6,6 +6,7 @@ import { skillLevel } from './skills';
 import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
+import { PlayOutcome, PlayStep, addFinish, assignNumbers, buildPlay, playSeed, toPitch } from './play';
 
 export type SideKey = 'home' | 'away';
 export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle';
@@ -75,6 +76,8 @@ export interface MatchFocus {
   clubId?: string;
   // Career mode: how the user's player celebrates a goal.
   celebration?: string;
+  // Career mode: the shirt number the user picked.
+  number?: number;
 }
 
 export interface MatchState {
@@ -110,6 +113,13 @@ export interface MatchState {
   userTackles: number;
   userSaves: number;
   rngState: number;
+  // Live pitch only (matches the user watches): shirt numbers, and the
+  // move played this minute. AI-only matches skip both.
+  visual?: boolean;
+  numbers?: Record<string, number>;
+  play?: PlayStep[];
+  // Side that kicks off next, after a goal or at half time.
+  kickoff?: SideKey;
 }
 
 const MAX_MOMENTS = 5;
@@ -174,6 +184,13 @@ export function createMatch(world: World, fixture: Fixture, focus: MatchFocus, s
   };
   const rng = new Rng(state.rngState);
   state.endMinute = 90 + rng.int(1, 4);
+  if (focus.playerId || focus.clubId) {
+    state.visual = true;
+    const fixed = focus.playerId && focus.number ? { [focus.playerId]: focus.number } : {};
+    const numberSide = (side: MatchSide) => assignNumbers(world, [...side.onPitch, ...side.bench], !teamById(world, side.clubId).national, fixed);
+    state.numbers = { ...numberSide(state.home), ...numberSide(state.away) };
+    state.kickoff = 'home';
+  }
   for (const id of [...state.home.onPitch, ...state.away.onPitch]) state.ratings[id] = 6;
   push(state, 0, null, 'kickoff', `Kick off: ${teamById(world, fixture.homeId).name} vs ${teamById(world, fixture.awayId).name}.`);
   state.rngState = rng.state;
@@ -262,6 +279,7 @@ function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Play
   for (const p of players(world, s[other(sideKey)].onPitch)) if (p.position === 'DEF') bump(s, p.id, -0.15);
   s.scorers.push({ playerId: shooter.id, clubId: side.clubId, minute: s.minute });
   s.ball = { x: 0.5, y: sideKey === 'home' ? 0.99 : 0.01 };
+  s.kickoff = other(sideKey);
   const rng = new Rng(s.rngState);
   const text = line(rng, assister && kind === 'goal' ? 'goalAssist' : kind, {
     p: shortName(shooter),
@@ -365,6 +383,12 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   const m = s.pending;
   if (!m) return;
   s.pending = null;
+  const from = s.events.length;
+  resolveMomentInner(world, s, m, quality, chosenPlayerId);
+  visualizeMoment(world, s, m, from);
+}
+
+function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string): void {
   const rng = new Rng(s.rngState);
   const played = quality !== null;
   const actor = world.players[m.actorId];
@@ -525,6 +549,78 @@ function aiSubs(rng: Rng, world: World, s: MatchState, sideKey: SideKey) {
   }
 }
 
+// --- Live pitch ------------------------------------------------------------
+
+function playSide(world: World, s: MatchState, key: SideKey) {
+  const side = s[key];
+  return { key, team: teamById(world, side.clubId), ids: side.onPitch, keeperId: side.onPitch.length ? keeperOf(world, side).id : undefined };
+}
+
+// Where this minute's move starts: the centre spot after a goal or the
+// break, otherwise wherever the last move ended.
+function moveStart(s: MatchState): { x: number; y: number } {
+  if (s.kickoff) {
+    s.kickoff = undefined;
+    s.play = undefined;
+    return { x: 0.5, y: 0.5 };
+  }
+  return { ...s.ball };
+}
+
+function shotResult(s: MatchState, from: number): 'goal' | 'save' | 'miss' | null {
+  for (let i = s.events.length - 1; i >= from; i--) {
+    const t = s.events[i].type;
+    if (t === 'goal' || t === 'save' || t === 'miss') return t;
+  }
+  return null;
+}
+
+function visualize(world: World, s: MatchState, attKey: SideKey, start: { x: number; y: number }, outcome: PlayOutcome) {
+  if (!s.visual) return;
+  const last = s.play?.[s.play.length - 1];
+  let prev = last?.carrier;
+  // A shot that goes wide is a goal kick: the keeper restarts.
+  if (last?.act === 'miss') {
+    const keeperSide = other(last.side);
+    prev = playSide(world, s, keeperSide).keeperId;
+    start = toPitch(keeperSide, { depth: 0.05, lat: 0.5 });
+  }
+  const steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), start, outcome, prev);
+  s.play = steps;
+  const end = steps[steps.length - 1];
+  if (end) s.ball = { x: end.x, y: end.y };
+}
+
+// After a key moment: how it played out on the pitch.
+function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number) {
+  if (!s.visual) return;
+  const rng = new Rng(playSeed(s.rngState, s.minute, s.events.length + 1));
+  const start = { ...s.ball };
+  const attKey: SideKey = m.attackerId ? other(m.side) : m.side;
+  const steps: PlayStep[] = [{ ...start, carrier: m.attackerId ?? m.actorId, side: attKey, act: 'start' }];
+  const result = shotResult(s, from);
+  const lastShot = [...s.events.slice(from)].reverse().find((e) => e.type === 'goal' || e.type === 'save' || e.type === 'miss');
+  const forward = attKey === 'home' ? 1 : -1;
+  if (s.pending) {
+    // A beaten man: the run goes on and the user gets the shot.
+    steps.push({ x: start.x + rng.range(-0.06, 0.06), y: start.y + forward * 0.05, carrier: m.actorId, side: attKey, act: 'run' });
+  } else if (result && lastShot?.playerId) {
+    const shooter = lastShot.playerId === m.actorId && m.kind === 'save' ? (m.attackerId ?? m.actorId) : lastShot.playerId;
+    if (shooter !== (m.attackerId ?? m.actorId) && s[attKey].onPitch.includes(shooter)) {
+      steps.push({ x: 0.5 + rng.range(-0.15, 0.15), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: 'pass' });
+    }
+    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, other(attKey)).keeperId);
+  } else {
+    // The move broke down: the other side has it.
+    const winners = s[other(attKey)].onPitch;
+    const winner = m.attackerId ? m.actorId : winners.length ? rng.pick(winners) : null;
+    steps.push({ x: start.x + rng.range(-0.05, 0.05), y: start.y - forward * 0.04, carrier: winner, side: other(attKey), act: 'win' });
+  }
+  s.play = steps;
+  const last = steps[steps.length - 1];
+  s.ball = { x: last.x, y: last.y };
+}
+
 // --- Main loop -------------------------------------------------------------
 
 export function stepMinute(world: World, s: MatchState): void {
@@ -534,6 +630,8 @@ export function stepMinute(world: World, s: MatchState): void {
 
   if (s.minute === 46 && s.half === 1) {
     s.half = 2;
+    s.kickoff = 'away';
+    s.play = undefined;
     push(s, 45, null, 'half', `Half time: ${s.home.goals}-${s.away.goals}.`);
     if (s.focus.clubId) s.pausedAtHalf = true;
     s.rngState = rng.state;
@@ -555,9 +653,13 @@ export function stepMinute(world: World, s: MatchState): void {
   const attKey: SideKey = rng.chance(pHome) ? 'home' : 'away';
   const defKey = other(attKey);
   s[attKey].possession++;
-  // Move the ball into the attacking half of whoever has it.
+  const start = moveStart(s);
+  const before = s.events.length;
+  // Move the ball into the attacking half of whoever has it. The live pitch
+  // replaces this with the real move (see visualize).
   const forward = (v: number) => (attKey === 'home' ? v : 1 - v);
   s.ball = { x: rng.range(0.15, 0.85), y: forward(rng.range(0.5, 0.75)) };
+  let outcome: PlayOutcome = { result: null };
 
   const att = attKey === 'home' ? hs : as;
   const def = attKey === 'home' ? as : hs;
@@ -575,15 +677,19 @@ export function stepMinute(world: World, s: MatchState): void {
       s.pending = defensive;
       s.moments++;
       s.rngState = rng.state;
+      visualize(world, s, attKey, start, { result: 'moment', shooterId: shooter.id, assistId: assister?.id });
       return;
     }
     if (wantsMoment(rng, s, attKey, shooter, assister)) {
       s.pending = buildMoment(rng, world, s, attKey, shooter, assister);
       s.moments++;
       s.rngState = rng.state;
+      const passer = s.pending.kind === 'pass';
+      visualize(world, s, attKey, start, { result: 'moment', shooterId: s.pending.actorId, assistId: passer ? undefined : assister?.id });
       return;
     }
     autoShot(rng, world, s, attKey, shooter, assister, 0);
+    outcome = { result: shotResult(s, before), shooterId: shooter.id, assistId: assister?.id };
   } else if (rng.chance(0.03)) {
     push(s, s.minute, attKey, 'info', line(rng, 'quiet', names(world, s, attKey)));
   }
@@ -618,6 +724,7 @@ export function stepMinute(world: World, s: MatchState): void {
     rng.state = s.rngState;
   }
   s.rngState = rng.state;
+  visualize(world, s, attKey, start, outcome);
 }
 
 function finishMatch(world: World, s: MatchState, rng: Rng) {

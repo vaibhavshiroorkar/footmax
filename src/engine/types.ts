@@ -80,6 +80,8 @@ export interface Player {
   build?: Build;
   // Playing style preset chosen at creation.
   style?: string;
+  // Squad number at the current club, given out the first time he plays.
+  shirt?: number;
   // Ratings from the last five league games; coaches pick on form.
   form?: number[];
 }
@@ -300,6 +302,24 @@ export interface CareerState {
   // Objectives, milestones, growth snapshots (see progress.ts).
   progress?: CareerProgress;
   flags?: Record<string, boolean>;
+  // What the last match earned, for the full-time screen.
+  lastMatch?: MatchReward;
+}
+
+export interface MatchReward {
+  fixtureId: string;
+  played: boolean;
+  result: 'W' | 'D' | 'L';
+  rating: number;
+  goals: number;
+  assists: number;
+  xp: number;
+  fame: number;
+  money: number;
+  levels: number;
+  motm: boolean;
+  // Milestones and objectives this match unlocked.
+  unlocks?: string[];
 }
 
 export interface Look {

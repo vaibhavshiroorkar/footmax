@@ -25,6 +25,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       const valueColor = started && !bench ? matchRatingColor(live.ratings[id] ?? 6) : ratingColor(overall(p));
       return (
         <Row key={id} gap={6} style={[{ paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8 }, me && { backgroundColor: alpha(colors.gold, 0.14) }]}>
+          <Text style={{ width: 22, textAlign: 'right', fontFamily: fonts.display, fontSize: 15, color: me ? colors.gold : colors.muted }}>{live.numbers?.[id] ?? ''}</Text>
           <Text style={{ width: 28, fontFamily: fonts.bold, fontSize: 11.5, color: POSITION_COLORS[p.position] }}>{p.role ?? p.position}</Text>
           <Text style={{ flex: 1, fontFamily: me ? fonts.bold : fonts.medium, fontSize: 12.5, color: bench ? colors.muted : colors.text }} numberOfLines={1}>
             {shortName(p)}

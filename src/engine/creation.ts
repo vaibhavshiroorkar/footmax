@@ -30,6 +30,34 @@ export function allocatable(role: Role): AttrKey[] {
   return role === 'GK' ? GK_KEYS : ATTR_KEYS.filter((k) => k !== 'goalkeeping');
 }
 
+// What height and build add or take away, so the creator can show it.
+// Tall players are stronger, win more in the air (defending) and cover
+// more of the goal; short players are quicker and more nimble.
+export function bodyEffects(body: Body, role: Role): Partial<Record<AttrKey, number>> {
+  const d = (body.heightCm - 180) / 10;
+  const fx: Partial<Record<AttrKey, number>> = {
+    physical: 3 * d,
+    pace: -2 * d,
+    dribbling: -1.5 * d,
+    defending: role === 'GK' ? 0 : 1 * d,
+    goalkeeping: role === 'GK' ? 2.5 * d : 0,
+  };
+  const add = (k: AttrKey, v: number) => (fx[k] = (fx[k] ?? 0) + v);
+  if (body.build === 'lean') {
+    add('pace', 3);
+    add('dribbling', 2);
+    add('physical', -4);
+  } else if (body.build === 'stocky') {
+    add('physical', 4);
+    add('pace', -3);
+    add('dribbling', -1);
+  } else {
+    add('pace', 1);
+    add('physical', 1);
+  }
+  return fx;
+}
+
 // Role-shaped attributes for a 16-year-old before any points are spent.
 export function baseTemplate(role: Role, body: Body): Attributes {
   const w = ROLES[role].weights;
@@ -38,24 +66,8 @@ export function baseTemplate(role: Role, body: Body): Attributes {
     if (k === 'goalkeeping') out[k] = role === 'GK' ? 39 : 12;
     else out[k] = 30 + Math.min(12, (w[k] ?? 0) * 40);
   }
-  // Height: taller is stronger and better in goal, a little slower on the ball.
-  const d = (body.heightCm - 180) / 10;
-  out.physical += 2 * d;
-  out.pace -= 1.5 * d;
-  out.dribbling -= d;
-  if (role === 'GK') out.goalkeeping += 1.5 * d;
-  if (body.build === 'lean') {
-    out.pace += 3;
-    out.dribbling += 2;
-    out.physical -= 4;
-  } else if (body.build === 'stocky') {
-    out.physical += 4;
-    out.pace -= 3;
-    out.dribbling -= 1;
-  } else {
-    out.pace += 1;
-    out.physical += 1;
-  }
+  const fx = bodyEffects(body, role);
+  for (const k of ATTR_KEYS) out[k] += fx[k] ?? 0;
   for (const k of ATTR_KEYS) out[k] = Math.round(clamp(out[k], 5, 60));
   return out;
 }

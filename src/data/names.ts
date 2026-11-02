@@ -121,6 +121,54 @@ export const NAME_GROUPS: Record<string, NameGroup> = {
     'Eldor Abbosbek Jaloliddin Otabek Abdukodir Oston Khojimat Jamshid Rustam Sherzod Akmal Dilshod Bobur Islom Azizbek Umar Odil Farrukh Sardor Ulugbek',
     'Shomurodov Fayzullaev Masharipov Shukurov Khusanov Urunov Erkinov Iskanderov Ashurmatov Nasrullaev Abdikholikov Hamrobekov Sayfiev Alikulov Tursunov Nazarov Rakhimov Karimov Yusupov Usmonov',
   ),
+  russian: g(
+    'Aleksandr Dmitri Sergei Andrei Ivan Maksim Artem Nikita Kirill Daniil Egor Ilya Roman Pavel Denis Anton Vladislav Matvei Mikhail Yuri',
+    'Ivanov Smirnov Kuznetsov Popov Sokolov Lebedev Kozlov Novikov Morozov Petrov Volkov Solovyov Vasilyev Zaitsev Pavlov Semyonov Golubev Vinogradov Bogdanov Vorobyov Fyodorov Mikhailov',
+  ),
+  hebrew: g(
+    'Eran Omer Manor Dor Liel Oscar Itay Yonatan Gavriel Ido Roy Tai Eli Shon Noam Amir Yarden Daniel Guy Ofir',
+    'Zahavi Atzili Solomon Peretz Abada Gloukh Turgeman Weissman Baribo Dasa Elhamed Glazer Kanichowsky Haziza Gandelman Biton Cohen Levi Mizrahi Friedman',
+  ),
+  armenian: g(
+    'Henrikh Tigran Artak Hovhannes Varazdat Lucas Kamo Eduard Norberto Grant Edgar Gor Narek Arman Davit Erik Sargis Vahan Aram Levon',
+    'Mkhitaryan Barseghyan Hambardzumyan Haroyan Grigoryan Spertsyan Hovhannisyan Sevikyan Adamyan Tiknizyan Ghazaryan Avetisyan Petrosyan Sargsyan Harutyunyan Karapetyan Vardanyan Manukyan Simonyan Davtyan',
+  ),
+  baltic: g(
+    'Kristjan Mattias Karol Rauno Henri Konstantin Markus Martin Vladislavs Raimonds Roberts Kristers Janis Arturs Gvidas Fedor Justas Arvydas Edgaras Domantas',
+    'Sappinen Kait Mets Vassiljev Anier Tamm Saar Kask Gutkovskis Ikaunieks Uldrikis Savalnieks Jurkovskis Zelmenis Gineitis Cernych Lasickas Utkus Girdvainis Slivka',
+  ),
+  eastafrican: g(
+    'Michael Erick Victor Joseph Dennis Brian Kenneth Allan Richard Ismail Mbwana Simon Feisal Novatus Mudathir Clement Aziz Emmanuel Yves Djihad',
+    'Olunga Otieno Wanyama Omondi Mwangi Ochieng Okumu Onyango Samatta Msuva Mzamiru Kapombe Mudathir Mkude Aucho Miya Bissumbiyi Rwatubyaye Muhire Byiringiro',
+  ),
+  hornafrican: g(
+    'Abel Shimelis Getaneh Amanuel Gatoch Suleiman Mesud Ramadan Biniam Henok Abdi Mohamed Ahmed Liban Yasin Omar Yonas Dawit Samuel Robel',
+    'Yalew Bekele Kebede Gebremichael Panom Hamid Mohammed Yesuf Girmay Teklemariam Abdullahi Hassan Farah Warsame Abdi Ali Tesfaye Haile Mekonnen Tadesse',
+  ),
+  southasian: g(
+    'Sunil Sandesh Gurpreet Lallianzuala Anirudh Sahal Akash Rahul Manvir Liston Jeakson Brandon Jamal Sohel Topu Ashique Anjan Rohit Arjun Vikram',
+    'Chhetri Jhingan Sandhu Chhangte Thapa Samad Mishra Bheke Singh Colaco Fernandes Bhuiyan Rana Kuruniyan Bista Shrestha Khan Ahmed Perera Silva',
+  ),
+  thai: g(
+    'Supachok Chanathip Theerathon Teerasil Suphanat Ekanit Bordin Kritsada Nicholas Weerathep Peeradon Sarach Thitiphan Patiwat Somkiat Sompong Anan Kittipong Narubadin Pathompol',
+    'Sarachat Songkrasin Bunmathan Dangda Mueanta Panya Phala Kaman Mickelson Pomphan Chamratsamee Yooyen Puangchan Khammai Saelim Chaiyaphum Boonsri Srisuk Weerawatnodom Charoenrattanapirom',
+  ),
+  vietnamese: g(
+    'Quang Hai Tien Linh Van Hau Cong Phuong Tuan Hai Van Lam Duy Manh Hoang Duc Thanh Chung Van Toan Xuan Son Minh Vuong Dinh Bac Van Khang Tien Dung',
+    'Nguyen Tran Le Pham Hoang Phan Vu Dang Bui Do Ho Ngo Duong Ly Dinh Truong',
+  ),
+  malay: g(
+    'Safawi Arif Faisal Akhyar Syamer Dion Matthew Shahrul Pratama Asnawi Rizky Marselino Egy Witan Ramadhan Ikhsan Hariss Shawal Irfan Dimas',
+    'Rasid Aiman Halim Rashid Kutty Cools Davies Saad Arhan Mangkualam Ridho Ferdinan Maulana Sulaeman Sananta Fandi Harun Anuar Fandi Drajad',
+  ),
+  filipino: g(
+    'Neil Patrick Kevin Jefferson Bienvenido Sandro Amani Stephan Mike Oliver Gerrit Jarvey Justin Paul Miguel Javier Manny Carlos Daisuke Angel',
+    'Etheridge Reichelt Ingreso Tabinas Maranon Reyes Aguinaldo Schrock Ott Bedic Holtmann Gayoso Baas Mendoza Santos Cruz Garcia Ramos Bautista Villanueva',
+  ),
+  pacific: g(
+    'Roy Sairusi Tevita Junior Atkin Alvin Micah Brian Raphael Jone Peni Tomasi Sione Viliami Semisi Lote Taniela Siaosi Isileli Ione',
+    'Krishna Nalaubu Waranaivalu Fataki Kaltak Hou Lea Kaitu Naqiri Tuilagi Vakatawa Fifita Tonga Naufahu Kata Taufa Lealaiauloto Toomalatai Fonoti Aumua',
+  ),
   caribbean: g(
     'Leon Michail Bobby Demarai Kasey Ethan Damion Amari Andre Dexter Jamal Kaheim Shamar Javain Romario Cory Tyreek Daniel Joel Kevon',
     'Bailey Antonio Reid Gray Palmer Pinnock Lowe Bell Blake Lembikisa Nicholson Dixon Burke Leigh Hector Campbell Brown Richards Williams Gordon',

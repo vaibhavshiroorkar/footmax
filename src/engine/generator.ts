@@ -11,7 +11,11 @@ import { NAME_GROUPS } from '../data/names';
 export const START_YEAR = 2026;
 const SQUAD_TARGET = 23;
 const SQUAD_SHAPE: Record<Position, number> = { GK: 3, DEF: 8, MID: 7, FWD: 5 };
-const NATION_POOL = 30;
+// Players generated per nation for its national team. Small nations get
+// fewer so 211 nations do not swell every save.
+function nationPool(strength: number): number {
+  return strength >= 55 ? 30 : strength >= 45 ? 24 : 18;
+}
 
 const DOMESTIC_LEAGUE_NAMES: Record<string, string> = {
   KSA: 'Saudi Pro League',
@@ -40,8 +44,15 @@ export function targetOverall(reputation: number): number {
   return Math.round(38 + reputation * 0.47);
 }
 
+// Nation lookups run for every generated player, so each world keeps an index.
+const nationIndex = new WeakMap<Nation[], Map<string, Nation>>();
 export function nationById(world: World, id: string): Nation | undefined {
-  return world.nations.find((n) => n.id === id);
+  let index = nationIndex.get(world.nations);
+  if (!index || index.size !== world.nations.length) {
+    index = new Map(world.nations.map((n) => [n.id, n]));
+    nationIndex.set(world.nations, index);
+  }
+  return index.get(id);
 }
 
 export function majorNations(world: World): Nation[] {
@@ -247,17 +258,23 @@ export function generateWorld(seed: number, pack: DataPack = BUILTIN_PACK): Worl
   }
 
   // Every real nation gets enough players for a national squad.
+  // Counted once up front: scanning every player for each of 211 nations
+  // was most of the build time.
+  const perNation = new Map<string, number>();
+  for (const p of Object.values(world.players)) perNation.set(p.nationId, (perNation.get(p.nationId) ?? 0) + 1);
+  const background = Object.values(world.clubs).filter((c) => !c.leagueId);
   for (const nation of majorNations(world)) {
     if (nation.leagueIds.length) continue;
-    let homes = Object.values(world.clubs).filter((c) => c.nationId === nation.id && !c.leagueId);
+    let homes = background.filter((c) => c.nationId === nation.id);
     if (!homes.length) {
       homes = nation.clubNames.slice(0, 2).map((name, i) =>
         makeClub(world, { name, short: '', rep: nation.leagueLevel - i * 3, colors: nation.colors, players: [] }, nation.id, null),
       );
     }
-    let have = Object.values(world.players).filter((p) => p.nationId === nation.id).length;
+    let have = perNation.get(nation.id) ?? 0;
     let i = 0;
-    while (have < NATION_POOL) {
+    const pool = nationPool(nation.strength);
+    while (have < pool) {
       const club = homes[i++ % homes.length];
       const pos = rng.weighted<Position>(['GK', 'DEF', 'MID', 'FWD'], [3, 9, 9, 7]);
       const p = createPlayer(world, rng, {
@@ -287,6 +304,24 @@ export function generateWorld(seed: number, pack: DataPack = BUILTIN_PACK): Worl
   for (const league of world.leagues) league.fixtures = makeFixtures(league.clubIds, rng, () => newId(world, 'f'), world.seasonWeeks);
   world.rngState = rng.state;
   return world;
+}
+
+// Clubs a career player can sign for: anyone in a simulated league, plus
+// the clubs of real nations that sit outside one. Signing for those builds
+// their league on the spot (see ensureDomesticLeague).
+export function isCareerClub(world: World, c: Club): boolean {
+  if (c.national) return false;
+  if (c.leagueId) return true;
+  // Once a nation's league exists, a club left out of it (odd club count)
+  // has no games to offer.
+  const n = nationById(world, c.nationId);
+  return !!n && !n.minor && !n.leagueIds.length && n.clubNames.length >= 6;
+}
+
+// How strong a league is, from its clubs' reputations.
+export function leagueStrength(world: World, league: League): number {
+  if (!league.clubIds.length) return 0;
+  return league.clubIds.reduce((s, id) => s + (world.clubs[id]?.reputation ?? 0), 0) / league.clubIds.length;
 }
 
 // Builds a playable league for a nation that has none yet, around its real

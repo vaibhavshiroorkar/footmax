@@ -17,6 +17,7 @@ import { coachTrust, trustLabel } from '../../engine/relations';
 import { upgradeCount } from '../../engine/alerts';
 import { FirstRunTips } from '../../ui/firstRunTips';
 import { MilestonesPeek, ObjectivesCard, SeasonReview } from '../../ui/progressCards';
+import { LadderCard } from '../../ui/ladder';
 
 export default function CareerHub() {
   const game = useGame();
@@ -84,6 +85,9 @@ export default function CareerHub() {
       )}
       <FadeIn index={2}>
         <MatchdayButton game={game} />
+      </FadeIn>
+      <FadeIn index={3}>
+        <LadderCard game={game} />
       </FadeIn>
 
       <FadeIn index={3}>

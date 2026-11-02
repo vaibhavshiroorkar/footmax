@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { AnimatedNumber, Button, Card, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, StatBar, T } from '../../ui/kit';
+import { AnimatedNumber, Button, Card, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, StatBar, T, haptic } from '../../ui/kit';
 import { SkillDef, canUpgrade, skillLevel, skillsFor, xpForLevel } from '../../engine/skills';
 import { learnSecondary, upgradeSkill } from '../../engine/career';
 import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from '../../engine/roles';
@@ -37,6 +37,7 @@ function stateOf(p: Player, s: SkillDef, points: number): State {
 function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: number; index: number }) {
   const mutate = useStore((st) => st.mutate);
   const showToast = useStore((st) => st.showToast);
+  const celebrate = useStore((st) => st.celebrate);
   const lvl = skillLevel(p, s.id);
   const state = stateOf(p, s, points);
   const cost = lvl + 1;
@@ -70,7 +71,19 @@ function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: nu
             );
           })}
         </Row>
-        {state === 'ready' && <Button label={`Upgrade to level ${cost}  |  ${cost} pt${cost > 1 ? 's' : ''}`} icon="arrow-up-circle" small onPress={() => showToast(mutate((g) => upgradeSkill(g, s.id)).text)} />}
+        {state === 'ready' && (
+          <Button
+            label={`Upgrade to level ${cost}  |  ${cost} pt${cost > 1 ? 's' : ''}`}
+            icon="arrow-up-circle"
+            small
+            onPress={() => {
+              const r = mutate((g) => upgradeSkill(g, s.id));
+              if (!r.ok) return showToast(r.text);
+              haptic('success');
+              celebrate({ title: `${s.label} ${'I'.repeat(cost)}`, sub: `Level ${cost} unlocked. ${s.description}`, icon: SKILL_ICONS[s.id] ?? 'star', duration: 2200 });
+            }}
+          />
+        )}
         {state === 'points' && <Pill label={`Needs ${cost} skill point${cost > 1 ? 's' : ''} (you have ${points})`} icon="lock-closed" color={colors.muted} />}
         {state === 'attr' && <StatBar label={`${ATTR_LABELS[s.attr]} for level ${cost}`} value={have} max={need} color={colors.blue} right={`${have} / ${need}`} />}
         {state === 'maxed' && <Pill label="Maxed" icon="checkmark-circle" color={colors.gold} />}
@@ -86,13 +99,9 @@ export default function Skills() {
   if (!game?.career) return <Redirect href="/" />;
   const c = game.career;
   const p = game.world.players[c.playerId];
-  const order: Record<State, number> = { ready: 0, points: 1, attr: 2, maxed: 3 };
-  const list = skillsFor(p)
-    .map((s) => ({ s, state: stateOf(p, s, c.skillPoints) }))
-    // Ready first, then the ones closest to their next level.
-    .sort((a, b) => order[a.state] - order[b.state] || a.s.needs[Math.min(skillLevel(p, a.s.id), 2)] - p.attrs[a.s.attr] - (b.s.needs[Math.min(skillLevel(p, b.s.id), 2)] - p.attrs[b.s.attr]));
+  // Skills keep one fixed order, so upgrading one never moves the others.
+  const list = skillsFor(p).map((s) => ({ s, state: stateOf(p, s, c.skillPoints) }));
   const ready = list.filter((x) => x.state === 'ready');
-  const rest = list.filter((x) => x.state !== 'ready');
   const secondaryReady = canLearnSecondary(game);
   const unlocked = c.level >= SECONDARY_ROLE_LEVEL;
 
@@ -111,7 +120,7 @@ export default function Skills() {
         </Row>
         <StatBar label="XP to next level" value={c.xp} max={xpForLevel(c.level)} color={colors.accent} right={`${c.xp} / ${xpForLevel(c.level)}`} />
         <T muted style={{ fontSize: 12 }}>
-          Each level gives a skill point. Skill level 1 costs 1 point, level 2 costs 2, level 3 costs 3, and each needs a minimum attribute. Train to raise attributes.
+          Each level gives a skill point. Level 1 of a skill costs 1 point, level 2 costs 2, level 3 costs 3. Each needs a minimum attribute, and level 1 is in reach from the start.
         </T>
       </Card>
 
@@ -148,13 +157,9 @@ export default function Skills() {
         )}
       </Card>
 
-      {ready.length > 0 && <SectionLabel icon="arrow-up-circle-outline">{`Ready to upgrade (${ready.length})`}</SectionLabel>}
-      {ready.map(({ s }, i) => (
+      <SectionLabel icon="sparkles-outline">{ready.length ? `Skills  |  ${ready.length} ready to upgrade` : 'Skills'}</SectionLabel>
+      {list.map(({ s }, i) => (
         <SkillCard key={s.id} p={p} s={s} points={c.skillPoints} index={i} />
-      ))}
-      <SectionLabel icon="sparkles-outline">{ready.length ? 'Other skills' : 'Skills'}</SectionLabel>
-      {rest.map(({ s }, i) => (
-        <SkillCard key={s.id} p={p} s={s} points={c.skillPoints} index={ready.length + i} />
       ))}
     </Screen>
   );

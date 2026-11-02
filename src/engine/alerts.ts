@@ -27,8 +27,11 @@ export function canLearnSecondary(game: Game): boolean {
   return c.level >= SECONDARY_ROLE_LEVEL && c.skillPoints >= SECONDARY_ROLE_COST && !p.secondaryRole && !!p.role && isRole(p.role) && ROLE_NEIGHBOURS[p.role].length > 0;
 }
 
+// Every upgrade costs at least a point, so with one point there is one
+// upgrade to make, however many skills qualify.
 export function upgradeCount(game: Game): number {
-  return readyUpgrades(game).length + (canLearnSecondary(game) ? 1 : 0);
+  const total = readyUpgrades(game).length + (canLearnSecondary(game) ? 1 : 0);
+  return Math.min(total, game.career?.skillPoints ?? 0);
 }
 
 export function navBadges(game: Game): Record<string, number> {

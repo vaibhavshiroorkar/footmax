@@ -95,7 +95,7 @@ export function makeObjectives(game: Game): Objective[] {
   if (pos === 'DEF') list.push(obj('tackles', `Win ${starter ? 25 : 10} tackles`, starter ? 25 : 10, 180, pay * 2, 10));
   if (pos === 'DEF' || pos === 'GK') list.push(obj('cleanSheets', `Keep ${starter ? 8 : 3} clean sheets`, starter ? 8 : 3, 180, pay * 2, 10));
   if (pos === 'GK') list.push(obj('saves', `Make ${starter ? 40 : 12} saves`, starter ? 40 : 12, 160, pay, 8));
-  list.push(obj('training', 'Complete 40 training sessions', 40, 120, 0, 6));
+  list.push(obj('training', 'Complete 25 training sessions', 25, 120, 0, 6));
   list.push(obj('rating', 'Average 7.0 or better (10+ games)', 7, 220, pay * 2, 15));
   return list;
 }

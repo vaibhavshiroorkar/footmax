@@ -4,6 +4,8 @@
 // the nation; database players sit on top of that. Nations with a simulated
 // league in leagues/ list no clubs here.
 
+import { RAW_REST } from './nationsRest';
+
 export interface NationSeed {
   code: string;
   name: string;
@@ -95,7 +97,8 @@ CHN|China|AFC|50|56|#de2910|#ffde00|chinese|Shanghai Port,Shanghai Shenhua,Shand
 NZL|New Zealand|OFC|50|50|#ffffff|#000000|english|Auckland City,Wellington Olympic,Christchurch United,Auckland United,Eastern Suburbs,Birkenhead United,Waitakere United,Western Springs
 `;
 
-export const NATION_SEEDS: NationSeed[] = RAW.trim()
+export const NATION_SEEDS: NationSeed[] = `${RAW.trim()}
+${RAW_REST.trim()}`
   .split('\n')
   .map((line) => {
     const [code, name, conf, strength, level, c1, c2, names, clubs] = line.split('|');
@@ -111,30 +114,6 @@ export const NATION_SEEDS: NationSeed[] = RAW.trim()
     };
   });
 
-// Nations that only appear as a player's nationality. They have no league
-// and take no part in tournaments, but players keep their real nationality.
-export const MINOR_NATIONS: Record<string, string> = {
-  ARM: 'Armenia',
-  MNE: 'Montenegro',
-  EQG: 'Equatorial Guinea',
-  ANG: 'Angola',
-  ZAM: 'Zambia',
-  IDN: 'Indonesia',
-  TOG: 'Togo',
-  GAM: 'Gambia',
-  BFA: 'Burkina Faso',
-  GAB: 'Gabon',
-  ZIM: 'Zimbabwe',
-  HAI: 'Haiti',
-  MOZ: 'Mozambique',
-  LUX: 'Luxembourg',
-  CUW: 'Curacao',
-  SUR: 'Suriname',
-  KEN: 'Kenya',
-  BEN: 'Benin',
-  RUS: 'Russia',
-  ISR: 'Israel',
-  CTA: 'Central African Republic',
-  GNB: 'Guinea-Bissau',
-  LBR: 'Liberia',
-};
+// Nations that only appear as a player's nationality. Every FIFA member is
+// now a full nation, so this stays empty unless a data pack needs it.
+export const MINOR_NATIONS: Record<string, string> = {};

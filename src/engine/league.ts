@@ -23,7 +23,11 @@ export function makeFixtures(clubIds: string[], rng: Rng, makeId: () => string, 
     rounds.push(pairs);
     rot.splice(1, 0, rot.pop()!);
   }
-  const all = [...rounds, ...rounds.map((pairs) => pairs.map(([h, a]) => [a, h] as [string, string]))];
+  const once = [...rounds, ...rounds.map((pairs) => pairs.map(([h, a]) => [a, h] as [string, string]))];
+  // Small leagues meet two or three times, like the Scottish and Welsh
+  // leagues do, so a 10-club league still has a game most weeks.
+  const cycles = Math.max(1, Math.min(3, Math.floor(seasonWeeks / once.length)));
+  const all = Array.from({ length: cycles }, (_, c) => (c % 2 ? once.map((pairs) => pairs.map(([h, a]) => [a, h] as [string, string])) : once)).flat();
   const total = all.length;
   const fixtures: Fixture[] = [];
   all.forEach((pairs, r) => {

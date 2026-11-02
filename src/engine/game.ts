@@ -1,6 +1,6 @@
-import { Build, Fixture, Game, Look, Position, World } from './types';
+import { Build, Confederation, Fixture, Game, Look, Nation, Position, World } from './types';
 import { Rng } from './rng';
-import { createPlayer, ensureDomesticLeague, generateWorld, nationById } from './generator';
+import { createPlayer, ensureDomesticLeague, generateWorld, majorNations, nationById } from './generator';
 import { fixtureFor } from './league';
 import { addMessage } from './inbox';
 import { MatchState, commitMatch, createMatch, simToEnd, MatchFocus } from './match';
@@ -39,7 +39,8 @@ export interface NewCareerOptions {
   number?: number;
   celebration?: string;
   look?: Look;
-  // Optional: a specific club. Defaults to a lower club in your nation.
+  // Optional: a specific club. Defaults to a random small club in one of
+  // the weakest leagues of the player's confederation.
   clubId?: string;
   seed?: number;
   pack?: DataPack;
@@ -47,19 +48,35 @@ export interface NewCareerOptions {
 
 const DEFAULT_ROLE: Record<Position, Role> = { GK: 'GK', DEF: 'CB', MID: 'CM', FWD: 'ST' };
 
-// The starter club: a mid-to-low club in the lowest league of your nation.
+// The weakest leagues in a confederation. Every career starts in one of
+// them, wherever the player was born, and climbs from there.
+export function starterNations(world: World, conf: Confederation): Nation[] {
+  const list = majorNations(world)
+    .filter((n) => n.conf === conf && n.clubNames.length >= 6 && n.leagueLevel > 0)
+    .sort((a, b) => a.leagueLevel - b.leagueLevel);
+  return list.slice(0, Math.max(3, Math.ceil(list.length / 4)));
+}
+
+// Smaller clubs in a nation's lowest league.
 export function starterClubs(world: World, nationId: string): string[] {
   const league = ensureDomesticLeague(world, nationId);
   const order = [...league.clubIds].sort((a, b) => world.clubs[a].reputation - world.clubs[b].reputation);
   return order.slice(0, Math.max(4, Math.ceil(order.length / 2)));
 }
 
+// A random small club from one of the confederation's weakest leagues.
+export function drawStarterClub(world: World, conf: Confederation, rng: Rng): string {
+  const nations = starterNations(world, conf);
+  const nation = nations.length ? rng.pick(nations) : majorNations(world).filter((n) => n.conf === conf)[0];
+  return rng.pick(starterClubs(world, nation.id));
+}
+
 export function newCareerGame(opts: NewCareerOptions, world?: World): Game {
   world = world ?? generateWorld(opts.seed ?? newSeed(), opts.pack);
   const rng = new Rng(world.rngState);
   const nation = nationById(world, opts.nationId) ?? world.nations[0];
-  const options = starterClubs(world, nation.id);
-  const club = world.clubs[opts.clubId && world.clubs[opts.clubId] ? opts.clubId : rng.pick(options)];
+  const club = world.clubs[opts.clubId && world.clubs[opts.clubId] ? opts.clubId : drawStarterClub(world, nation.conf, rng)];
+  if (!club.leagueId) ensureDomesticLeague(world, club.nationId);
   const role = opts.role ?? DEFAULT_ROLE[opts.position ?? 'FWD'];
   const body = { heightCm: opts.heightCm ?? 180, build: opts.build ?? 'athletic' };
   const weakFoot = opts.weakFoot ?? 2;
@@ -183,7 +200,7 @@ export function userFixture(game: Game): Fixture | undefined {
 }
 
 export function matchFocus(game: Game): MatchFocus {
-  if (game.mode === 'career' && game.career) return { playerId: game.career.playerId, celebration: game.career.celebration };
+  if (game.mode === 'career' && game.career) return { playerId: game.career.playerId, celebration: game.career.celebration, number: game.career.number };
   const teamId = userTeamId(game);
   return teamId ? { clubId: teamId } : {};
 }
@@ -234,6 +251,13 @@ export function finishUserMatch(game: Game, s: MatchState): FinishResult {
         const conceded = side === s.home ? s.away.goals : s.home.goals;
         recordMatchProgress(game, !!side, conceded, s.userTackles, s.userSaves, s.goals[id] ?? 0);
       } else checkMilestones(game);
+      // The full-time card lists what this match unlocked.
+      const last = game.career.lastMatch;
+      if (last && last.fixtureId === s.fixtureId) {
+        last.unlocks = (game.career.progress?.rewards ?? [])
+          .filter((r) => r.title !== 'Level up!')
+          .map((r) => (r.title === 'Objective complete!' ? `Objective done: ${r.sub.split('.')[0]}` : `Milestone: ${r.title}`));
+      }
     }
     if (game.mode === 'manager' && game.manager) managerAfterMatch(game, f);
   }
