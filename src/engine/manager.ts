@@ -19,7 +19,12 @@ export function managerNation(game: Game): Club | null {
 }
 
 export function weeklyWages(game: Game, club: Club): number {
-  return squad(game.world, club).reduce((sum, p) => sum + wageCost(p), 0);
+  const own = squad(game.world, club).reduce((sum, p) => sum + wageCost(p), 0);
+  // Players out on loan still draw the part of their wage the borrowing
+  // club does not cover.
+  let lent = 0;
+  for (const p of Object.values(game.world.players)) if (p.loan?.fromClubId === club.id) lent += Math.round(p.wage * (1 - p.loan.wageShare));
+  return own + lent;
 }
 
 export function weeklyIncome(game: Game, club: Club, homeGame: boolean): number {

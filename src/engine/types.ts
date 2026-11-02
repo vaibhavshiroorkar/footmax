@@ -55,6 +55,9 @@ export interface Player {
   injuryWeeks: number;
   retired: boolean;
   stats: SeasonStats;
+  // This season's numbers at clubs the player has already left (transfer or
+  // loan). stats stays the season total, which the awards need.
+  seasonSplits?: (SeasonStats & { clubId: string })[];
   history: CareerSeason[];
   caps: number;
   intlGoals: number;

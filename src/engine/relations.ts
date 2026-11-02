@@ -75,11 +75,14 @@ export function offerSelf(game: Game, clubId: string): string {
   const club = game.world.clubs[clubId];
   c.pitchCooldown = 3;
   const interest = clubInterest(game, clubId);
-  const rng = new Rng(game.world.rngState + c.level * 7 + interest);
+  // Draw from the world's stream and store where it got to. Seeding from the
+  // state plus an offset and writing that back shifted the whole stream.
+  const rng = new Rng(game.world.rngState);
+  const roll = rng.next();
+  const wage = roundMoney(fairWage(p) * rng.range(0.95, 1.2) * (c.items.includes('agent') ? 1.15 : 1));
+  const years = rng.int(2, 4);
   game.world.rngState = rng.state;
-  if (rng.chance(clamp((interest - 30) / 60, 0.05, 0.9)) && !hasOpen(game, 'club-offer')) {
-    const wage = roundMoney(fairWage(p) * rng.range(0.95, 1.2) * (c.items.includes('agent') ? 1.15 : 1));
-    const years = rng.int(2, 4);
+  if (roll < clamp((interest - 30) / 60, 0.05, 0.9) && !hasOpen(game, 'club-offer')) {
     adjustRelation(game, clubId, 5);
     addMessage(game, 'offer', `${club.name} are interested`, `After your agent's pitch, ${club.name} offer ${fullName(p)} ${formatMoney(wage)} a week for ${years} years.`, {
       type: 'club-offer',

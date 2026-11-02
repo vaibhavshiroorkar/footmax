@@ -1,5 +1,5 @@
 import { Game } from './types';
-import { fullName, overall } from './player';
+import { fullName, overall, seasonRows } from './player';
 import { progressOf } from './progress';
 
 // Career-long numbers for the summary screen, leaderboards and profiles.
@@ -23,7 +23,7 @@ export function careerTotals(game: Game): Totals {
   const world = game.world;
   const c = game.career!;
   const p = world.players[c.playerId];
-  const rows = [...p.history, ...(p.stats.apps ? [{ season: world.season, clubId: p.clubId, ...p.stats }] : [])];
+  const rows = [...p.history, ...seasonRows(p, world.season)];
   const apps = rows.reduce((s, h) => s + h.apps, 0);
   const goals = rows.reduce((s, h) => s + h.goals, 0);
   const assists = rows.reduce((s, h) => s + h.assists, 0);

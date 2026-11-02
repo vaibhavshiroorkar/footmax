@@ -79,8 +79,10 @@ export function refreshNationalSquads(game: Game): void {
   }
 }
 
-function qualify(world: World, rng: Rng, def: TournamentDef): string[] {
-  const nations = majorNations(world);
+// taken: teams already in another tournament this summer. A team can only
+// play one at a time (the Gold Cup's Asian guest used to be in the Asian Cup).
+function qualify(world: World, rng: Rng, def: TournamentDef, taken: Set<string>): string[] {
+  const nations = majorNations(world).filter((n) => !taken.has(n.teamId));
   const form = new Map(nations.map((n) => [n.id, teamRating(world, world.nationalTeams[n.teamId]) + rng.normal(0, 2.5)]));
   const picked: string[] = [];
   for (const [conf, quota] of Object.entries(def.quotas)) {
@@ -113,8 +115,10 @@ export function startTournaments(game: Game): Tournament[] {
   refreshNationalSquads(game);
   const year = world.season + 1;
   const out: Tournament[] = [];
+  const taken = new Set<string>();
   for (const def of tournamentsForSummer(year)) {
-    const teams = qualify(world, rng, def);
+    const teams = qualify(world, rng, def, taken);
+    teams.forEach((id) => taken.add(id));
     const t: Tournament = {
       id: `${def.key}${year}`,
       name: `${def.name} ${year}`,

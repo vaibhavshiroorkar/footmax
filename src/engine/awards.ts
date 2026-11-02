@@ -1,3 +1,4 @@
+import { gainFame } from './careerBase';
 import { AwardEntry, Game, Player, SeasonAwards } from './types';
 import { avgRating, fullName } from './player';
 import { leagueTable } from './league';
@@ -69,7 +70,7 @@ export function presentAwards(game: Game): SeasonAwards {
       else if (rank > 0) lines.push(`${AWARD_NAMES[key]}: you finished ${rank + 1}${rank + 1 === 2 ? 'nd' : rank + 1 === 3 ? 'rd' : 'th'}.`);
     }
     if (lines.length) {
-      if (game.career) game.career.fame = Math.min(100, game.career.fame + (lines.some((l) => l.startsWith('You won')) ? 15 : 4));
+      if (game.career) gainFame(game.career, lines.some((l) => l.startsWith('You won')) ? 15 : 4);
       addMessage(game, 'season', `Awards night ${world.season}/${String(world.season + 1).slice(2)}`, lines.join(' '));
     }
   }

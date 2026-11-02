@@ -1,4 +1,4 @@
-import { Game, Player, Position } from './types';
+import { CareerState, Game, Player, Position } from './types';
 import { ratingAt, squad } from './lineup';
 import { ROLES, isRole } from './roles';
 import { xpForLevel } from './skills';
@@ -8,6 +8,12 @@ import { xpForLevel } from './skills';
 
 export function careerPlayer(game: Game): Player {
   return game.world.players[game.career!.playerId];
+}
+
+// Fame gains shrink as fame grows: early headlines come easily, the top
+// takes a whole career. Without this, fame hit 100 by age 20.
+export function gainFame(c: CareerState, amount: number): void {
+  c.fame = Math.max(0, Math.min(100, c.fame + amount * Math.pow(Math.max(0, 100 - c.fame) / 100, 1.5)));
 }
 
 // XP turns into levels; each level gives one skill point.

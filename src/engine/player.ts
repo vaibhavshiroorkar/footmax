@@ -1,4 +1,4 @@
-import { ATTR_KEYS, AttrKey, Attributes, Player, Position } from './types';
+import { ATTR_KEYS, AttrKey, Attributes, CareerSeason, Player, Position, SeasonStats } from './types';
 import { Rng, clamp } from './rng';
 import { ROLES, isRole } from './roles';
 
@@ -145,6 +145,27 @@ export function formatMoney(v: number): string {
 
 export function emptyStats() {
   return { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
+}
+
+const minus = (a: SeasonStats, b: SeasonStats): SeasonStats => ({ apps: a.apps - b.apps, goals: a.goals - b.goals, assists: a.assists - b.assists, ratingSum: a.ratingSum - b.ratingSum });
+const plus = (a: SeasonStats, b: SeasonStats): SeasonStats => ({ apps: a.apps + b.apps, goals: a.goals + b.goals, assists: a.assists + b.assists, ratingSum: a.ratingSum + b.ratingSum });
+
+// Call before a player changes club mid-season, so the games so far are
+// credited to the club he is leaving.
+export function noteClubChange(p: Player): void {
+  if (!p.clubId || !p.stats.apps) return;
+  const done = (p.seasonSplits ?? []).reduce(plus, emptyStats());
+  const part = minus(p.stats, done);
+  if (part.apps > 0) (p.seasonSplits ??= []).push({ clubId: p.clubId, ...part });
+}
+
+// This season as history rows: one per club played for.
+export function seasonRows(p: Player, season: number): CareerSeason[] {
+  const splits = p.seasonSplits ?? [];
+  const rows: CareerSeason[] = splits.map((s) => ({ season, ...s }));
+  const rest = minus(p.stats, splits.reduce(plus, emptyStats()));
+  if (p.clubId && rest.apps > 0) rows.push({ season, clubId: p.clubId, ...rest });
+  return rows;
 }
 
 export function avgRating(s: { apps: number; ratingSum: number }): number {

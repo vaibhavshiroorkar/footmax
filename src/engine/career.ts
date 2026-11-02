@@ -1,12 +1,12 @@
 import { AttrKey, Game, Player } from './types';
 import { Rng, clamp } from './rng';
-import { avgRating, formatMoney, overall, weightsFor } from './player';
+import { avgRating, formatMoney, overall, seasonRows, weightsFor } from './player';
 import { MatchState } from './match';
 import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
 import { canUpgrade, skillLevel, SKILLS } from './skills';
 import { movePlayer } from './transfers';
 import { recordTraining } from './progress';
-import { addXp, careerPlayer, squadStatus } from './careerBase';
+import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
 
 export { addXp, careerPlayer, squadStatus };
 
@@ -70,10 +70,11 @@ export type ActionResult = { ok: boolean; text: string };
 
 // Training slows as a player ages and as he nears his ceiling.
 export function trainingGain(p: Player, hasTrainer: boolean): number {
-  // Teenagers improve fastest, so early seasons feel rewarding.
-  const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 1 : p.age <= 23 ? 0.8 : p.age <= 27 ? 0.5 : p.age <= 30 ? 0.3 : 0.15;
+  // Teenagers improve fastest, so early seasons feel rewarding; growth then
+  // tapers so the peak arrives in the mid-to-late twenties, not at 21.
+  const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 0.9 : p.age <= 21 ? 0.6 : p.age <= 23 ? 0.45 : p.age <= 27 ? 0.35 : p.age <= 30 ? 0.2 : 0.1;
   const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
-  return 0.13 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+  return 0.12 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
 }
 
 // score is the training mini-game result, 0..1. Quick training uses 0.35.
@@ -138,13 +139,13 @@ export function lifeAction(game: Game, actionId: string): ActionResult {
   switch (a.id) {
     case 'post': {
       const gain = clamp(rng.range(0.2, 1) * (avgRating(p.stats) >= 7 ? 2 : 1), 0, 3);
-      c.fame = clamp(c.fame + gain, 0, 100);
+      gainFame(c, gain);
       text = `Your post gets ${Math.round(gain * 1200 + rng.int(50, 400) + c.fame * 900)} likes. Fame +${gain.toFixed(1)}.`;
       break;
     }
     case 'charity':
       c.money -= 1000;
-      c.fame = clamp(c.fame + 1.5, 0, 100);
+      gainFame(c, 1.5);
       p.morale = clamp(p.morale + 6, 0, 100);
       text = 'The kids loved meeting you. Fame and morale up.';
       break;
@@ -176,7 +177,7 @@ export function buyItem(game: Game, itemId: string): ActionResult {
   if (c.money < item.price) return { ok: false, text: `You need ${formatMoney(item.price)}.` };
   c.money -= item.price;
   c.items.push(item.id);
-  if (item.id === 'car') c.fame = clamp(c.fame + 5, 0, 100);
+  if (item.id === 'car') gainFame(c, 5);
   if (item.id === 'house') p.morale = 100;
   return { ok: true, text: `Bought: ${item.label}.` };
 }
@@ -197,9 +198,10 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const myTeamId = s.home.usedIds.includes(p.id) ? s.home.clubId : s.away.clubId;
   const team = game.world.clubs[myTeamId] ?? game.world.nationalTeams[myTeamId] ?? homeTeam;
   const stage = 0.6 + team.reputation / 100 + (team.national ? 0.5 : 0);
-  c.fame = clamp(c.fame + stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5), 0, 100);
+  gainFame(c, stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5));
   const w = weightsFor(p);
-  for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.05 * (w[k] ?? 0) * 4 * (p.age <= 23 ? 1 : 0.4) * (overall(p) < p.potential ? 1 : 0), 1, 99);
+  const young = p.age <= 19 ? 1 : p.age <= 23 ? 0.5 : 0.2;
+  for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.04 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
   return addXp(game, Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10));
 }
 
@@ -208,8 +210,9 @@ export function retire(game: Game): void {
   const p = careerPlayer(game);
   c.retired = true;
   p.retired = true;
-  if (p.clubId && p.stats.apps) p.history.push({ season: game.world.season, clubId: p.clubId, ...p.stats });
+  p.history.push(...seasonRows(p, game.world.season));
   p.stats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
+  p.seasonSplits = undefined;
   if (p.clubId) movePlayer(game.world, p, null);
   game.world.freeAgents = game.world.freeAgents.filter((id) => id !== p.id);
   // Nothing left to answer once the boots are hung up.

@@ -1,7 +1,7 @@
 import { Attributes, Game, Position } from './types';
 import { Rng } from './rng';
 import { overall } from './player';
-import { careerPlayer, addXp, squadStatus } from './careerBase';
+import { careerPlayer, addXp, gainFame, squadStatus } from './careerBase';
 import { adjustRelation } from './relations';
 import { addMessage } from './inbox';
 
@@ -192,7 +192,7 @@ export function checkMilestones(game: Game): void {
   for (const m of MILESTONES) {
     if (pr.milestones.includes(m.id) || !m.test(game)) continue;
     pr.milestones.push(m.id);
-    c.fame = Math.min(100, c.fame + m.fame);
+    gainFame(c, m.fame);
     pr.rewards.push({ title: m.label, sub: `Milestone unlocked. +${m.xp} XP, +${m.fame} fame.`, icon: m.icon });
     const lvl = addXp(game, m.xp);
     if (lvl) pr.rewards.push({ title: 'Level up!', sub: lvl.replace(/^Level up! /, ''), icon: 'star' });

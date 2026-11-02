@@ -1,6 +1,7 @@
-import { Game, Player } from './types';
+import { gainFame } from './careerBase';
+import { Game, League, Player } from './types';
 import { Rng, clamp } from './rng';
-import { applyDevelopment, avgRating, clubBudget, emptyStats, fairWage, fullName, overall, seasonalDevelopment } from './player';
+import { applyDevelopment, avgRating, clubBudget, emptyStats, fairWage, fullName, overall, seasonRows, seasonalDevelopment } from './player';
 import { leagueTable, makeFixtures } from './league';
 import { createPlayer, createYouth, fillSquad, majorNations, newId, nationById, targetOverall } from './generator';
 import { quickSim } from './match';
@@ -35,6 +36,9 @@ export function advanceWeek(game: Game): WeekResult {
   if (world.phase === 'tournament') {
     advanceTournaments(game);
     weeklyRecovery(game);
+    // Wages, sponsors and energy keep ticking over the summer. Offers wait
+    // for the new season, when the window opens.
+    if (game.mode === 'career' && game.career && !game.career.retired) careerUpkeep(game);
     expireOffers(game);
     if (tournamentsDone(world)) {
       const rng = new Rng(world.rngState);
@@ -99,7 +103,7 @@ function weeklyRecovery(game: Game) {
   }
 }
 
-function careerWeekly(game: Game, rng: Rng) {
+function careerUpkeep(game: Game) {
   const c = game.career!;
   const p = careerPlayer(game);
   c.money += p.clubId ? p.wage : 0;
@@ -114,6 +118,10 @@ function careerWeekly(game: Game, rng: Rng) {
   if (c.items.includes('nutrition')) p.fitness = clamp(p.fitness + 6, 0, 100);
   if (c.items.includes('physio') && p.injuryWeeks > 0) p.injuryWeeks = Math.max(0, p.injuryWeeks - 1);
   if (c.items.includes('house')) p.morale = clamp(p.morale + 3, 0, 100);
+}
+
+function careerWeekly(game: Game, rng: Rng) {
+  careerUpkeep(game);
   careerOffers(game, rng);
 }
 
@@ -143,7 +151,7 @@ function closeLeagueSeason(game: Game, rng: Rng) {
     const young = leaguePlayers.filter((p) => p.stats.apps >= 10 && p.age <= 21).sort((a, b) => avgRating(b.stats) - avgRating(a.stats))[0];
     if (young) world.honours.push({ season, title: `${league.name} young player of the season`, winner: fullName(young), playerId: young.id });
     for (const id of [scorer?.id, best?.id, young?.id]) {
-      if (id && id === careerId && game.career) game.career.fame = clamp(game.career.fame + 6, 0, 100);
+      if (id && id === careerId && game.career) gainFame(game.career, 6);
     }
     const order = [...league.clubIds].sort((a, b) => world.clubs[b].reputation - world.clubs[a].reputation);
     table.forEach((row, i) => {
@@ -162,13 +170,17 @@ function closeLeagueSeason(game: Game, rng: Rng) {
   // Awards look at this season's leagues, before clubs move up or down.
   presentAwards(game);
 
-  // Promotion and relegation between linked leagues.
+  // Promotion and relegation between linked leagues. Every move is worked
+  // out from the final tables before any club moves; moving as we went let a
+  // club relegated from tier 1 drop again from tier 2 with 0 points.
+  const moves: { top: League; low: League; down: string[]; up: string[] }[] = [];
   for (const low of world.leagues) {
     if (!low.parentId || !low.swap) continue;
     const top = world.leagues.find((l) => l.id === low.parentId);
     if (!top) continue;
-    const down = leagueTable(top, world).slice(-low.swap).map((r) => r.clubId);
-    const up = leagueTable(low, world).slice(0, low.swap).map((r) => r.clubId);
+    moves.push({ top, low, down: leagueTable(top, world).slice(-low.swap).map((r) => r.clubId), up: leagueTable(low, world).slice(0, low.swap).map((r) => r.clubId) });
+  }
+  for (const { top, low, down, up } of moves) {
     for (const id of down) {
       world.clubs[id].leagueId = low.id;
       world.clubs[id].reputation = rep(world.clubs[id].reputation - 4);
@@ -189,9 +201,28 @@ function closeLeagueSeason(game: Game, rng: Rng) {
   addMessage(game, 'season', `Season ${season}/${String(season + 1).slice(2)} review`, summary.join(' '));
 }
 
+// About 40 honours a season would grow the save for ever. Everything tied
+// to the player's own career, club or national team stays; other honours are
+// kept for the last 10 seasons.
+const HONOUR_SEASONS = 10;
+function pruneHonours(game: Game) {
+  const world = game.world;
+  const mine = new Set<string>();
+  if (game.career) {
+    const p = world.players[game.career.playerId];
+    p?.history.forEach((h) => mine.add(h.clubId));
+    if (p?.clubId) mine.add(p.clubId);
+    const nt = p ? nationById(world, p.nationId)?.teamId : undefined;
+    if (nt) mine.add(nt);
+  }
+  if (game.manager?.clubId) mine.add(game.manager.clubId);
+  if (game.manager?.nationalTeamId) mine.add(game.manager.nationalTeamId);
+  const careerId = game.career?.playerId;
+  world.honours = world.honours.filter((h) => h.season > world.season - HONOUR_SEASONS || (careerId && h.playerId === careerId) || (h.clubId && mine.has(h.clubId)));
+}
+
 function recordHistory(game: Game, p: Player) {
-  if (!p.clubId || !p.stats.apps) return;
-  p.history.push({ season: game.world.season, clubId: p.clubId, ...p.stats });
+  p.history.push(...seasonRows(p, game.world.season));
 }
 
 // New season: ageing, development, contracts, retirements, youth, fixtures.
@@ -207,6 +238,10 @@ function rollover(game: Game, rng: Rng) {
 
   returnLoans(world);
   const retiring: string[] = [];
+  // The manager decides on contracts in their own squad (week 30 messages);
+  // anyone not renewed leaves rather than being renewed behind their back.
+  const managedClub = game.mode === 'manager' ? myClub : null;
+  const leftOnFree: string[] = [];
   for (const p of Object.values(world.players)) {
     if (p.retired) continue;
     if (keepHistory.has(p.id)) recordHistory(game, p);
@@ -218,6 +253,7 @@ function rollover(game: Game, rng: Rng) {
     applyDevelopment(p, delta, rng);
     if (!isUser) p.skills = autoSkills(p);
     p.stats = emptyStats();
+    p.seasonSplits = undefined;
     p.fitness = 100;
     p.injuryWeeks = 0;
     if (isUser) continue;
@@ -228,7 +264,12 @@ function rollover(game: Game, rng: Rng) {
     }
     if (p.clubId) {
       p.contractYears--;
-      if (p.contractYears <= 0) {
+      if (p.contractYears <= 0 && p.clubId === managedClub) {
+        if (world.clubs[managedClub].playerIds.length > MIN_SQUAD) {
+          leftOnFree.push(fullName(p));
+          movePlayer(world, p, null);
+        } else p.contractYears = 1;
+      } else if (p.contractYears <= 0) {
         const club = world.clubs[p.clubId];
         const wanted = overall(p) >= targetOverall(club.reputation) - 8 && p.age < 33;
         if (wanted && rng.chance(0.8)) {
@@ -251,6 +292,7 @@ function rollover(game: Game, rng: Rng) {
   }
 
   if (game.career && careerId) careerRollover(game, rng);
+  pruneHonours(game);
 
   const managed = game.manager?.clubId;
   for (const club of Object.values(world.clubs)) {
@@ -268,7 +310,10 @@ function rollover(game: Game, rng: Rng) {
       if (!worst) break;
       movePlayer(world, worst, null);
     }
-    club.budget = Math.max(club.budget, Math.round(clubBudget(club.reputation) * 0.5));
+    // AI clubs do not pay wages week to week, so prize money alone would
+    // let their budgets grow for ever. Keep them within a band of what
+    // their reputation supports.
+    club.budget = clamp(club.budget, Math.round(clubBudget(club.reputation) * 0.5), Math.round(clubBudget(club.reputation) * 2.5));
   }
   if (managed) {
     const club = world.clubs[managed];
@@ -305,6 +350,7 @@ function rollover(game: Game, rng: Rng) {
     league.fixtures = makeFixtures(league.clubIds, rng, () => newId(world, 'f'), world.seasonWeeks);
   }
   addMessage(game, 'season', `Season ${world.season}/${String(world.season + 1).slice(2)} begins`, 'Pre-season is over. The transfer window is open until week 5.');
+  if (leftOnFree.length) addMessage(game, 'news', 'Contracts ended', `${leftOnFree.join(', ')} left on a free when their contracts ran out.`);
 }
 
 function careerRollover(game: Game, rng: Rng) {

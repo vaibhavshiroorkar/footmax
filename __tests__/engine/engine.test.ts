@@ -3,12 +3,12 @@ import { leagueTable, makeFixtures, SEASON_WEEKS } from '../../src/engine/league
 import { Rng } from '../../src/engine/rng';
 import { createMatch, quickSim, resolveMoment, simToEnd, stepMinute } from '../../src/engine/match';
 import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs, interruptedMatch, markKickOff, SAVE_VERSION } from '../../src/engine/game';
-import { fullName, overall } from '../../src/engine/player';
+import { fullName, overall, seasonRows } from '../../src/engine/player';
 import { MIGRATIONS, deserialize, loadSave, serialize } from '../../src/engine/save';
 import { train, upgradeSkill } from '../../src/engine/career';
-import { askingPrice, bidFee, movePlayer, offerContract, searchMarket, startNegotiation } from '../../src/engine/transfers';
+import { askingPrice, bidFee, loanBid, loanPlayer, movePlayer, offerContract, searchMarket, startNegotiation } from '../../src/engine/transfers';
 import { autoLineup } from '../../src/engine/lineup';
-import { tournamentsForSummer } from '../../src/engine/international';
+import { startTournaments, tournamentsForSummer } from '../../src/engine/international';
 import { exportPack, parsePackText } from '../../src/engine/editor';
 import { callUpMessage, respond } from '../../src/engine/offers';
 import { addMessage, expireOffers } from '../../src/engine/inbox';
@@ -599,5 +599,58 @@ describe('career totals', () => {
     const peak = t.peakOvr!;
     for (const k of Object.keys(p.attrs) as (keyof typeof p.attrs)[]) p.attrs[k] = 20;
     expect(careerTotals(game).peakOvr).toBe(peak);
+  });
+});
+
+describe('engine audit fixes', () => {
+  it('no national team plays two tournaments in the same summer', () => {
+    const game = newManagerGame(generateWorld(101), null, null, 'Boss');
+    // Odd years hold four tournaments at once.
+    game.world.season = 2028;
+    const ts = startTournaments(game);
+    const seen = new Set<string>();
+    for (const t of ts) for (const id of t.teamIds) {
+      expect(seen.has(id)).toBe(false);
+      seen.add(id);
+    }
+  });
+
+  it('a mid-season move credits each club with its own games', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 102 });
+    const p = game.world.players[game.career!.playerId];
+    const first = p.clubId!;
+    p.stats = { apps: 10, goals: 4, assists: 1, ratingSum: 70 };
+    const other = Object.values(game.world.clubs).find((c) => c.id !== first && c.leagueId)!;
+    movePlayer(game.world, p, other.id, 1000, 2);
+    p.stats = { apps: 15, goals: 7, assists: 2, ratingSum: 105 };
+    const rows = seasonRows(p, game.world.season);
+    expect(rows.map((r) => [r.clubId, r.apps, r.goals])).toEqual([
+      [first, 10, 4],
+      [other.id, 5, 3],
+    ]);
+  });
+
+  it('a manager is asked about every contract ending this summer', () => {
+    const world = generateWorld(103);
+    const myId = world.leagues[0].clubIds[0];
+    const game = newManagerGame(world, myId, null, 'Boss');
+    const p = game.world.players[game.world.clubs[myId].playerIds[0]];
+    p.contractYears = 1;
+    game.world.week = 30;
+    skipWeek(game);
+    expect(game.inbox.some((m) => m.action?.type === 'contract-demand' && m.action.playerId === p.id && !m.action.resolved)).toBe(true);
+  });
+
+  it('a player already out on loan cannot be loaned again', () => {
+    const world = generateWorld(104);
+    const myId = world.leagues[0].clubIds[0];
+    const game = newManagerGame(world, myId, null, 'Boss');
+    const loanee = Object.values(game.world.players).find((x) => x.clubId && x.clubId !== myId && !x.loan)!;
+    const parent = loanee.clubId!;
+    const borrower = Object.values(game.world.clubs).find((c) => c.id !== myId && c.id !== parent && c.leagueId)!;
+    loanPlayer(game.world, loanee, borrower.id, 1);
+    game.world.week = 2;
+    expect(loanBid(game, loanee.id, 1).status).toBe('rejected');
+    expect(loanee.loan!.fromClubId).toBe(parent);
   });
 });

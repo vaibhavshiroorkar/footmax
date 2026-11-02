@@ -1,6 +1,6 @@
 import { Club, Game, Negotiation, Player, Position, World } from './types';
 import { Rng, clamp } from './rng';
-import { fairWage, formatMoney, fullName, marketValue, overall, roundMoney } from './player';
+import { fairWage, formatMoney, fullName, marketValue, noteClubChange, overall, roundMoney } from './player';
 import { autoLineup, POSITIONS, squad } from './lineup';
 import { targetOverall } from './generator';
 import { addMessage } from './inbox';
@@ -13,6 +13,7 @@ export function inTransferWindow(week: number): boolean {
 }
 
 export function movePlayer(world: World, p: Player, toClubId: string | null, wage?: number, years?: number): void {
+  if (toClubId !== p.clubId) noteClubChange(p);
   if (p.clubId && world.clubs[p.clubId]) {
     const from = world.clubs[p.clubId];
     from.playerIds = from.playerIds.filter((id) => id !== p.id);
@@ -38,6 +39,7 @@ export function movePlayer(world: World, p: Player, toClubId: string | null, wag
 // end of the season.
 export function loanPlayer(world: World, p: Player, toClubId: string, wageShare: number): void {
   const fromClubId = p.clubId!;
+  noteClubChange(p);
   const from = world.clubs[fromClubId];
   from.playerIds = from.playerIds.filter((id) => id !== p.id);
   if (from.lineup?.includes(p.id)) from.lineup = null;
@@ -57,6 +59,7 @@ function detach(world: World, p: Player) {
 export function endLoan(world: World, p: Player): void {
   if (!p.loan) return;
   const parent = world.clubs[p.loan.fromClubId];
+  noteClubChange(p);
   detach(world, p);
   p.clubId = parent.id;
   parent.playerIds.push(p.id);
@@ -332,7 +335,13 @@ export function loanBid(game: Game, playerId: string, wageShare: number): Negoti
   const world = game.world;
   const club = myClub(game);
   const p = world.players[playerId];
+  if (!p || p.retired) return { status: 'rejected', message: 'Player not found.' };
   if (!p.clubId) return { status: 'rejected', message: 'Free agents cannot be loaned.' };
+  if (p.clubId === club.id) return { status: 'rejected', message: 'He already plays for you.' };
+  // Loaning on a loanee would overwrite where he came from; his real club
+  // would lose him.
+  if (p.loan) return { status: 'rejected', message: 'He is already out on loan.' };
+  if (club.playerIds.length >= MAX_SQUAD) return { status: 'rejected', message: `Your squad is full (${MAX_SQUAD}).` };
   if (!inTransferWindow(world.week)) return { status: 'rejected', message: 'The transfer window is closed.' };
   const seller = world.clubs[p.clubId];
   const starter = autoLineup(world, seller).includes(p.id);

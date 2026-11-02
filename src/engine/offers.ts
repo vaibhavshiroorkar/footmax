@@ -1,3 +1,4 @@
+import { gainFame } from './careerBase';
 import { Choice, Game, Message, Player } from './types';
 import { Rng, clamp } from './rng';
 import { avgRating, fairWage, formatMoney, fullName, marketValue, overall, roundMoney } from './player';
@@ -109,8 +110,9 @@ function nationSwitchOffer(game: Game, rng: Rng) {
   const world = game.world;
   const p = careerPlayer(game);
   if (p.caps >= 3 || hasOpen(game, 'nation-switch')) return;
-  const own = world.nationalTeams[nationById(world, p.nationId)!.teamId];
-  if (own.playerIds.includes(p.id)) return;
+  // Minor nations (set in the editor) have no national team object.
+  const own = world.nationalTeams[nationById(world, p.nationId)?.teamId ?? ''];
+  if (own?.playerIds.includes(p.id)) return;
   // A nation whose squad he would make, as through a parent or grandparent.
   const options = majorNations(world).filter((n) => n.id !== p.nationId && pickNationalSquad(world, n.id).length && overall(p) >= nationalCutoff(game, n.id));
   if (!options.length) return;
@@ -279,6 +281,23 @@ function loanRequest(game: Game, rng: Rng) {
 function playerDemands(game: Game, rng: Rng) {
   const world = game.world;
   const club = managerClub(game)!;
+  // Week 30: every contract ending this summer needs a decision. Players not
+  // renewed leave on a free when the season ends.
+  if (world.week === 30) {
+    for (const p of squad(world, club)) {
+      if (p.loan || p.contractYears > 1 || hasOpen(game, 'contract-demand', p.id)) continue;
+      const wage = roundMoney(Math.max(p.wage * 1.05, fairWage(p)));
+      addMessage(game, 'offer', `${fullName(p)}: contract ends this summer`, `${fullName(p)} would sign for ${formatMoney(wage)} a week on a 3-year deal (now ${formatMoney(p.wage)}). If you do nothing he leaves on a free when the season ends.`, {
+        type: 'contract-demand',
+        playerId: p.id,
+        wage,
+        years: 3,
+        patience: 1,
+        weeksLeft: Math.max(1, world.seasonWeeks - world.week),
+        choices: [{ ...ACCEPT, label: 'Renew' }, { ...COUNTER, label: 'Offer less' }, { ...DECLINE, label: 'Let him go' }],
+      });
+    }
+  }
   for (const p of squad(world, club)) {
     if (p.loan) continue;
     if (p.morale < 25 && !p.listed && rng.chance(0.15) && !hasOpen(game, 'transfer-request', p.id)) {
@@ -366,7 +385,7 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
       p.caps += games;
       p.intlGoals += goals;
       p.fitness = clamp(p.fitness - 8, 0, 100);
-      game.career!.fame = clamp(game.career!.fame + 3 + goals * 2, 0, 100);
+      gainFame(game.career!, 3 + goals * 2);
       const lvl = addXp(game, 20 + goals * 15);
       const name = nationById(game.world, a.nationId!)?.name;
       return done('accepted', `You play ${games} game${games > 1 ? 's' : ''} for ${name}${goals ? ` and score ${goals}` : ''}. Caps: ${p.caps}.${lvl ? ` ${lvl}` : ''}`);
@@ -382,12 +401,13 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
     case 'loan-request': {
       const p = game.world.players[a.playerId!];
       const club = managerClub(game);
-      if (!club || p.clubId !== club.id || club.playerIds.length <= MIN_SQUAD) return done('expired', 'Cannot loan him out now.');
+      if (!p || !club || p.loan || p.clubId !== club.id || club.playerIds.length <= MIN_SQUAD) return done('expired', 'Cannot loan him out now.');
       loanPlayer(game.world, p, a.clubId!, a.wageShare ?? 1);
       return done('accepted', `${fullName(p)} goes on loan to ${game.world.clubs[a.clubId!].name}.`);
     }
     case 'contract-demand': {
       const p = game.world.players[a.playerId!];
+      if (!p || p.clubId !== managerClub(game)?.id) return done('expired', 'He is no longer at your club.');
       if (choiceId === 'counter') return haggle(game, msg, amount ?? 0, 'wage');
       p.wage = a.wage!;
       p.contractYears = a.years!;
@@ -396,6 +416,7 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
     }
     case 'transfer-request': {
       const p = game.world.players[a.playerId!];
+      if (!p || p.clubId !== managerClub(game)?.id) return done('expired', 'He is no longer at your club.');
       p.listed = 'transfer';
       return done('accepted', `${fullName(p)} is on the transfer list.`);
     }
@@ -432,9 +453,10 @@ function declineEffects(game: Game, msg: Message): string | null {
   }
   if (a.type === 'contract-demand' || a.type === 'transfer-request') {
     const p = game.world.players[a.playerId!];
-    p.morale = clamp(p.morale - 15, 0, 100);
     a.resolved = 'declined';
-    return `${fullName(p)} is unhappy.`;
+    if (!p) return 'He has gone already.';
+    p.morale = clamp(p.morale - 15, 0, 100);
+    return a.type === 'contract-demand' && p.contractYears <= 1 ? `${fullName(p)} will leave when his contract ends.` : `${fullName(p)} is unhappy.`;
   }
   if (a.type === 'media') {
     a.resolved = 'declined';
@@ -526,10 +548,10 @@ function mediaEffects(game: Game, choiceId: string): string {
     const p = careerPlayer(game);
     if (choiceId === 'humble') {
       p.morale = clamp(p.morale + 4, 0, 100);
-      c.fame = clamp(c.fame + 1, 0, 100);
+      gainFame(c, 1);
       return 'Fans like the humble answers. Morale and fame up a little.';
     }
-    c.fame = clamp(c.fame + 3, 0, 100);
+    gainFame(c, 3);
     p.morale = clamp(p.morale - 3, 0, 100);
     return 'The headlines are loud. Fame up, but team-mates roll their eyes.';
   }

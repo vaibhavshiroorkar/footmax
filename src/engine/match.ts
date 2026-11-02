@@ -224,8 +224,7 @@ const ASSIST_WEIGHT: Record<Position, number> = { FWD: 2, MID: 4, DEF: 1.2, GK: 
 
 function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Player {
   const ps = players(world, side.onPitch);
-  const boost = (p: Player) => (p.id === s.focus.playerId ? 1.2 : 1);
-  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
+  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2));
 }
 
 function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, shooter: Player): Player | undefined {
@@ -430,14 +429,16 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
       s.rngState = rng.state;
       break;
     }
+    // Tuned so a skipped moment converts about as often as an AI shot from
+    // a player of the same quality; playing the mini-game well beats that.
     case 'shot':
-      finish(0.05 + 0.42 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.03 * lvl('finisher'), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
+      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher'), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
     case 'penalty':
-      finish(0.42 + 0.45 * q * skill(actor.attrs.composure) - keeperPenalty / 2 + 0.05 * lvl('setpiece'), 'penaltyGoal', 'penaltyMiss');
+      finish(0.4 + 0.42 * q * skill(actor.attrs.composure) - keeperPenalty / 2 + 0.04 * lvl('setpiece'), 'penaltyGoal', 'penaltyMiss');
       break;
     case 'freekick':
-      finish(0.04 + 0.4 * q * skill(actor.attrs.shooting) - keeperPenalty / 2 + 0.06 * lvl('setpiece'), 'freekickGoal', 'freekickMiss');
+      finish(0.02 + 0.22 * q * skill(actor.attrs.shooting) - keeperPenalty / 2 + 0.03 * lvl('setpiece'), 'freekickGoal', 'freekickMiss');
       break;
     case 'dribble': {
       const ok = rng.chance(clamp(0.2 + 0.7 * q * skill(actor.attrs.dribbling) + 0.04 * (lvl('speedster') + lvl('dribbler')), 0.05, 0.92));
@@ -445,7 +446,7 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
         bump(s, actor.id, 0.2);
         push(s, s.minute, m.side, 'info', `${shortName(actor)} skips past the defender and is through!`, actor.id, played);
         // A beaten defender leaves a clear shot, which the user also plays.
-        s.pending = { ...m, kind: 'shot', bonus: 0.1 };
+        s.pending = { ...m, kind: 'shot', bonus: 0.06 };
         s.rngState = rng.state;
       } else {
         bump(s, actor.id, -0.1);
