@@ -210,97 +210,77 @@ export function inboxBadge(game: Game): number {
   return actionMessages(game).length;
 }
 
-const CONFS = ['UEFA', 'CONMEBOL', 'CONCACAF', 'CAF', 'AFC', 'OFC'] as const;
-type ConfKey = (typeof CONFS)[number] | 'Other';
-const CONF_NAMES: Record<ConfKey, string> = {
-  UEFA: 'Europe',
-  CONMEBOL: 'South America',
-  CONCACAF: 'North & Central America',
-  CAF: 'Africa',
-  AFC: 'Asia',
-  OFC: 'Oceania',
-  Other: 'Other nations',
-};
-
-// Two steps: pick a confederation, then a nation. Search is a shortcut.
-// With allowAny, an "Any nation" option clears the choice (onChange('')).
+// A search field. The chosen nation sits on one row; typing lists the five
+// best matches below it, and an empty field suggests the strongest nations.
+// With allowAny, the clear button picks "Any nation" (onChange('')).
 export function NationPicker({ world, value, onChange, includeMinor = false, allowAny = false }: { world: World; value: string | null; onChange: (id: string) => void; includeMinor?: boolean; allowAny?: boolean }) {
   const current = value ? world.nations.find((n) => n.id === value) : undefined;
-  const [conf, setConf] = useState<ConfKey>(current ? (current.minor ? 'Other' : (current.conf as ConfKey)) : 'UEFA');
-  const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
-  const confs: ConfKey[] = includeMinor ? [...CONFS, 'Other'] : [...CONFS];
-  const inConf = (n: Nation) => (conf === 'Other' ? !!n.minor : !n.minor && n.conf === conf);
-  const list = useMemo(() => {
+  const [open, setOpen] = useState(false);
+  const matches = useMemo(() => {
     const text = q.trim().toLowerCase();
-    if (searching && text) return world.nations.filter((n) => (includeMinor || !n.minor) && n.name.toLowerCase().includes(text));
-    return world.nations.filter(inConf).sort((a, b) => a.name.localeCompare(b.name));
-    // inConf only depends on conf.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, conf, q, searching, includeMinor]);
+    const pool = world.nations.filter((n) => (includeMinor || !n.minor) && n.id !== value);
+    if (!text) return [...pool].sort((a, b) => b.strength - a.strength).slice(0, 5);
+    const starts = (n: Nation) => (n.name.toLowerCase().startsWith(text) ? 0 : 1);
+    return pool
+      .filter((n) => n.name.toLowerCase().includes(text) || n.id.toLowerCase() === text)
+      .sort((a, b) => starts(a) - starts(b) || b.strength - a.strength)
+      .slice(0, 5);
+  }, [world, q, value, includeMinor]);
 
   const pick = (id: string) => {
     haptic();
     onChange(id);
+    setQ('');
+    setOpen(false);
   };
+  const flag = (n: Nation, size = 1) => <View style={{ width: 18 * size, height: 12 * size, borderRadius: 2, backgroundColor: n.colors[0], borderWidth: 1.5, borderColor: n.colors[1] }} />;
+  const showList = open || q.trim().length > 0;
   return (
-    <View style={{ gap: 10 }}>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 11.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>{searching ? 'SEARCH' : '1. CONFEDERATION'}</Text>
-        <Pressable onPress={() => setSearching(!searching)} hitSlop={8}>
-          <Row gap={4}>
-            <Icon name={searching ? 'grid' : 'search'} size={14} color={colors.accent} />
-            <Text style={{ color: colors.accent, fontFamily: fonts.semibold, fontSize: 12 }}>{searching ? 'Browse' : 'Search'}</Text>
-          </Row>
-        </Pressable>
-      </Row>
-      {searching ? (
-        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} autoFocus style={inputStyle} placeholder="Type a nation" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
-      ) : (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {confs.map((c) => {
-            const active = conf === c;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => {
-                  haptic();
-                  setConf(c);
-                }}
-                style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? alpha(colors.accent, 0.14) : colors.bgElev }}
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.accent : colors.text }}>{c}</Text>
-                <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted }}>{CONF_NAMES[c]}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-      {!searching && <Text style={{ fontSize: 11.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>2. NATION</Text>}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        {allowAny && (
-          <Pressable onPress={() => pick('')} style={[nationTile, !value && nationTileActive]}>
-            <Icon name="globe-outline" size={14} color={!value ? colors.accent : colors.muted} />
-            <Text style={{ fontSize: 13, color: !value ? colors.accent : colors.text, fontFamily: fonts.medium }}>Any nation</Text>
+    <View style={{ gap: 8 }}>
+      <Row gap={10} style={pickRow}>
+        {current ? flag(current, 1.3) : <Icon name="globe-outline" size={20} color={colors.muted} />}
+        <Text style={{ flex: 1, fontFamily: fonts.display, fontSize: 22, color: colors.text }} numberOfLines={1}>
+          {current?.name ?? (allowAny ? 'Any nation' : 'Pick a nation')}
+        </Text>
+        {current && <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.muted }}>{current.minor ? 'Other' : current.conf}</Text>}
+        {allowAny && current && (
+          <Pressable onPress={() => pick('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Any nation">
+            <Icon name="close-circle" size={18} color={colors.muted} />
           </Pressable>
         )}
-        {list.map((n) => {
-          const active = value === n.id;
-          return (
-            <Pressable key={n.id} onPress={() => pick(n.id)} style={[nationTile, active && nationTileActive]}>
-              <View style={{ width: 14, height: 10, borderRadius: 2, backgroundColor: n.colors[0], borderWidth: 1, borderColor: n.colors[1] }} />
-              <Text style={{ fontSize: 13, color: active ? colors.accent : colors.text, fontFamily: fonts.medium }} numberOfLines={1}>
+      </Row>
+      <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 0 }]}>
+        <Icon name="search" size={16} color={colors.faint} />
+        <TextInput
+          keyboardAppearance="dark"
+          selectionColor={colors.accent}
+          style={{ flex: 1, paddingVertical: 12, color: colors.text, fontFamily: fonts.medium, fontSize: 15 }}
+          placeholder={`Search ${world.nations.filter((n) => includeMinor || !n.minor).length} nations`}
+          placeholderTextColor={colors.faint}
+          value={q}
+          onChangeText={setQ}
+          onFocus={() => setOpen(true)}
+          // A short delay so a tap on a suggestion lands before the list closes.
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+        />
+      </View>
+      {showList && (
+        <View style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
+          {matches.map((n, i) => (
+            <Pressable key={n.id} onPress={() => pick(n.id)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 11, borderTopWidth: i ? 1 : 0, borderColor: colors.border }, pressed && { backgroundColor: alpha(colors.accent, 0.12) }]}>
+              {flag(n)}
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.text }} numberOfLines={1}>
                 {n.name}
               </Text>
-              {active && <Icon name="checkmark" size={14} color={colors.accent} />}
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.faint }}>{n.minor ? 'Other' : n.conf}</Text>
             </Pressable>
-          );
-        })}
-        {list.length === 0 && <T muted>No nations match.</T>}
-      </View>
+          ))}
+          {matches.length === 0 && <T muted style={{ padding: 12 }}>No nations match.</T>}
+        </View>
+      )}
     </View>
   );
 }
 
-const nationTile = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElev, minWidth: '47%' as const, flexGrow: 1 };
-const nationTileActive = { borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.12) };
+const pickRow = { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: alpha(colors.accent, 0.5), backgroundColor: alpha(colors.accent, 0.08) };

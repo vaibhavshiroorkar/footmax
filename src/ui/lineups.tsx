@@ -35,6 +35,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
           </Text>
           {cameOn && <Icon name="arrow-up" size={11} color={colors.accent} />}
           {live.goals[id] ? <Icon name="football" size={11} color={colors.accent} /> : null}
+          {live.assists[id] ? <Icon name="git-branch" size={11} color={colors.teal} /> : null}
           <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: valueColor, minWidth: 26, textAlign: 'right' }}>{value}</Text>
         </Row>
       );

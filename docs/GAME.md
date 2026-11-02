@@ -31,7 +31,7 @@ moments to play, not a wall of information.
 ## Player career
 
 - **Creator:** name, nickname, shirt number; nation picked by
-  confederation; exact position; foot and weak foot; height and build
+  confederation (a search field with five suggestions); exact position; foot and weak foot; height and build
   (they change stats, shown per stat); a playing style and 40 stat points;
   avatar and goal celebration.
 - **Start at the bottom:** the first club is drawn at random from the
@@ -105,8 +105,9 @@ moments to play, not a wall of information.
   ball they are calls: Call for it, Make a run, Track back (8 minutes
   each, 3 minutes rest).
 - **Screen:** one scoreboard row with speed (1x, 2x, 4x), pause, sound and skip,
-  scorers under it, the pitch, the action buttons, then Feed, Lineups and
-  Stats. No pop-up after goals. Full time shows the rating, player of the
+  scorers under it, the pitch, the action buttons, then two tabs: Feed,
+  and Teams (possession and shots over both lineups with live ratings,
+  goals and assists). No pop-up after goals. Full time shows the rating, player of the
   match, XP (the bar fills from where it was), fame, win bonus and what
   the match unlocked, and the table (five rows around the team, league or
   tournament group) with the places moved. The pitch hides at full time.

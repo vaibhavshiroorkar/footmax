@@ -50,7 +50,7 @@ export default function MatchScreen() {
   const [paused, setPaused] = useState(false);
   // Auto-play for moments is a setting now, not a switch on this screen.
   const autoMoments = useSettings((st) => st.autoMoments);
-  const [tab, setTab] = useState<'feed' | 'lineups' | 'stats'>('feed');
+  const [tab, setTab] = useState<'feed' | 'teams'>('feed');
   const { width } = useWindowDimensions();
   const pitchWidth = Math.min(width, 600) - 32;
   const pace = SPEEDS.find((s) => s.key === speed)!;
@@ -377,15 +377,14 @@ export default function MatchScreen() {
           <Tabs
             tabs={[
               { key: 'feed', label: 'Feed' },
-              { key: 'lineups', label: 'Lineups' },
-              { key: 'stats', label: 'Stats' },
+              { key: 'teams', label: 'Teams' },
             ]}
             value={tab}
             onChange={setTab}
           />
           {tab === 'feed' && <Feed game={game} live={live} />}
-          {tab === 'lineups' && <LineupsCard game={game} live={live} focusId={game.career?.playerId} />}
-          {tab === 'stats' && <Stats game={game} live={live} side={mySide} />}
+          {tab === 'teams' && <MatchStats live={live} />}
+          {tab === 'teams' && <LineupsCard game={game} live={live} focusId={game.career?.playerId} />}
         </>
       )}
     </Screen>
@@ -1094,41 +1093,16 @@ function StatLine({ label, h, a, hv, av }: { label: string; h: string; a: string
   );
 }
 
-function Stats({ game, live, side }: { game: Game; live: MatchState; side: SideKey }) {
+// Possession and shots. Ratings live in the lineups below, so they are not
+// repeated here.
+function MatchStats({ live }: { live: MatchState }) {
   const [hp, ap] = possessionPct(live);
-  const me = live[side];
-  const P = game.world.players;
-  const focusId = game.career?.playerId;
   return (
-    <>
-      <Card>
-        <StatLine label="Possession" h={`${hp}%`} a={`${ap}%`} hv={hp} av={ap} />
-        <StatLine label="Shots" h={String(live.home.shots)} a={String(live.away.shots)} hv={live.home.shots} av={live.away.shots} />
-        <StatLine label="On target" h={String(live.home.onTarget)} a={String(live.away.onTarget)} hv={live.home.onTarget} av={live.away.onTarget} />
-      </Card>
-      <Card>
-        <H2>Your team ratings</H2>
-        {me.usedIds.map((id) => {
-          const r = live.ratings[id] ?? 6;
-          const you = id === focusId;
-          return (
-            <Row key={id} style={[styles.ratingRow, you && { backgroundColor: alpha(colors.purple, 0.12), borderColor: alpha(colors.purple, 0.4) }]}>
-              <Text style={[styles.pos, { color: POSITION_COLORS[P[id].position] }]}>{P[id].role ?? P[id].position}</Text>
-              <Text style={{ flex: 1, color: colors.text, fontFamily: you ? fonts.bold : fonts.medium, fontSize: 14 }} numberOfLines={1}>
-                {shortName(P[id])}
-                {you ? '  (you)' : ''}
-              </Text>
-              {live.goals[id] ? <Pill label={`${live.goals[id]}`} icon="football" color={colors.accent} /> : null}
-              {live.assists[id] ? <Pill label={`${live.assists[id]}`} icon="git-branch" color={colors.teal} /> : null}
-              <View style={[styles.ratingChip, { backgroundColor: alpha(matchRatingColor(r), 0.18) }]}>
-                <Text style={{ color: matchRatingColor(r), fontFamily: fonts.bold, fontSize: 13 }}>{r.toFixed(1)}</Text>
-              </View>
-            </Row>
-          );
-        })}
-        {focusId && !me.usedIds.includes(focusId) && <T muted>You did not get on the pitch.</T>}
-      </Card>
-    </>
+    <Card>
+      <StatLine label="Possession" h={`${hp}%`} a={`${ap}%`} hv={hp} av={ap} />
+      <StatLine label="Shots" h={String(live.home.shots)} a={String(live.away.shots)} hv={live.home.shots} av={live.away.shots} />
+      <StatLine label="On target" h={String(live.home.onTarget)} a={String(live.away.onTarget)} hv={live.home.onTarget} av={live.away.onTarget} />
+    </Card>
   );
 }
 

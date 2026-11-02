@@ -233,9 +233,6 @@ export default function NewCareer() {
       {step === 1 && (
         <Card>
           <H2>Your nation</H2>
-          <T muted style={{ fontSize: 13 }}>
-            You can play for its national team. Your first club is drawn from the smallest leagues in its confederation.
-          </T>
           {!world && <ActivityIndicator color={colors.accent} />}
           {world && <NationPicker world={world} value={nation} onChange={setNation} />}
         </Card>
