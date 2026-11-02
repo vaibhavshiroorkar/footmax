@@ -58,11 +58,12 @@ export interface LifeAction {
   description: string;
 }
 
+// Rest day leads: it is the one players reach for most.
 export const LIFE_ACTIONS: LifeAction[] = [
+  { id: 'rest', label: 'Rest day', energy: 15, description: 'Recover 20 fitness.' },
   { id: 'post', label: 'Post on social media', energy: 10, description: 'Small fame boost. Bigger after a good game.' },
   { id: 'charity', label: 'Charity visit', energy: 20, description: 'Fame and morale up. Costs $1K.' },
   { id: 'night', label: 'Night out', energy: 15, description: 'Morale up, fitness down.' },
-  { id: 'rest', label: 'Rest day', energy: 15, description: 'Recover 20 fitness.' },
   { id: 'video', label: 'Video analysis', energy: 15, description: '+15 XP toward your next skill point.' },
 ];
 
