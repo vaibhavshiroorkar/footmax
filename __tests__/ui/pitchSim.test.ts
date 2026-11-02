@@ -1,16 +1,18 @@
 import { newCareerGame, startUserMatch } from '../../src/engine/game';
-import { MatchState, chooseMoment, resolveMoment, shout, stepMinute, takeAction } from '../../src/engine/match';
+import { MatchState, Zone, chooseMoment, resolveMoment, shout, stepMinute, takeAction } from '../../src/engine/match';
 import { teamById } from '../../src/engine/lineup';
 import { PlayStep, formationSpots } from '../../src/engine/play';
 import { Game } from '../../src/engine/types';
+import { Role } from '../../src/engine/roles';
 import { PL, PW, PitchSim } from '../../src/ui/pitchSim';
 
 // Plays a whole match through the pitch the way the match screen does:
 // a new minute only when the pitch is idle, each move queued once (by the
 // identity of the engine's array), and calls made in the middle of moves.
-function watch(seed: number) {
-  const game: Game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed });
+function watch(seed: number, role: Role = 'ST', zone?: Zone) {
+  const game: Game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role, seed });
   const s: MatchState = startUserMatch(game)!;
+  s.zone = zone;
   const sim = new PitchSim();
   const sync = () =>
     sim.sync(
@@ -75,7 +77,9 @@ function watch(seed: number) {
 }
 
 describe('live pitch', () => {
-  const runs = [11, 12, 13].map(watch);
+  // A striker up front, plus a centre-back and a midfielder in their own
+  // zones, so the defending and midfield moments are on the pitch too.
+  const runs = [watch(11), watch(12), watch(13), watch(14, 'CB', 'defend'), watch(15, 'CM', 'middle')];
 
   it('shows every goal exactly once, even with calls in the middle of moves', () => {
     for (const r of runs) {

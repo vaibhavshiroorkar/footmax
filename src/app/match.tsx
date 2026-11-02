@@ -4,7 +4,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, chooseMoment, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
+import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
@@ -23,6 +23,7 @@ import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
 import { LineupsCard } from '../ui/lineups';
 import { SaveGame } from '../ui/moments/SaveGame';
+import { BlockGame, ClearGame, InterceptGame } from '../ui/moments/DefendGames';
 import { motionReduced, useSettings } from '../state/settings';
 
 const NATIVE = Platform.OS !== 'web';
@@ -339,6 +340,7 @@ export default function MatchScreen() {
         </Card>
       )}
 
+      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && <ZoneSlider game={game} live={live} />}
       {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && (onBall && !live.pending ? <BallBar onAct={act} /> : <ShoutBar game={game} live={live} />)}
       {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
         <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
@@ -765,6 +767,54 @@ const SHOUTS: { kind: ShoutKind; label: string; hint: string; icon: IconName }[]
 ];
 
 // Career: calls the user makes from the pitch, each lasting ten minutes.
+const ZONES: { key: Zone; label: string; icon: IconName }[] = [
+  { key: 'defend', label: 'Defend', icon: 'shield' },
+  { key: 'middle', label: 'Middle', icon: 'swap-horizontal' },
+  { key: 'attack', label: 'Attack', icon: 'flash' },
+];
+
+// Where the user plays: back to front, left to right. It changes which
+// moments come to him (see Zone in the engine).
+function ZoneSlider({ game, live }: { game: Game; live: MatchState }) {
+  const mutateLive = useStore((s) => s.mutateLive);
+  const zone = zoneOf(game.world, live);
+  const at = ZONES.findIndex((z) => z.key === zone);
+  const [w, setW] = useState(0);
+  const [x] = useState(() => new Animated.Value(at));
+  useEffect(() => {
+    Animated.spring(x, { toValue: at, useNativeDriver: false, speed: 22, bounciness: 6 }).start();
+  }, [at, x]);
+  const id = game.career?.playerId;
+  const onPitch = !!id && (live.home.onPitch.includes(id) || live.away.onPitch.includes(id));
+  if (!onPitch || game.world.players[id!]?.position === 'GK') return null;
+  const seg = w / 3;
+  return (
+    <View style={styles.zoneTrack} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {w > 0 && <Animated.View style={[styles.zoneThumb, { width: seg - 6, transform: [{ translateX: x.interpolate({ inputRange: [0, 2], outputRange: [3, 3 + 2 * seg] }) }] }]} />}
+      {ZONES.map((z) => {
+        const on = z.key === zone;
+        return (
+          <Pressable
+            key={z.key}
+            accessibilityRole="button"
+            accessibilityLabel={`Play ${z.label.toLowerCase()}`}
+            accessibilityState={{ selected: on }}
+            onPress={() => {
+              if (on) return;
+              haptic();
+              mutateLive((m) => setZone(m, z.key));
+            }}
+            style={styles.zoneStop}
+          >
+            <Icon name={z.icon} size={14} color={on ? colors.ink : colors.muted} />
+            <Text style={[styles.zoneLabel, on && { color: colors.ink }]}>{z.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function ShoutBar({ game, live }: { game: Game; live: MatchState }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const id = game.career?.playerId;
@@ -866,6 +916,9 @@ const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }
   tackle: { title: 'Stop him!', icon: 'shield' },
   header: { title: 'Cross coming in!', icon: 'arrow-up-circle' },
   choice: { title: 'Your call', icon: 'help-circle' },
+  intercept: { title: 'Read the pass', icon: 'eye' },
+  block: { title: 'Block it!', icon: 'hand-right' },
+  clear: { title: 'Head it clear!', icon: 'arrow-up-circle' },
 };
 
 function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
@@ -900,7 +953,15 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
       </Row>
       <T muted>
         {moment.attackerId
-          ? `${fullName(game.world.players[moment.attackerId])} is through on ${moment.kind === 'save' ? 'goal' : 'you'}.`
+          ? moment.kind === 'intercept'
+            ? `${fullName(game.world.players[moment.attackerId])} is looking for a pass.`
+            : moment.kind === 'block'
+              ? `${fullName(game.world.players[moment.attackerId])} shapes to shoot.`
+              : moment.kind === 'clear'
+                ? `A cross is coming in for ${fullName(game.world.players[moment.attackerId])}.`
+                : moment.quiet
+                  ? `${fullName(game.world.players[moment.attackerId])} runs at you.`
+                  : `${fullName(game.world.players[moment.attackerId])} is through on ${moment.kind === 'save' ? 'goal' : 'you'}.`
           : moment.kind === 'header'
             ? `The cross is coming to ${fullName(actor)}.`
             : `${fullName(actor)} has the ball${moment.bonus > 0 ? ' and a clear sight of goal' : ''}.`}
@@ -941,6 +1002,9 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
       {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'intercept' && <InterceptGame vision={actor.attrs.vision} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'block' && <BlockGame defending={actor.attrs.defending} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'clear' && <ClearGame air={(actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper')} onDone={(q) => resolve(q)} />}
       <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
     </Card>
@@ -1136,6 +1200,10 @@ const styles = StyleSheet.create({
   momentTitle: { fontFamily: fonts.display, fontSize: 26, color: colors.accent, letterSpacing: 0.6, textTransform: 'uppercase' },
   moveChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElev },
   shoutBar: { flexDirection: 'row', gap: 6, alignItems: 'stretch' },
+  zoneTrack: { flexDirection: 'row', height: 36, borderRadius: 10, backgroundColor: colors.bgElev, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  zoneThumb: { position: 'absolute', top: 3, bottom: 3, left: 0, borderRadius: 8, backgroundColor: colors.accent },
+  zoneStop: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  zoneLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.muted, letterSpacing: 0.4 },
   shoutBtn: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 6, paddingHorizontal: 4, minHeight: 44, justifyContent: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   shoutLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.text, textAlign: 'center' },
   shoutHint: { fontFamily: fonts.medium, fontSize: 11, color: colors.muted, textAlign: 'center' },

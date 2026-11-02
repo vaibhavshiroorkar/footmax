@@ -91,7 +91,18 @@ moments to play, not a wall of information.
     one-two;
   - dribbles, which use one of four games (read and go, skill combo,
     nutmeg timing, sprint) depending on the skill move picked;
-  - tackles and saves.
+  - tackles and saves;
+  - defending duels: read the pass (pick the lane from the passer's body
+    shape; win it and you pick the counter pass), block a shot (slide as
+    the ring closes) and head a cross clear (jump as the ball drops).
+- **Zone slider (Defend, Middle, Attack):** sits above the action buttons
+  and starts at the role's zone (strikers, wingers and CAMs attack; CMs,
+  CDMs and wide mids play the middle; defenders defend; keepers have
+  none). It decides what comes to the player:
+  - Attack: more shots and men to beat, few defending moments.
+  - Middle: passes from deep (a good one keeps the move going and
+    sometimes makes a chance), long shots and passes to read.
+  - Defend: tackles, blocks and clearances, few shots.
 - **Shot timing:** the aim slides across the goal; tap to set it. In open
   play a defender closes in, so wait too long and he takes the ball. Then
   the power bar rises fast; tap in the green, or at the top it shoots

@@ -11,7 +11,14 @@ import { PlayOutcome, PlayStart, PlayStep, addFinish, assignNumbers, assignSlots
 export type SideKey = 'home' | 'away';
 // 'choice' asks the user what to do (shoot, pass or dribble) before the
 // matching mini-game; 'header' meets a cross.
-export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle' | 'header' | 'choice';
+// 'intercept', 'block' and 'clear' are the defending moments: read a pass,
+// throw yourself in front of a shot, head a cross away.
+export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle' | 'header' | 'choice' | 'intercept' | 'block' | 'clear';
+
+// Where the career player plays in a match. It decides which moments come
+// to him: shots and men to beat up front, passes, long shots and
+// interceptions in the middle, tackles, blocks and headers at the back.
+export type Zone = 'defend' | 'middle' | 'attack';
 
 // Career player's calls from the pitch. Each lasts a spell of the match and
 // then needs a rest before the next.
@@ -81,6 +88,14 @@ export interface KeyMoment {
   view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
   // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
   range?: number;
+  // A defending moment in open play with no chance behind it: losing it
+  // costs nothing more than the ball.
+  quiet?: boolean;
+  // An interception: who the pass is meant for, and shoots if it arrives.
+  targetId?: string;
+  // A pass from deep: arriving keeps the move going but only sometimes
+  // makes a chance.
+  deep?: boolean;
 }
 
 export type EventType =
@@ -176,6 +191,10 @@ export interface MatchState {
   // The career player's current call, and when the next one is allowed.
   shout?: { kind: ShoutKind; until: number };
   shoutReady?: number;
+  // Career: the zone the user picked. Unset means the default for his role.
+  zone?: Zone;
+  // Whether the user won the last defending moment, for the pitch.
+  lastWon?: boolean;
 }
 
 const MAX_MOMENTS = 12;
@@ -295,6 +314,30 @@ function keeperOf(world: World, side: MatchSide): Player {
 const SHOOT_WEIGHT: Record<Position, number> = { FWD: 5, MID: 2.2, DEF: 0.6, GK: 0.01 };
 const ASSIST_WEIGHT: Record<Position, number> = { FWD: 2, MID: 4, DEF: 1.2, GK: 0.1 };
 
+const ATTACK_ROLES = ['ST', 'CF', 'LW', 'RW', 'CAM'];
+const MIDDLE_ROLES = ['CM', 'CDM', 'LM', 'RM'];
+
+export function defaultZone(p: Player): Zone {
+  const r = p.role ?? '';
+  if (ATTACK_ROLES.includes(r) || (!r && p.position === 'FWD')) return 'attack';
+  if (MIDDLE_ROLES.includes(r) || (!r && p.position === 'MID')) return 'middle';
+  return 'defend';
+}
+
+export function zoneOf(world: World, s: MatchState): Zone {
+  const id = s.focus.playerId;
+  if (!id || !world.players[id]) return 'middle';
+  return s.zone ?? defaultZone(world.players[id]);
+}
+
+export function setZone(s: MatchState, zone: Zone): void {
+  s.zone = zone;
+}
+
+// How often the user ends up shooting or making the pass, by zone.
+const ZONE_SHOOT: Record<Zone, number> = { attack: 1.6, middle: 0.85, defend: 0.4 };
+const ZONE_ASSIST: Record<Zone, number> = { attack: 1.1, middle: 1.7, defend: 0.8 };
+
 function shoutActive(s: MatchState, kind: ShoutKind): boolean {
   return s.shout?.kind === kind && s.minute <= s.shout.until;
 }
@@ -304,7 +347,8 @@ function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Pl
   // Making a run or calling for it puts the user's player on the end of more chances.
   // The user's player is on the end of a few more chances anyway, so key
   // moments come along steadily.
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'run') ? 2.4 : shoutActive(s, 'call') ? 1.8 : 1.3);
+  const zone = zoneOf(world, s);
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 1.8 : shoutActive(s, 'call') ? 1.4 : 1));
   return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
 }
 
@@ -312,7 +356,8 @@ function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, sh
   if (!rng.chance(0.7)) return undefined;
   const ps = players(world, side.onPitch).filter((p) => p.id !== shooter.id);
   if (!ps.length) return undefined;
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'call') ? 2.2 : 1.2);
+  const zone = zoneOf(world, s);
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_ASSIST[zone] * (shoutActive(s, 'call') ? 1.8 : 1));
   return rng.weighted(ps, ps.map((p) => ASSIST_WEIGHT[p.position] * (p.attrs.passing / 50) ** 2 * boost(p)));
 }
 
@@ -428,12 +473,115 @@ function defensiveMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey,
   if (!s[defKey].onPitch.includes(focusId)) return null;
   const me = world.players[focusId];
   const role = me.role && isRole(me.role) ? ROLES[me.role] : undefined;
-  // Tracking back brings even forwards into the defending.
+  // Tracking back brings even forwards into the defending; so does
+  // playing deep. Pushing up leaves it to the others.
   const tracking = shoutActive(s, 'track');
-  const p = tracking ? Math.max(role?.defends ?? 0, 0.3) + 0.25 : role?.defends ?? 0;
-  if (!p || !rng.chance(p)) return null;
+  const zone = me.position === 'GK' ? 'defend' : zoneOf(world, s);
+  let p = tracking ? Math.max(role?.defends ?? 0, 0.3) + 0.25 : role?.defends ?? 0;
+  if (me.position !== 'GK') {
+    if (zone === 'defend') p = Math.max(p * 1.4, 0.32);
+    else if (zone === 'middle') p = Math.max(p, 0.12);
+    else p *= 0.35;
+  }
+  if (!p || !rng.chance(Math.min(0.85, p))) return null;
   const base = { side: defKey, minute: s.minute, keeperId: keeperOf(world, s[defKey]).id, bonus: 0, actorId: focusId, attackerId: shooter.id, assistId: assister?.id };
-  return { ...base, kind: me.position === 'GK' ? 'save' : 'tackle' };
+  if (me.position === 'GK') return { ...base, kind: 'save' };
+  // Which duel it is: an interception needs a pass to read, a clearance
+  // needs a cross.
+  const kinds: MomentKind[] = ['tackle'];
+  const weights = [3];
+  if (zone !== 'attack') {
+    kinds.push('block');
+    weights.push(zone === 'defend' ? 3 : 1);
+  }
+  if (assister && zone === 'middle') {
+    kinds.push('intercept');
+    weights.push(3);
+  }
+  if (assister && zone === 'defend') {
+    kinds.push('clear');
+    weights.push(3);
+  }
+  const kind = rng.weighted(kinds, weights);
+  if (kind === 'intercept' && assister) return { ...base, kind, attackerId: assister.id, targetId: shooter.id, assistId: undefined };
+  return { ...base, kind };
+}
+
+// Quiet minutes: where the user plays decides what comes to him. In the
+// middle he gets passes from deep, long shots and passes to read; at the
+// back, tackles and crosses to head away; up front, a man to beat.
+function zoneMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey, start: PlayStart): boolean {
+  const id = s.focus.playerId;
+  if (!id || s.moments >= MAX_MOMENTS) return false;
+  const mySide: SideKey | null = s.home.onPitch.includes(id) ? 'home' : s.away.onPitch.includes(id) ? 'away' : null;
+  const me = world.players[id];
+  if (!mySide || !me || me.position === 'GK') return false;
+  const zone = zoneOf(world, s);
+  const mine = attKey === mySide;
+  const p = mine ? { attack: 0.02, middle: 0.05, defend: 0.014 }[zone] : { attack: 0.008, middle: 0.035, defend: 0.03 }[zone];
+  if (!rng.chance(p)) return false;
+  const oppKey = other(mySide);
+  let m: KeyMoment;
+  let depth: number | undefined;
+  if (mine) {
+    const base = { side: mySide, minute: s.minute, keeperId: keeperOf(world, s[oppKey]).id, actorId: id, bonus: 0 };
+    if (zone === 'attack') {
+      m = { ...base, kind: 'dribble' };
+      depth = 0.72;
+    } else if (zone === 'middle' && rng.chance(0.35)) {
+      m = { ...base, kind: 'shot', view: 'outside' };
+      depth = rng.range(0.6, 0.68);
+    } else {
+      m = { ...base, kind: 'pass', deep: true, options: passOptions(rng, world, s, mySide, id) };
+    }
+  } else {
+    const opp = players(world, s[oppKey].onPitch).filter((x) => x.position !== 'GK');
+    if (!opp.length) return false;
+    const carrier = rng.weighted(opp, opp.map((x) => (x.position === 'MID' ? 3 : x.position === 'FWD' ? 2 : 1)));
+    const kind: MomentKind = zone === 'middle' ? (rng.chance(0.6) ? 'intercept' : 'tackle') : zone === 'defend' ? (rng.chance(0.5) ? 'clear' : 'tackle') : 'tackle';
+    m = { side: mySide, minute: s.minute, keeperId: keeperOf(world, s[mySide]).id, actorId: id, bonus: 0, attackerId: carrier.id, kind, quiet: true };
+  }
+  leadIn(world, s, attKey, start, m, depth);
+  if (m.kind === 'shot') {
+    const d = mySide === 'home' ? s.ball.y : 1 - s.ball.y;
+    m.range = clamp((0.82 - d) / 0.4, 0.3, 1);
+  }
+  s.pending = m;
+  s.moments++;
+  return true;
+}
+
+// The move that leads to a quiet-minute moment: the side on the ball plays
+// it about, then it reaches whoever the moment is about.
+function leadIn(world: World, s: MatchState, attKey: SideKey, start: PlayStart, m: KeyMoment, depth?: number) {
+  const slotSpot = (id: string, d?: number) => {
+    const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.5, lat: 0.5 };
+    return toPitch(attKey, { depth: d ?? clamp(slot.depth + 0.1, 0.25, 0.75), lat: clamp(slot.lat, 0.1, 0.9) });
+  };
+  const holder = m.attackerId ?? m.actorId;
+  if (!s.visual) {
+    s.ball = slotSpot(holder, depth);
+    return;
+  }
+  const steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), start, { result: null });
+  // Keep the move up to the point the side on the ball would lose it.
+  const first = steps.findIndex((st) => st.side === attKey);
+  let end = first;
+  while (end >= 0 && end + 1 < steps.length && steps[end + 1].side === attKey && (steps[end + 1].act === 'pass' || steps[end + 1].act === 'run')) end++;
+  const kept: PlayStep[] = end >= 0 ? steps.slice(0, end + 1) : [{ x: start.x, y: start.y, carrier: null, side: attKey, act: 'start' }];
+  const last = kept[kept.length - 1];
+  if (m.attackerId && last.carrier && s[attKey].onPitch.includes(last.carrier) && world.players[last.carrier]?.position !== 'GK') {
+    // An opponent has the ball: the duel is with him.
+    m.attackerId = last.carrier;
+  } else if (last.carrier !== holder) {
+    kept.push({ ...slotSpot(holder, depth), carrier: holder, side: attKey, act: 'pass' });
+  } else if (depth !== undefined) {
+    kept.push({ ...slotSpot(holder, depth), carrier: holder, side: attKey, act: 'run' });
+  }
+  const at = kept[kept.length - 1];
+  kept.push({ x: at.x, y: at.y, carrier: at.carrier, side: attKey, act: 'moment' });
+  s.play = kept;
+  s.ball = { x: clamp(at.x, 0, 1), y: clamp(at.y, 0, 1) };
 }
 
 // The user picks what to do with a 'choice' moment.
@@ -509,8 +657,12 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
         ? p.attrs.dribbling
         : m.kind === 'save'
           ? p.attrs.goalkeeping
-          : m.kind === 'tackle'
+          : m.kind === 'tackle' || m.kind === 'block'
             ? p.attrs.defending
+            : m.kind === 'intercept'
+              ? (p.attrs.defending + p.attrs.vision) / 2
+              : m.kind === 'clear'
+                ? (p.attrs.defending + p.attrs.physical) / 2
             : m.kind === 'header'
               ? (p.attrs.physical + p.attrs.shooting) / 2
               : (p.attrs.shooting + p.attrs.composure) / 2;
@@ -592,14 +744,71 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const attSide = other(m.side);
       const attacker = world.players[m.attackerId!];
       const won = rng.chance(clamp(0.25 + 0.6 * q * skill(actor.attrs.defending) + 0.03 * lvl('wall') - (attacker.attrs.dribbling - 60) / 400, 0.08, 0.9));
+      s.lastWon = won;
       if (won) {
         s.userTackles++;
         bump(s, actor.id, 0.3);
         push(s, s.minute, m.side, 'info', `${shortName(actor)} reads it and wins the ball off ${shortName(attacker)}!`, actor.id, played);
       } else {
-        bump(s, actor.id, -0.15);
+        bump(s, actor.id, m.quiet ? -0.08 : -0.15);
         push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets past ${shortName(actor)}...`, attacker.id, played);
-        autoShot(rng, world, s, attSide, attacker, m.assistId ? world.players[m.assistId] : undefined, 0.05);
+        if (!m.quiet) autoShot(rng, world, s, attSide, attacker, m.assistId ? world.players[m.assistId] : undefined, 0.05);
+      }
+      s.rngState = rng.state;
+      break;
+    }
+    case 'intercept': {
+      const attSide = other(m.side);
+      const passer = world.players[m.attackerId!];
+      const won = rng.chance(clamp(0.25 + 0.6 * q * skill((actor.attrs.defending + actor.attrs.vision) / 2) + 0.03 * lvl('wall') - (passer.attrs.passing - 60) / 400, 0.08, 0.9));
+      s.lastWon = won;
+      if (won) {
+        s.userTackles++;
+        bump(s, actor.id, 0.3);
+        push(s, s.minute, m.side, 'info', `${shortName(actor)} reads it and steps in front of the pass!`, actor.id, played);
+        // Win it in midfield and the counter is on: the user picks the pass.
+        s.pending = { side: m.side, minute: s.minute, keeperId: keeperOf(world, s[attSide]).id, actorId: actor.id, bonus: 0, kind: 'pass', deep: true, options: passOptions(rng, world, s, m.side, actor.id) };
+      } else {
+        bump(s, actor.id, -0.08);
+        push(s, s.minute, attSide, 'info', `${shortName(passer)} threads it past ${shortName(actor)}.`, passer.id, played);
+        const target = m.targetId ? world.players[m.targetId] : undefined;
+        if (target && !m.quiet) autoShot(rng, world, s, attSide, target, passer, 0.04);
+      }
+      s.rngState = rng.state;
+      break;
+    }
+    case 'block': {
+      const attSide = other(m.side);
+      const shooter = world.players[m.attackerId!];
+      const won = rng.chance(clamp(0.22 + 0.62 * q * skill((actor.attrs.defending + actor.attrs.physical) / 2) + 0.04 * lvl('wall') - (shooter.attrs.shooting - 60) / 400, 0.08, 0.9));
+      s.lastWon = won;
+      if (won) {
+        s.userTackles++;
+        s[attSide].shots++;
+        bump(s, actor.id, 0.3);
+        push(s, s.minute, m.side, 'info', `${shortName(actor)} throws himself in front of ${shortName(shooter)}'s shot. Blocked!`, actor.id, played);
+      } else {
+        bump(s, actor.id, -0.1);
+        autoShot(rng, world, s, attSide, shooter, m.assistId ? world.players[m.assistId] : undefined, 0);
+      }
+      s.rngState = rng.state;
+      break;
+    }
+    case 'clear': {
+      const attSide = other(m.side);
+      const attacker = world.players[m.attackerId!];
+      // Height wins headers, for him and for the man he is marking.
+      const air = (actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2;
+      const won = rng.chance(clamp(0.3 + 0.55 * q * skill(air) - ((attacker.heightCm ?? 180) - 180) / 250, 0.08, 0.92));
+      s.lastWon = won;
+      if (won) {
+        s.userTackles++;
+        bump(s, actor.id, 0.25);
+        push(s, s.minute, m.side, 'info', `${shortName(actor)} rises highest and heads it clear!`, actor.id, played);
+      } else {
+        bump(s, actor.id, -0.1);
+        push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets above ${shortName(actor)}...`, attacker.id, played);
+        if (!m.quiet) autoShot(rng, world, s, attSide, attacker, m.assistId ? world.players[m.assistId] : undefined, 0.03);
       }
       s.rngState = rng.state;
       break;
@@ -652,7 +861,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const ok = target && rng.chance(clamp(0.25 + 0.65 * passQ * skill(actor.attrs.passing) + 0.04 * lvl('playmaker'), 0.05, 0.95));
       const focused = actor.id === s.focus.playerId;
       if (target) s.lastPass = { to: target.playerId, ok: !!ok };
-      if (ok && target && target.kind === 'safe' && focused && (m.chain ?? 0) < 2) {
+      if (ok && target && target.kind === 'safe' && focused && !m.deep && (m.chain ?? 0) < 2) {
         // A one-two: the ball comes back and the user goes again, a little
         // further forward.
         bump(s, actor.id, 0.1);
@@ -662,9 +871,15 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       } else if (ok && target) {
         bump(s, actor.id, 0.15);
         const receiver = world.players[target.playerId];
-        autoShot(rng, world, s, m.side, receiver, actor, target.threat ?? 0.12 + 0.15 * target.openness);
-        const last = s.events[s.events.length - 1];
-        if (last) last.played = played;
+        if (m.deep && !rng.chance(0.3 + 1.5 * (target.threat ?? 0.12))) {
+          // From deep, a good ball keeps the move going; a chance is not
+          // guaranteed.
+          push(s, s.minute, m.side, 'info', `${shortName(actor)} finds ${shortName(receiver)} and the move goes on.`, actor.id, played);
+        } else {
+          autoShot(rng, world, s, m.side, receiver, actor, target.threat ?? 0.12 + 0.15 * target.openness);
+          const last = s.events[s.events.length - 1];
+          if (last) last.played = played;
+        }
       } else {
         bump(s, actor.id, -0.1);
         push(s, s.minute, m.side, 'info', line(rng, 'passFail', { p: shortName(actor) }), actor.id, played);
@@ -775,7 +990,31 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.6, lat: 0.5 };
     return toPitch(attKey, { depth: Math.min(0.9, slot.depth + 0.22), lat: slot.lat });
   };
-  if (pass) {
+  const duel = m.kind === 'tackle' || m.kind === 'intercept' || m.kind === 'block' || m.kind === 'clear';
+  const won = s.lastWon;
+  s.lastWon = undefined;
+  if (duel && won) {
+    // The user wins it: where depends on the duel.
+    const x = clamp(start.x + rng.range(-0.03, 0.03), 0.04, 0.96);
+    if (m.kind === 'intercept') {
+      const at = { x, y: start.y + forward * 0.08 };
+      steps.push({ ...at, carrier: m.actorId, side: defKey, act: 'win', other: holder });
+      if (s.pending) steps.push({ ...at, carrier: m.actorId, side: defKey, act: 'moment' });
+    } else if (m.kind === 'block') {
+      steps.push({ x, y: start.y + forward * 0.04, carrier: m.actorId, side: defKey, act: 'tackle', other: holder });
+    } else if (m.kind === 'clear') {
+      // The cross drops on him and he heads it away up the pitch.
+      const box = { x: 0.5 + rng.range(-0.12, 0.12), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.08, 0.12) };
+      steps.push({ ...box, carrier: m.actorId, side: defKey, act: 'cross', header: true });
+      const mates = s[defKey].onPitch.filter((id) => id !== m.actorId && world.players[id]?.position === 'MID');
+      steps.push({ x: rng.range(0.25, 0.75), y: box.y - forward * 0.3, carrier: mates.length ? rng.pick(mates) : m.actorId, side: defKey, act: 'pass' });
+    } else {
+      steps.push({ x, y: start.y - forward * 0.03, carrier: m.actorId, side: defKey, act: 'tackle', other: holder });
+    }
+  } else if (duel && !result) {
+    // Beaten, with nothing more to it: he carries on past.
+    steps.push({ x: clamp(start.x + rng.range(-0.06, 0.06), 0.04, 0.96), y: start.y + forward * 0.07, carrier: holder, side: attKey, act: 'run' });
+  } else if (pass) {
     // The ball goes to the team-mate the user picked, whatever happens next.
     const at = mateSpot(pass.to);
     if (!pass.ok) {
@@ -802,10 +1041,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     if (shooter !== holder && s[attKey].onPitch.includes(shooter)) {
       steps.push({ x: 0.5 + rng.range(-0.14, 0.14), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: m.kind === 'pass' ? 'pass' : 'cross' });
     }
-    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header', shooter === m.actorId ? aim : undefined);
-  } else if (m.kind === 'tackle') {
-    // The user's own tackle: won cleanly.
-    steps.push({ x: start.x + rng.range(-0.03, 0.03), y: start.y - forward * 0.03, carrier: m.actorId, side: defKey, act: 'tackle', other: holder });
+    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header' || m.kind === 'clear', shooter === m.actorId ? aim : undefined);
   } else {
     // The move broke down: a defender steps in.
     const winner = defenders.length ? rng.pick(defenders) : null;
@@ -890,6 +1126,9 @@ export function stepMinute(world: World, s: MatchState): void {
     }
     autoShot(rng, world, s, attKey, shooter, assister, 0);
     outcome = { result: shotResult(s, before), shooterId: shooter.id, assistId: assister?.id };
+  } else if (zoneMoment(rng, world, s, attKey, start)) {
+    s.rngState = rng.state;
+    return;
   } else if (rng.chance(0.03)) {
     push(s, s.minute, attKey, 'info', line(rng, 'quiet', names(world, s, attKey)));
   }
