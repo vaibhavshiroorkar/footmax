@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../state/store';
-import { Button, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, T, Tabs, inputStyle } from '../ui/kit';
+import { Button, ConfirmButton, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, T, Tabs, inputStyle } from '../ui/kit';
 import { alpha, colors, fonts } from '../ui/theme';
-import { Message } from '../engine/types';
+import { ActionType, Message } from '../engine/types';
 import { respond } from '../engine/offers';
 import { formatMoney } from '../engine/player';
 import { actionMessages } from '../engine/alerts';
@@ -18,6 +18,8 @@ const KIND: Record<Message['kind'], { label: string; icon: IconName; color: stri
 };
 
 type Filter = 'todo' | 'news';
+
+const BIG_MOVES: ActionType[] = ['club-offer', 'loan-offer', 'job', 'nation-switch', 'nation-job'];
 
 function deadline(weeksLeft: number | undefined): { text: string; urgent: boolean } | null {
   if (weeksLeft === undefined) return null;
@@ -54,7 +56,7 @@ function ActionCard({ m, index }: { m: Message; index: number }) {
           </Row>
           {due && <Pill label={due.text} icon="time-outline" color={due.urgent ? colors.gold : colors.muted} />}
           {a.choices.some((c) => c.needsAmount) && isMoney && (
-            <TextInput
+            <TextInput keyboardAppearance="dark" selectionColor={colors.accent}
               style={inputStyle}
               keyboardType="numeric"
               placeholder={`Counter in $K (now ${formatMoney(current)})`}
@@ -64,17 +66,18 @@ function ActionCard({ m, index }: { m: Message; index: number }) {
             />
           )}
           <Row style={{ flexWrap: 'wrap' }} gap={8}>
-            {a.choices.map((c) => (
-              <Button
-                key={c.id}
-                label={c.label}
-                small
-                variant={c.id === 'accept' ? 'primary' : 'secondary'}
-                style={{ flexGrow: 1 }}
-                disabled={c.needsAmount && !amount}
-                onPress={() => showToast(mutate((g) => respond(g, m.id, c.id, c.needsAmount ? Number(amount) * 1000 : undefined)))}
-              />
-            ))}
+            {a.choices.map((c) => {
+              const props = {
+                label: c.label,
+                small: true,
+                variant: (c.id === 'accept' ? 'primary' : 'secondary') as 'primary' | 'secondary',
+                style: { flexGrow: 1 },
+                disabled: c.needsAmount && !amount,
+                onPress: () => showToast(mutate((g) => respond(g, m.id, c.id, c.needsAmount ? Number(amount) * 1000 : undefined))),
+              };
+              // Moves and nationality switches are hard to undo: ask twice.
+              return c.id === 'accept' && BIG_MOVES.includes(a.type) ? <ConfirmButton key={c.id} {...props} confirmLabel="Sure? Tap again" /> : <Button key={c.id} {...props} />;
+            })}
           </Row>
         </View>
       </View>

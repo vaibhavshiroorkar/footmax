@@ -12,6 +12,7 @@ import { Celebration } from '../ui/celebration';
 import { ScreenError } from '../ui/screenError';
 import { useAuth } from '../state/auth';
 import { startSync } from '../state/sync';
+import { useSettings } from '../state/settings';
 import { colors, fonts, gradients } from '../ui/theme';
 
 export default function RootLayout() {
@@ -34,6 +35,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Accounts and sync start after the local saves are loaded, so the first
     // cloud pull merges into the real slot list.
+    useSettings.getState().load();
     init().then(() => {
       useAuth.getState().init();
       startSync();

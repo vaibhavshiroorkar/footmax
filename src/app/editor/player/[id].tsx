@@ -8,6 +8,7 @@ import { colors } from '../../../ui/theme';
 import { overall } from '../../../engine/player';
 import { editPlayer } from '../../../engine/editor';
 import { Position } from '../../../engine/types';
+import { useLeaveGuard } from '../../../ui/leaveGuard';
 import { rolesFor } from '../../../engine/roles';
 
 function Stepper({ label, value, onChange, min, max }: { label: string; value: number; onChange: (v: number) => void; min: number; max: number }) {
@@ -49,15 +50,18 @@ export default function EditPlayer() {
     const s = clubQ.toLowerCase();
     return Object.values(game.world.clubs).filter((c) => c.name.toLowerCase().includes(s)).slice(0, 8);
   }, [game, clubQ]);
+  const dirty = !!p && (first !== p.firstName || last !== p.lastName || nation !== p.nationId || pos !== p.position || role !== (p.role ?? null) || age !== p.age || ovr !== overall(p) || pot !== p.potential || clubId !== p.clubId);
+  const guard = useLeaveGuard(dirty);
   if (!game || !p) return <Redirect href="/editor" />;
   const isUser = p.id === game.career?.playerId;
 
   return (
     <Screen title="Edit player">
+      {guard.card}
       <Card>
         <H2>Name</H2>
-        <TextInput style={inputStyle} value={first} onChangeText={setFirst} placeholder="First name (blank for one-name players)" placeholderTextColor={colors.faint} />
-        <TextInput style={inputStyle} value={last} onChangeText={setLast} placeholder="Last name" placeholderTextColor={colors.faint} />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={first} onChangeText={setFirst} placeholder="First name (blank for one-name players)" placeholderTextColor={colors.faint} />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={last} onChangeText={setLast} placeholder="Last name" placeholderTextColor={colors.faint} />
       </Card>
       <Card>
         <H2>Ratings</H2>
@@ -81,7 +85,7 @@ export default function EditPlayer() {
         <Card>
           <H2>Club</H2>
           <T muted>Now: {clubId ? game.world.clubs[clubId]?.name : 'Free agent'}</T>
-          <TextInput style={inputStyle} value={clubQ} onChangeText={setClubQ} placeholder="Search for a new club" placeholderTextColor={colors.faint} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={clubQ} onChangeText={setClubQ} placeholder="Search for a new club" placeholderTextColor={colors.faint} />
           {clubs.map((c) => (
             <Pressable key={c.id} onPress={() => { setClubId(c.id); setClubQ(''); }} style={{ paddingVertical: 4 }}>
               <T style={{ color: colors.accent }}>{c.name}</T>
@@ -99,6 +103,7 @@ export default function EditPlayer() {
         onPress={() => {
           mutate((g) => editPlayer(g.world, p.id, { firstName: first, lastName: last, nationId: nation, position: pos, role, age, overall: ovr, potential: pot, clubId: isUser ? undefined : clubId }));
           showToast('Player updated.');
+          guard.allow();
           router.back();
         }}
       />

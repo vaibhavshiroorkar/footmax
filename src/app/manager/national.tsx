@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
 import { Button, Card, H2, Pill, Row, Screen, T, Tabs } from '../../ui/kit';
@@ -16,8 +16,14 @@ export default function National() {
   const mutate = useStore((s) => s.mutate);
   const [tab, setTab] = useState<Tab>('squad');
   const team = game ? managerNation(game) : null;
+  const rev = useStore((s) => s.rev);
+  const pool = useMemo(
+    () => (game && team ? nationalPool(game.world, team.nationId).sort((a, b) => overall(b) - overall(a)) : []),
+    // rev: the game changes in place, so its identity alone does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game, team, rev],
+  );
   if (!game || !team) return <Redirect href="/manager" />;
-  const pool = nationalPool(game.world, team.nationId).sort((a, b) => overall(b) - overall(a));
   const inSquad = new Set(team.playerIds);
 
   const toggle = (id: string) =>

@@ -63,7 +63,7 @@ function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: nu
             return (
               <View key={i} style={{ flex: 1, gap: 4 }}>
                 <View style={{ height: 6, borderRadius: 3, backgroundColor: got ? colors.gold : next && state === 'ready' ? alpha(colors.accent, 0.6) : colors.bgElev }} />
-                <Text style={{ fontFamily: fonts.body, fontSize: 10.5, color: got ? colors.gold : colors.faint }}>
+                <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: got ? colors.gold : colors.faint }}>
                   Lv {i + 1}  |  {ATTR_LABELS[s.attr]} {s.needs[i]}
                 </Text>
               </View>
@@ -101,11 +101,11 @@ export default function Skills() {
       <Card glow={ready.length || secondaryReady ? colors.accent : undefined}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <View>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, color: colors.muted, letterSpacing: 1.4 }}>LEVEL</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: colors.muted, letterSpacing: 1.4 }}>LEVEL</Text>
             <AnimatedNumber value={c.level} style={{ fontFamily: fonts.display, fontSize: 44, color: colors.text, lineHeight: 48 }} />
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, color: colors.muted, letterSpacing: 1.4 }}>SKILL POINTS</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: colors.muted, letterSpacing: 1.4 }}>SKILL POINTS</Text>
             <AnimatedNumber value={c.skillPoints} style={{ fontFamily: fonts.display, fontSize: 44, color: c.skillPoints ? colors.accent : colors.faint, lineHeight: 48 }} />
           </View>
         </Row>

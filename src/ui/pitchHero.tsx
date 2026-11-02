@@ -1,4 +1,6 @@
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { motionReduced } from '../state/settings';
 import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
@@ -7,16 +9,21 @@ import { colors } from './theme';
 // Mown-grass stripes with pitch markings, fading into the background.
 export function PitchHero({ children, height = 300 }: { children: ReactNode; height?: number }) {
   const drift = useState(() => new Animated.Value(0))[0];
-  useEffect(() => {
-    const loop = Animated.loop(
+  // Runs only while the screen is in front: on web, screens underneath stay
+  // mounted and would keep animating on the JS thread.
+  useFocusEffect(
+    useCallback(() => {
+      if (motionReduced()) return;
+      const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(drift, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
         Animated.timing(drift, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
       ]),
     );
-    loop.start();
-    return () => loop.stop();
-  }, [drift]);
+      loop.start();
+      return () => loop.stop();
+    }, [drift]),
+  );
   return (
     <View style={{ height, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: drift.interpolate({ inputRange: [0, 1], outputRange: [1.05, 1.12] }) }] }]}>

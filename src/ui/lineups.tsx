@@ -25,7 +25,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       const valueColor = started && !bench ? matchRatingColor(live.ratings[id] ?? 6) : ratingColor(overall(p));
       return (
         <Row key={id} gap={6} style={[{ paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8 }, me && { backgroundColor: alpha(colors.gold, 0.14) }]}>
-          <Text style={{ width: 28, fontFamily: fonts.bold, fontSize: 10.5, color: POSITION_COLORS[p.position] }}>{p.role ?? p.position}</Text>
+          <Text style={{ width: 28, fontFamily: fonts.bold, fontSize: 11.5, color: POSITION_COLORS[p.position] }}>{p.role ?? p.position}</Text>
           <Text style={{ flex: 1, fontFamily: me ? fonts.bold : fonts.medium, fontSize: 12.5, color: bench ? colors.muted : colors.text }} numberOfLines={1}>
             {shortName(p)}
           </Text>
@@ -43,13 +43,13 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
             <Text style={{ fontFamily: fonts.displayBold, fontSize: 15, color: colors.text }} numberOfLines={1}>
               {team.name}
             </Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.muted }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }}>
               {team.formation}  |  {live[side].style}
             </Text>
           </View>
         </Row>
         {ids.map((id) => row(id, false))}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.muted, letterSpacing: 1.1, marginTop: 6 }}>BENCH</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.muted, letterSpacing: 1.1, marginTop: 6 }}>BENCH</Text>
         {live[side].bench.map((id) => row(id, true))}
       </View>
     );
@@ -75,7 +75,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       </Row>
       {subs.length > 0 && (
         <View style={{ gap: 4, marginTop: 4 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.muted, letterSpacing: 1.1 }}>SUBSTITUTIONS</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.muted, letterSpacing: 1.1 }}>SUBSTITUTIONS</Text>
           {subs.map((e, i) => (
             <Row key={i} gap={8}>
               <Text style={{ width: 30, fontFamily: fonts.semibold, fontSize: 12, color: colors.muted }}>{`${e.minute}'`}</Text>

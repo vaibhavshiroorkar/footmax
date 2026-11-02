@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
 import { GrowthChart } from '../../ui/progressCards';
-import { Button, Card, H2, Row, Screen, T } from '../../ui/kit';
+import { Button, Card, ConfirmButton, H2, Row, Screen, T } from '../../ui/kit';
 import { AttributeList, potentialLabel } from '../../ui/attributes';
 import { HistoryTable } from '../../ui/careerSummary';
 import { avgRating, fullName, marketValue, formatMoney, overall } from '../../engine/player';
@@ -73,7 +73,7 @@ export default function Profile() {
           </T>
           <Row style={{ flexWrap: 'wrap' }}>
             <Button label="Ask for a raise" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'raise')))} />
-            <Button label="Ask to leave" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'move')))} />
+            <ConfirmButton label="Ask to leave" confirmLabel="Sure? Tap again" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'move')))} />
             <Button label="Ask for a loan" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'loan')))} />
           </Row>
           {reply && <T style={{ color: colors.gold }}>{reply}</T>}

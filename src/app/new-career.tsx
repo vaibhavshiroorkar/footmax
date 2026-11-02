@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { usePreventRemove, useRouter } from 'expo-router';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { useStore } from '../state/store';
 import { Badge, Button, Card, Choice, H2, Icon, Pill, Row, Screen, StatTile, T, Tabs, haptic, inputStyle } from '../ui/kit';
@@ -13,7 +13,7 @@ import { nationById } from '../engine/generator';
 import { ROLES, Role, rolesFor } from '../engine/roles';
 import { ATTR_LABELS, overall } from '../engine/player';
 import { Allocation, CELEBRATIONS, MAX_PER_ATTR, STAT_POINTS, STYLE_PRESETS, allocatable, applyAllocation, autoAllocate, pointsSpent, weakFootCost } from '../engine/creation';
-import { Build, Look, Position } from '../engine/types';
+import { Build, Look, Position, World } from '../engine/types';
 
 const STEPS = ['Identity', 'Nation', 'Position', 'Body', 'Stats', 'Look', 'Club'];
 const BUILDS: { key: Build; label: string; hint: string }[] = [
@@ -40,6 +40,9 @@ function Swatches({ list, value, onChange }: { list: string[]; value: number; on
       {list.map((c, i) => (
         <Pressable
           key={c}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: value === i }}
+          accessibilityLabel={`Colour ${i + 1}`}
           onPress={() => {
             haptic();
             onChange(i);
@@ -55,24 +58,35 @@ function Stepper({ value, onMinus, onPlus, label }: { value: string; onMinus: ()
   return (
     <Row gap={8}>
       {label && <T style={{ flex: 1 }}>{label}</T>}
-      <Pressable onPress={onMinus} style={stepBtn}>
+      <Pressable onPress={onMinus} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Less ${label ?? ''}`.trim()}>
         <Icon name="remove" size={16} />
       </Pressable>
       <Text style={{ minWidth: 54, textAlign: 'center', fontFamily: fonts.display, fontSize: 20, color: colors.text }}>{value}</Text>
-      <Pressable onPress={onPlus} style={stepBtn}>
+      <Pressable onPress={onPlus} style={stepBtn} accessibilityRole="button" accessibilityLabel={`More ${label ?? ''}`.trim()}>
         <Icon name="add" size={16} />
       </Pressable>
     </Row>
   );
 }
-const stepBtn = { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const };
+const stepBtn = { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.cardAlt, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center' as const, justifyContent: 'center' as const };
 
 export default function NewCareer() {
   const router = useRouter();
   const setGame = useStore((s) => s.startGame);
   const customPack = useStore((s) => s.customPack);
   const [usePack, setUsePack] = useState(false);
-  const world = useMemo(() => generateWorld(newSeed(), usePack && customPack ? customPack : undefined), [usePack, customPack]);
+  // The world takes a moment to build, so it is made after the first paint
+  // instead of freezing the screen on open.
+  const [world, setWorld] = useState<World | null>(null);
+  const pack = usePack && customPack ? customPack : undefined;
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => live && setWorld(generateWorld(newSeed(), pack)), 30);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [pack]);
   const [step, setStep] = useState(0);
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
@@ -105,8 +119,13 @@ export default function NewCareer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, height, build, alloc, weakFoot]);
   const ovr = attrs ? overall({ attrs, position: ROLES[role].broad, role }) : 0;
-  const clubs = useMemo(() => (step >= 6 ? starterClubs(world, nation) : []), [world, nation, step]);
-  const kit: [string, string] = clubId ? world.clubs[clubId].colors : nationById(world, nation)?.colors ?? ['#2f7bff', '#ffffff'];
+  const clubs = useMemo(() => (step >= 6 && world ? starterClubs(world, nation) : []), [world, nation, step]);
+  const kit: [string, string] = (world && clubId ? world.clubs[clubId]?.colors : undefined) ?? (world ? nationById(world, nation)?.colors : undefined) ?? ['#5b8cff', '#ffffff'];
+
+  // Leaving part-way loses every choice, so ask first.
+  const [leaving, setLeaving] = useState<{ repeat: () => void } | null>(null);
+  const started = step > 0 || first.trim().length > 0;
+  const allowLeave = usePreventRemove(started && !busy, ({ repeat }) => setLeaving({ repeat }));
 
   const applyStyle = (r: Role, id: string, wf = weakFoot) => {
     const preset = STYLE_PRESETS[r].find((s) => s.id === id) ?? STYLE_PRESETS[r][0];
@@ -133,6 +152,7 @@ export default function NewCareer() {
 
   const canNext = step === 0 ? first.trim().length > 0 && last.trim().length > 0 : step === 4 ? spent <= STAT_POINTS && !!attrs : true;
   const start = () => {
+    if (!world) return;
     setBusy(true);
     setTimeout(() => {
       const ok = setGame(
@@ -146,12 +166,33 @@ export default function NewCareer() {
         useStore.getState().showToast('All save slots are in use. Delete a save on the title screen first.', '/');
         return;
       }
+      allowLeave();
       router.replace('/career');
     }, 30);
   };
 
   return (
     <Screen title="New career">
+      {leaving && (
+        <Card glow={colors.gold}>
+          <H2>Leave the creator?</H2>
+          <T muted>Your player is not saved yet. Leaving now loses every choice.</T>
+          <Row>
+            <Button label="Keep going" variant="secondary" style={{ flex: 1 }} onPress={() => setLeaving(null)} />
+            <Button
+              label="Leave"
+              variant="danger"
+              style={{ flex: 1 }}
+              onPress={() => {
+                const go = leaving.repeat;
+                setLeaving(null);
+                allowLeave();
+                go();
+              }}
+            />
+          </Row>
+        </Card>
+      )}
       {/* Progress */}
       <View style={{ gap: 6 }}>
         <Row gap={4}>
@@ -170,9 +211,9 @@ export default function NewCareer() {
       {step === 0 && (
         <Card>
           <H2>Who are you?</H2>
-          <TextInput style={inputStyle} placeholder="First name" placeholderTextColor={colors.faint} value={first} onChangeText={setFirst} maxLength={16} />
-          <TextInput style={inputStyle} placeholder="Last name" placeholderTextColor={colors.faint} value={last} onChangeText={setLast} maxLength={18} />
-          <TextInput style={inputStyle} placeholder="Nickname (optional)" placeholderTextColor={colors.faint} value={nickname} onChangeText={setNickname} maxLength={16} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="First name" placeholderTextColor={colors.faint} value={first} onChangeText={setFirst} maxLength={16} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Last name" placeholderTextColor={colors.faint} value={last} onChangeText={setLast} maxLength={18} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Nickname (optional)" placeholderTextColor={colors.faint} value={nickname} onChangeText={setNickname} maxLength={16} />
           <Stepper label="Shirt number" value={String(number)} onMinus={() => setNumber(number <= 1 ? 99 : number - 1)} onPlus={() => setNumber(number >= 99 ? 1 : number + 1)} />
         </Card>
       )}
@@ -183,7 +224,8 @@ export default function NewCareer() {
           <T muted style={{ fontSize: 13 }}>
             You start at a smaller club in its league and can play for its national team.
           </T>
-          <NationPicker world={world} value={nation} onChange={(id) => { setNation(id); setClubId(null); }} />
+          {!world && <ActivityIndicator color={colors.accent} />}
+          {world && <NationPicker world={world} value={nation} onChange={(id) => { setNation(id); setClubId(null); }} />}
         </Card>
       )}
 
@@ -237,7 +279,7 @@ export default function NewCareer() {
           <T bold>Weak foot</T>
           <Row gap={6}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setWF(n)} hitSlop={6}>
+              <Pressable key={n} onPress={() => setWF(n)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Weak foot ${n} star${n > 1 ? 's' : ''}`} accessibilityState={{ selected: weakFoot === n }}>
                 <Icon name={n <= weakFoot ? 'star' : 'star-outline'} size={28} color={colors.gold} />
               </Pressable>
             ))}
@@ -284,10 +326,10 @@ export default function NewCareer() {
                     </View>
                   </View>
                   <Text style={{ width: 32, textAlign: 'right', fontFamily: fonts.display, fontSize: 18, color: ratingColor(attrs[k]) }}>{attrs[k]}</Text>
-                  <Pressable onPress={() => bump(k, -1)} style={stepBtn}>
+                  <Pressable onPress={() => bump(k, -1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Remove a point from ${ATTR_LABELS[k]}`}>
                     <Icon name="remove" size={14} />
                   </Pressable>
-                  <Pressable onPress={() => bump(k, 1)} style={stepBtn}>
+                  <Pressable onPress={() => bump(k, 1)} style={stepBtn} accessibilityRole="button" accessibilityLabel={`Add a point to ${ATTR_LABELS[k]}`}>
                     <Icon name="add" size={14} />
                   </Pressable>
                 </Row>
@@ -341,7 +383,7 @@ export default function NewCareer() {
                 </Text>
                 {nickname ? <T muted>{`"${nickname}"`}</T> : null}
                 <T muted style={{ fontSize: 12.5 }}>
-                  {ROLES[role].label}  |  {nationById(world, nation)?.name}  |  {height} cm, {build}  |  {foot === 'L' ? 'Left' : 'Right'} foot
+                  {ROLES[role].label}  |  {world ? nationById(world, nation)?.name : ''}  |  {height} cm, {build}  |  {foot === 'L' ? 'Left' : 'Right'} foot
                 </T>
               </View>
               <Text style={{ fontFamily: fonts.display, fontSize: 34, color: ratingColor(ovr) }}>{ovr}</Text>
@@ -350,11 +392,11 @@ export default function NewCareer() {
           <Card>
             <H2>Starter club</H2>
             <T muted style={{ fontSize: 13 }}>
-              {clubs.length ? `${leagueOf(world, clubs[0])?.name}. Leave it on random for a surprise.` : ''}
+              {clubs.length && world ? `${leagueOf(world, clubs[0])?.name}. Leave it on random for a surprise.` : ''}
             </T>
             <Choice active={clubId === null} label="Random" onPress={() => setClubId(null)} />
             {clubs.map((id) => {
-              const c = world.clubs[id];
+              const c = world!.clubs[id];
               const active = clubId === id;
               return (
                 <Pressable key={id} onPress={() => setClubId(id)} style={{ padding: 8, borderRadius: 10, borderWidth: 1, borderColor: active ? colors.accent : 'transparent', backgroundColor: active ? alpha(colors.accent, 0.08) : 'transparent' }}>
@@ -373,7 +415,12 @@ export default function NewCareer() {
           </Card>
           {customPack && (
             <Card>
-              <Choice active={usePack} label={`Use imported data pack: ${customPack.name}`} sub="Otherwise the built-in 2025/26 database is used." onPress={() => setUsePack(!usePack)} />
+              <Choice active={usePack} label={`Use imported data pack: ${customPack.name}`} sub="Otherwise the built-in 2025/26 database is used." onPress={() => {
+                // A different database has different clubs; the old pick would point at nothing.
+                setUsePack(!usePack);
+                setWorld(null);
+                setClubId(null);
+              }} />
             </Card>
           )}
         </>
@@ -384,7 +431,7 @@ export default function NewCareer() {
         {step < STEPS.length - 1 ? (
           <Button label="Next" icon="chevron-forward" style={{ flex: 2 }} disabled={!canNext} onPress={() => setStep(step + 1)} />
         ) : (
-          <Button label={busy ? 'Building the world...' : 'Start career'} icon="football" style={{ flex: 2 }} disabled={busy} onPress={start} />
+          <Button label={busy || !world ? 'Building the world...' : 'Start career'} icon="football" style={{ flex: 2 }} disabled={busy || !world} onPress={start} />
         )}
       </Row>
     </Screen>

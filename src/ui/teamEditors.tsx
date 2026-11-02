@@ -74,6 +74,7 @@ const STYLES: { key: Style; label: string; hint: string }[] = [
 
 export function TacticsEditor({ team }: { team: Club }) {
   const mutate = useStore((s) => s.mutate);
+  const [pendingFormation, setPendingFormation] = useState<Formation | null>(null);
   useGame();
   const lines = team.formation.split('-').map(Number);
   return (
@@ -99,15 +100,19 @@ export function TacticsEditor({ team }: { team: Club }) {
               active={team.formation === f}
               label={f}
               sub={`${FORMATIONS[f].DEF} DEF, ${FORMATIONS[f].MID} MID, ${FORMATIONS[f].FWD} FWD`}
-              onPress={() =>
+              onPress={() => {
+                // A hand-picked lineup is lost on a formation change; ask first.
+                if (team.lineup && pendingFormation !== f) return setPendingFormation(f);
+                setPendingFormation(null);
                 mutate(() => {
                   team.formation = f;
                   team.lineup = null;
-                })
-              }
+                });
+              }}
             />
           ))}
         </View>
+        {pendingFormation && <T style={{ fontSize: 12.5, color: colors.gold }}>Tap {pendingFormation} again to switch. Your hand-picked lineup will be replaced.</T>}
         <T muted style={{ fontSize: 12 }}>
           Changing formation resets the lineup to the best XI for the new shape.
         </T>

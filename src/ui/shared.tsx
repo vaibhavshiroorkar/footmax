@@ -10,7 +10,7 @@ import { actionMessages } from '../engine/alerts';
 import { teamById } from '../engine/lineup';
 import { INTERNATIONAL_BREAKS } from '../engine/international';
 import { useStore } from '../state/store';
-import { Badge, Button, Card, Icon, IconName, Pill, Row, T, haptic, inputStyle } from './kit';
+import { Badge, Button, Card, ConfirmButton, Icon, IconName, Pill, Row, T, haptic, inputStyle } from './kit';
 import { alpha, colors, fonts } from './theme';
 
 export function FixtureCard({ game, clubId }: { game: Game; clubId: string | null }) {
@@ -84,7 +84,7 @@ function TeamLabel({ name, club, tag }: { name: string; club: Parameters<typeof 
       <Text style={{ fontFamily: fonts.displayBold, fontSize: 17, color: colors.text, textAlign: 'center' }} numberOfLines={2}>
         {name}
       </Text>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.muted, letterSpacing: 1.2 }}>{tag}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 }}>{tag}</Text>
     </View>
   );
 }
@@ -118,7 +118,7 @@ export function MatchdayButton({ game }: { game: Game }) {
     return (
       <Row>
         <Button label={summer ? 'Next matchday' : 'Next week'} icon="play-forward" onPress={next} style={{ flex: 2 }} />
-        {summer && <Button label="Skip summer" icon="play-skip-forward" variant="secondary" style={{ flex: 1 }} onPress={() => feedback(mutate((g) => skipSummer(g)))} />}
+        {summer && <ConfirmButton label="Skip summer" confirmLabel="Sim all of it?" icon="play-skip-forward" variant="secondary" style={{ flex: 1 }} onPress={() => feedback(mutate((g) => skipSummer(g)))} />}
       </Row>
     );
   }
@@ -246,7 +246,7 @@ export function NationPicker({ world, value, onChange, includeMinor = false, all
   return (
     <View style={{ gap: 10 }}>
       <Row style={{ justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 10.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>{searching ? 'SEARCH' : '1. CONFEDERATION'}</Text>
+        <Text style={{ fontSize: 11.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>{searching ? 'SEARCH' : '1. CONFEDERATION'}</Text>
         <Pressable onPress={() => setSearching(!searching)} hitSlop={8}>
           <Row gap={4}>
             <Icon name={searching ? 'grid' : 'search'} size={14} color={colors.accent} />
@@ -255,7 +255,7 @@ export function NationPicker({ world, value, onChange, includeMinor = false, all
         </Pressable>
       </Row>
       {searching ? (
-        <TextInput autoFocus style={inputStyle} placeholder="Type a nation" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} autoFocus style={inputStyle} placeholder="Type a nation" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
       ) : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {confs.map((c) => {
@@ -270,13 +270,13 @@ export function NationPicker({ world, value, onChange, includeMinor = false, all
                 style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? alpha(colors.accent, 0.14) : colors.bgElev }}
               >
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.accent : colors.text }}>{c}</Text>
-                <Text style={{ fontFamily: fonts.body, fontSize: 10, color: colors.muted }}>{CONF_NAMES[c]}</Text>
+                <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted }}>{CONF_NAMES[c]}</Text>
               </Pressable>
             );
           })}
         </View>
       )}
-      {!searching && <Text style={{ fontSize: 10.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>2. NATION</Text>}
+      {!searching && <Text style={{ fontSize: 11.5, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 1.2 }}>2. NATION</Text>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {allowAny && (
           <Pressable onPress={() => pick('')} style={[nationTile, !value && nationTileActive]}>

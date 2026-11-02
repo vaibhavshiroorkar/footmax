@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
@@ -18,13 +18,19 @@ export default function Clubs() {
   const mutate = useStore((s) => s.mutate);
   const showToast = useStore((s) => s.showToast);
   const [showAll, setShowAll] = useState(false);
+  const rev = useStore((s) => s.rev);
+  const list = useMemo(
+    () => (game?.career ? interestedClubs(game, showAll ? 60 : 15) : []),
+    // rev: the game changes in place, so its identity alone does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game, showAll, rev],
+  );
   if (!game?.career) return <Redirect href="/" />;
   const p = game.world.players[game.career.playerId];
   const club = p.clubId ? game.world.clubs[p.clubId] : null;
   const trust = coachTrust(game);
   const form = formAverage(p);
   const blocked = canPitch(game);
-  const list = interestedClubs(game, showAll ? 60 : 15);
 
   return (
     <Screen title="Clubs">
@@ -74,7 +80,7 @@ export default function Clubs() {
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.display, fontSize: 22, color: interestColor(interest) }}>{interest}</Text>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 9, color: colors.muted }}>INTEREST</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>INTEREST</Text>
               </View>
             </Row>
             <Button label="Offer yourself" icon="paper-plane" small variant="secondary" disabled={!!blocked} onPress={() => showToast(mutate((g) => offerSelf(g, clubId)))} />

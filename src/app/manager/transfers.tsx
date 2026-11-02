@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { Button, Card, Pill, Row, Screen, T, Tabs, inputStyle } from '../../ui/kit';
+import { Button, Card, Pill, Row, Screen, T, Tabs, inputStyle, useDebounced } from '../../ui/kit';
 import { PlayerRow } from '../../ui/playerRow';
-import { colors } from '../../ui/theme';
+import { alpha, colors } from '../../ui/theme';
 import { managerClub } from '../../engine/manager';
 import { MarketFilter, inTransferWindow, interestIn, searchMarket } from '../../engine/transfers';
 import { formatMoney } from '../../engine/player';
@@ -31,7 +31,7 @@ const RATINGS = [undefined, 70, 75, 80, 85];
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? '#1b2614' : 'transparent' }}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: active }} style={{ paddingHorizontal: 12, minHeight: 40, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? alpha(colors.accent, 0.1) : 'transparent' }}>
       <T style={{ fontSize: 12, color: active ? colors.accent : colors.text }}>{label}</T>
     </Pressable>
   );
@@ -54,6 +54,7 @@ export default function Transfers() {
   const [showFilters, setShowFilters] = useState(false);
 
   const club = game ? managerClub(game) : null;
+  const query = useDebounced(text);
 
   const result = useMemo(() => {
     if (!game || !club) return { rows: [], total: 0 };
@@ -62,7 +63,7 @@ export default function Transfers() {
       game.world,
       club.id,
       {
-        text,
+        text: query,
         position: pos === 'ALL' ? undefined : pos,
         maxPrice: cap === -1 ? club.budget : cap,
         minAge: AGES[age].min,
@@ -79,7 +80,7 @@ export default function Transfers() {
     // rev re-runs the search after any transfer: the game is changed in
     // place, so the game object alone does not change identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game, club, rev, text, pos, price, age, minOvr, leagueId, nationId, listedOnly, sort, page]);
+  }, [game, club, rev, query, pos, price, age, minOvr, leagueId, nationId, listedOnly, sort, page]);
 
   if (!game || !club) return <Redirect href="/manager" />;
   const reset = () => setPage(0);
@@ -100,7 +101,7 @@ export default function Transfers() {
           Windows: weeks 1 to 5 and 19 to 22. Every player in the world is listed; stars ask for big wages to join smaller clubs.
         </T>
       </Card>
-      <TextInput style={inputStyle} placeholder="Search by name" placeholderTextColor={colors.faint} value={text} onChangeText={(t) => { setText(t); reset(); }} />
+      <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Search by name" placeholderTextColor={colors.faint} value={text} onChangeText={(t) => { setText(t); reset(); }} />
       <Tabs<PosFilter> tabs={(['ALL', 'GK', 'DEF', 'MID', 'FWD'] as const).map((k) => ({ key: k, label: k === 'ALL' ? 'All' : k }))} value={pos} onChange={(v) => { setPos(v); reset(); }} />
       <Button label={showFilters ? 'Hide filters' : 'Filters: price, age, rating, league, nation, sort'} icon={showFilters ? 'chevron-up' : 'options'} small variant="secondary" onPress={() => setShowFilters(!showFilters)} />
       {showFilters && (

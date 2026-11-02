@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensi
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore, useGame } from '../state/store';
-import { Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
+import { Badge, Button, Card, Choice, ConfirmButton, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { KeyMoment, MatchEvent, MatchState, SideKey, makeSub, possessionPct, resolveMoment, resumeFromHalf, simToEnd, stepMinute } from '../engine/match';
 import { finishUserMatch, markKickOff } from '../engine/game';
@@ -18,6 +18,7 @@ import { DribbleGame } from '../ui/moments/DribbleGame';
 import { LivePitch } from '../ui/livePitch';
 import { LineupsCard } from '../ui/lineups';
 import { SaveGame } from '../ui/moments/SaveGame';
+import { motionReduced, useSettings } from '../state/settings';
 
 const NATIVE = Platform.OS !== 'web';
 // 1x is slow enough to follow the ball on the live pitch.
@@ -38,9 +39,9 @@ export default function MatchScreen() {
   const setLive = useStore((s) => s.setLive);
   const celebrate = useStore((s) => s.celebrate);
   const feedback = useResultFeedback();
-  const [speed, setSpeed] = useState<SpeedKey>('1');
+  const [speed, setSpeed] = useState<SpeedKey>(() => useSettings.getState().matchSpeed);
   const [paused, setPaused] = useState(false);
-  const [autoMoments, setAutoMoments] = useState(false);
+  const [autoMoments, setAutoMoments] = useState(() => useSettings.getState().autoMoments);
   const [tab, setTab] = useState<'feed' | 'lineups' | 'stats'>('feed');
   const [showPitch, setShowPitch] = useState(true);
   const { width } = useWindowDimensions();
@@ -168,6 +169,9 @@ export default function MatchScreen() {
                     haptic();
                     setSpeed(s.key);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Speed ${s.label}`}
+                  accessibilityState={{ selected: speed === s.key }}
                   style={[styles.segBtn, speed === s.key && { backgroundColor: colors.accent }]}
                 >
                   <Text style={[styles.segText, speed === s.key && { color: colors.ink }]}>{s.label}</Text>
@@ -178,7 +182,7 @@ export default function MatchScreen() {
           </Row>
           <Choice active={showPitch} label="Show live pitch" sub="Watch the ball move between the two teams." onPress={() => setShowPitch(!showPitch)} />
           <Choice active={autoMoments} label="Auto-play key moments" sub="Let the sim handle the big chances for the rest of this match." onPress={() => setAutoMoments(!autoMoments)} />
-          <Button label="Skip to full time" icon="play-skip-forward" variant="secondary" small onPress={() => mutateLive((m, g) => simToEnd(g.world, m))} />
+          <ConfirmButton label="Skip to full time" confirmLabel="Sim the rest? Tap again" icon="play-skip-forward" variant="secondary" small onPress={() => mutateLive((m, g) => simToEnd(g.world, m))} />
         </Card>
       )}
 
@@ -215,11 +219,14 @@ export default function MatchScreen() {
 
 function Scoreboard({ game, live, home, away, flash }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value }) {
   const pulse = useState(() => new Animated.Value(0))[0];
+  // The live dot pulses only while the clock runs.
+  const ticking = !live.finished && !live.pausedAtHalf;
   useEffect(() => {
+    if (!ticking || motionReduced()) return;
     const loop = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: NATIVE }), Animated.timing(pulse, { toValue: 0, duration: 700, useNativeDriver: NATIVE })]));
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [pulse, ticking]);
   const [hp] = possessionPct(live);
   const clock = live.finished ? 'FULL TIME' : live.pausedAtHalf ? 'HALF TIME' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
   const scorers = (side: SideKey) =>
@@ -422,27 +429,40 @@ function eventIcon(e: MatchEvent): { icon: IconName; color: string } {
   }
 }
 
+// The feed shows the newest events first. Keys count from the start of the
+// match, so a new event adds one row instead of re-keying all of them, and
+// only the latest FEED_ROWS render until the player asks for the rest.
+const FEED_ROWS = 30;
+
+const FeedRow = React.memo(function FeedRow({ e, team }: { e: MatchEvent; team: Club | null }) {
+  const big = e.type === 'goal';
+  const { icon, color } = eventIcon(e);
+  return (
+    <Row style={[styles.event, big && { backgroundColor: alpha(colors.accent, 0.1), borderColor: alpha(colors.accent, 0.35) }]} gap={10}>
+      <Text style={styles.minute}>{`${e.minute}'`}</Text>
+      <View style={[styles.evIcon, { backgroundColor: alpha(color, 0.16) }]}>
+        <Icon name={icon} size={13} color={color} />
+      </View>
+      <Text style={[styles.evText, big && { fontFamily: fonts.bold, color: colors.text }, e.played && !big && { color: colors.blue }]}>
+        {team ? <Text style={{ color: colors.muted, fontFamily: fonts.semibold }}>{team.short}  </Text> : null}
+        {e.text}
+      </Text>
+    </Row>
+  );
+});
+
 function Feed({ game, live }: { game: Game; live: MatchState }) {
-  const events = [...live.events].reverse();
+  const [all, setAll] = useState(false);
+  const total = live.events.length;
+  const start = all ? 0 : Math.max(0, total - FEED_ROWS);
+  const rows: { e: MatchEvent; i: number }[] = [];
+  for (let i = total - 1; i >= start; i--) rows.push({ e: live.events[i], i });
   return (
     <Card>
-      {events.map((e, i) => {
-        const big = e.type === 'goal';
-        const { icon, color } = eventIcon(e);
-        const team = e.side ? teamById(game.world, live[e.side].clubId) : null;
-        return (
-          <Row key={i} style={[styles.event, big && { backgroundColor: alpha(colors.accent, 0.1), borderColor: alpha(colors.accent, 0.35) }]} gap={10}>
-            <Text style={styles.minute}>{`${e.minute}'`}</Text>
-            <View style={[styles.evIcon, { backgroundColor: alpha(color, 0.16) }]}>
-              <Icon name={icon} size={13} color={color} />
-            </View>
-            <Text style={[styles.evText, big && { fontFamily: fonts.bold, color: colors.text }, e.played && !big && { color: colors.blue }]}>
-              {team ? <Text style={{ color: colors.muted, fontFamily: fonts.semibold }}>{team.short}  </Text> : null}
-              {e.text}
-            </Text>
-          </Row>
-        );
-      })}
+      {rows.map(({ e, i }) => (
+        <FeedRow key={i} e={e} team={e.side ? teamById(game.world, live[e.side].clubId) : null} />
+      ))}
+      {start > 0 && <Button label={`Show ${start} earlier events`} small variant="ghost" onPress={() => setAll(true)} />}
     </Card>
   );
 }
@@ -512,18 +532,18 @@ const styles = StyleSheet.create({
   clock: { fontFamily: fonts.display, fontSize: 18, color: '#ffffff', letterSpacing: 1.5 },
   team: { alignItems: 'center', flex: 1, gap: 6 },
   teamName: { fontFamily: fonts.display, fontSize: 17, color: '#ffffff', textAlign: 'center', letterSpacing: 0.4, textTransform: 'uppercase' },
-  scorers: { fontFamily: fonts.body, fontSize: 10.5, color: colors.muted, textAlign: 'center' },
+  scorers: { fontFamily: fonts.body, fontSize: 11.5, color: colors.muted, textAlign: 'center' },
   score: { fontFamily: fonts.display, fontSize: 60, color: '#ffffff', lineHeight: 64, letterSpacing: 1, marginTop: 4, minWidth: 110, textAlign: 'center' },
-  possLabel: { fontFamily: fonts.semibold, fontSize: 10.5, color: colors.text, letterSpacing: 1 },
+  possLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.text, letterSpacing: 1 },
   possTrack: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 4, gap: 2 },
   segment: { backgroundColor: colors.bgElev, borderRadius: 12, padding: 3, borderWidth: 1, borderColor: colors.border },
-  segBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 },
+  segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
   segText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
   verdict: { fontFamily: fonts.display, fontSize: 40, letterSpacing: 2 },
   momentIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   momentTitle: { fontFamily: fonts.display, fontSize: 26, color: colors.accent, letterSpacing: 0.6, textTransform: 'uppercase' },
-  colHead: { fontFamily: fonts.bold, fontSize: 10.5, color: colors.muted, letterSpacing: 1.2 },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
+  colHead: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.muted, letterSpacing: 1.2 },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, minHeight: 44, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
   pos: { fontFamily: fonts.bold, fontSize: 11, width: 30 },
   event: { alignItems: 'flex-start', paddingVertical: 6, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
   minute: { width: 30, fontFamily: fonts.semibold, fontSize: 12, color: colors.muted, marginTop: 3 },

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGame } from '../state/store';
+import { useGame, useStore } from '../state/store';
 import { Card, H2, Icon, IconName, Row, Screen, T, Tabs } from '../ui/kit';
 import { alpha, colors, fonts, gradients } from '../ui/theme';
 import { AWARD_NAMES, computeAwards } from '../engine/awards';
@@ -15,10 +15,16 @@ export default function Awards() {
   const game = useGame();
   const [key, setKey] = useState<Key>('ballonDor');
   const [seasonIdx, setSeasonIdx] = useState(0);
+  const rev = useStore((s) => s.rev);
+  // Before the first ceremony, show the live race for this season.
+  const live = useMemo(
+    () => (game && game.world.phase === 'season' && game.world.week > 1 ? computeAwards(game, Math.max(1, Math.min(10, Math.floor(game.world.week * 0.3)))) : null),
+    // rev: the game changes in place, so its identity alone does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game, rev],
+  );
   if (!game) return <Redirect href="/" />;
   const past = game.world.awards ?? [];
-  // Before the first ceremony, show the live race for this season.
-  const live = game.world.phase === 'season' && game.world.week > 1 ? computeAwards(game, Math.max(1, Math.min(10, Math.floor(game.world.week * 0.3)))) : null;
   const options: { label: string; a: SeasonAwards; live: boolean }[] = [
     ...(live ? [{ label: `${live.season} race`, a: live, live: true }] : []),
     ...past.map((a) => ({ label: `${a.season}/${String(a.season + 1).slice(2)}`, a, live: false })),
@@ -32,7 +38,7 @@ export default function Awards() {
       <Tabs<Key> tabs={(Object.keys(AWARD_NAMES) as Key[]).map((k) => ({ key: k, label: AWARD_NAMES[k].replace('European ', '').replace(' Trophy', '') }))} value={key} onChange={setKey} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {options.map((o, i) => (
-          <Text key={o.label} onPress={() => setSeasonIdx(i)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, overflow: 'hidden', borderColor: i === seasonIdx ? colors.gold : colors.border, color: i === seasonIdx ? colors.ink : colors.muted, backgroundColor: i === seasonIdx ? colors.gold : colors.card, fontFamily: fonts.semibold, fontSize: 12 }}>
+          <Text key={o.label} onPress={() => setSeasonIdx(i)} accessibilityRole="button" accessibilityState={{ selected: i === seasonIdx }} style={{ paddingHorizontal: 12, paddingVertical: 11, borderRadius: 999, borderWidth: 1, overflow: 'hidden', borderColor: i === seasonIdx ? colors.gold : colors.border, color: i === seasonIdx ? colors.ink : colors.muted, backgroundColor: i === seasonIdx ? colors.gold : colors.card, fontFamily: fonts.semibold, fontSize: 12 }}>
             {o.label}
           </Text>
         ))}

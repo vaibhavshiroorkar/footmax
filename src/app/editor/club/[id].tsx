@@ -4,6 +4,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../../state/store';
 import { Badge, Button, Card, H2, Row, Screen, T, inputStyle } from '../../../ui/kit';
 import { colors } from '../../../ui/theme';
+import { useLeaveGuard } from '../../../ui/leaveGuard';
 import { editClub } from '../../../engine/editor';
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -20,11 +21,14 @@ export default function EditClub() {
   const [rep, setRep] = useState(club?.reputation ?? 50);
   const [c1, setC1] = useState(club?.colors[0] ?? '#ffffff');
   const [c2, setC2] = useState(club?.colors[1] ?? '#000000');
+  const dirty = !!club && (name !== club.name || short !== club.short || rep !== club.reputation || c1 !== club.colors[0] || c2 !== club.colors[1]);
+  const guard = useLeaveGuard(dirty);
   if (!game || !club) return <Redirect href="/editor" />;
   const preview = { ...club, name, short: short.toUpperCase(), colors: [HEX.test(c1) ? c1 : club.colors[0], HEX.test(c2) ? c2 : club.colors[1]] as [string, string] };
 
   return (
     <Screen title="Edit club">
+      {guard.card}
       <Card>
         <Row>
           <Badge club={preview} size={52} />
@@ -33,8 +37,8 @@ export default function EditClub() {
           </T>
         </Row>
         <H2>Name</H2>
-        <TextInput style={inputStyle} value={name} onChangeText={setName} placeholder="Club name" placeholderTextColor={colors.faint} />
-        <TextInput style={inputStyle} value={short} onChangeText={setShort} maxLength={4} placeholder="Short name (3-4 letters)" placeholderTextColor={colors.faint} />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={name} onChangeText={setName} placeholder="Club name" placeholderTextColor={colors.faint} />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={short} onChangeText={setShort} maxLength={4} placeholder="Short name (3-4 letters)" placeholderTextColor={colors.faint} />
       </Card>
       <Card>
         <H2>Reputation</H2>
@@ -51,8 +55,8 @@ export default function EditClub() {
         <Card>
           <H2>Colours</H2>
           <View style={{ gap: 6 }}>
-            <TextInput style={inputStyle} value={c1} onChangeText={setC1} placeholder="#rrggbb" placeholderTextColor={colors.faint} autoCapitalize="none" />
-            <TextInput style={inputStyle} value={c2} onChangeText={setC2} placeholder="#rrggbb" placeholderTextColor={colors.faint} autoCapitalize="none" />
+            <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={c1} onChangeText={setC1} placeholder="#rrggbb" placeholderTextColor={colors.faint} autoCapitalize="none" />
+            <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={c2} onChangeText={setC2} placeholder="#rrggbb" placeholderTextColor={colors.faint} autoCapitalize="none" />
           </View>
         </Card>
       )}
@@ -65,6 +69,7 @@ export default function EditClub() {
           }
           mutate((g) => editClub(g.world, club.id, { name, short, reputation: rep, colors: [c1, c2] }));
           showToast('Club updated.');
+          guard.allow();
           router.back();
         }}
       />

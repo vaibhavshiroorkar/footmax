@@ -35,7 +35,18 @@ export default function PlayerDetail() {
   const [confirmRelease, setConfirmRelease] = useState(false);
   if (!game) return <Redirect href="/" />;
   const p = game.world.players[id ?? ''];
-  if (!p) return <Redirect href="/" />;
+  // Players retire and are removed; an old link should say so, not bounce.
+  if (!p) {
+    return (
+      <Screen title="Player">
+        <Card>
+          <H2>Player not found</H2>
+          <T muted>This player has retired or left the game world.</T>
+          <Button label="Back" icon="chevron-back" variant="secondary" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+        </Card>
+      </Screen>
+    );
+  }
   const world = game.world;
   const ovr = overall(p);
   const club = p.clubId ? world.clubs[p.clubId] : null;
@@ -114,7 +125,7 @@ export default function PlayerDetail() {
               <T muted style={{ fontSize: 12 }}>
                 Their patience: {n.clubPatience}. Fee in thousands of dollars.
               </T>
-              <TextInput style={inputStyle} keyboardType="numeric" value={fee} onChangeText={(t) => setFee(t.replace(/[^0-9]/g, ''))} placeholder="Fee ($K)" placeholderTextColor={colors.faint} />
+              <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} keyboardType="numeric" value={fee} onChangeText={(t) => setFee(t.replace(/[^0-9]/g, ''))} placeholder="Fee ($K)" placeholderTextColor={colors.faint} />
               <Row style={{ flexWrap: 'wrap' }}>
                 <Button label="90%" small variant="secondary" onPress={() => setFee(k(ask * 0.9))} />
                 <Button label="Asking" small variant="secondary" onPress={() => setFee(k(ask))} />
@@ -148,7 +159,7 @@ export default function PlayerDetail() {
               <T muted style={{ fontSize: 12 }}>
                 {fullName(p)} wants about {formatMoney(n.askWage)} a week for {n.askYears} years. Patience: {n.playerPatience}.
               </T>
-              <TextInput style={inputStyle} keyboardType="numeric" value={wage} onChangeText={(t) => setWage(t.replace(/[^0-9]/g, ''))} placeholder="Weekly wage ($K)" placeholderTextColor={colors.faint} />
+              <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} keyboardType="numeric" value={wage} onChangeText={(t) => setWage(t.replace(/[^0-9]/g, ''))} placeholder="Weekly wage ($K)" placeholderTextColor={colors.faint} />
               <Row>
                 {[1, 2, 3, 4, 5].map((y) => (
                   <Button key={y} label={`${y} yr`} small variant={(years || n.askYears) === y ? 'primary' : 'secondary'} style={{ flex: 1 }} onPress={() => setYears(y)} />

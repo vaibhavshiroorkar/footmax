@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useGame, useStore } from '../../state/store';
-import { Badge, Button, Card, H2, Row, Screen, T, Tabs, inputStyle } from '../../ui/kit';
+import { Badge, Button, Card, H2, Row, Screen, T, Tabs, inputStyle, useDebounced } from '../../ui/kit';
 import { PlayerRow } from '../../ui/playerRow';
 import { colors } from '../../ui/theme';
 import { searchMarket } from '../../engine/transfers';
@@ -31,12 +31,13 @@ export default function Editor() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [parsed, setParsed] = useState<{ pack?: DataPack; error?: string } | null>(null);
 
-  const players = useMemo(() => (game && q.trim().length >= 2 ? searchMarket(game.world, null, { text: q }, 0, 40).rows : []), [game, q]);
+  const query = useDebounced(q);
+  const players = useMemo(() => (game && query.trim().length >= 2 ? searchMarket(game.world, null, { text: query }, 0, 40).rows : []), [game, query]);
   const clubs = useMemo(() => {
-    if (!game || q.trim().length < 2) return [];
-    const s = q.trim().toLowerCase();
+    if (!game || query.trim().length < 2) return [];
+    const s = query.trim().toLowerCase();
     return [...Object.values(game.world.clubs), ...Object.values(game.world.nationalTeams)].filter((c) => c.name.toLowerCase().includes(s)).slice(0, 40);
-  }, [game, q]);
+  }, [game, query]);
 
   const copy = async (pack: DataPack, label: string) => {
     await Clipboard.setStringAsync(JSON.stringify(pack, null, 1));
@@ -61,9 +62,10 @@ export default function Editor() {
       )}
       {tab === 'players' && game && (
         <>
-          <TextInput style={inputStyle} placeholder="Search players by name" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Search players by name" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
           <Card>
             {q.trim().length < 2 && <T muted>Type at least two letters.</T>}
+            {query.trim().length >= 2 && players.length === 0 && <T muted>No players match.</T>}
             {players.map(({ p }) => (
               <PlayerRow key={p.id} p={p} right="" note={p.clubId ? game.world.clubs[p.clubId]?.name : 'Free agent'} onPress={() => router.push(`/editor/player/${p.id}`)} />
             ))}
@@ -72,9 +74,10 @@ export default function Editor() {
       )}
       {tab === 'clubs' && game && (
         <>
-          <TextInput style={inputStyle} placeholder="Search clubs and national teams" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
+          <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Search clubs and national teams" placeholderTextColor={colors.faint} value={q} onChangeText={setQ} />
           <Card>
             {q.trim().length < 2 && <T muted>Type at least two letters.</T>}
+            {query.trim().length >= 2 && clubs.length === 0 && <T muted>No clubs match.</T>}
             {clubs.map((c) => (
               <Pressable key={c.id} onPress={() => router.push(`/editor/club/${c.id}`)} style={{ paddingVertical: 6 }}>
                 <Row>
@@ -129,7 +132,7 @@ export default function Editor() {
           </Card>
           <Card>
             <H2>Import</H2>
-            <TextInput
+            <TextInput keyboardAppearance="dark" selectionColor={colors.accent}
               style={[inputStyle, { minHeight: 120, textAlignVertical: 'top', fontSize: 12 }]}
               multiline
               placeholder="Paste a data pack (JSON) here"

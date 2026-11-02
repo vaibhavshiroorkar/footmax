@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { useGame } from '../state/store';
+import { useGame, useStore } from '../state/store';
 import { Card, Row, Screen, T, Tabs } from '../ui/kit';
-import { colors, fonts } from '../ui/theme';
+import { alpha, colors, fonts } from '../ui/theme';
 import { leagueOf, leagueTable } from '../engine/league';
 import { userClubId } from '../engine/season';
 import { squad } from '../engine/lineup';
@@ -16,10 +16,16 @@ export default function LeagueScreen() {
   const myClub = game ? userClubId(game) : null;
   const [leagueId, setLeagueId] = useState<string | null>(myClub && game ? leagueOf(game.world, myClub)?.id ?? null : null);
   const [tab, setTab] = useState<Tab>('table');
-  if (!game) return <Redirect href="/" />;
+  const rev = useStore((s) => s.rev);
+  const league = game ? game.world.leagues.find((l) => l.id === leagueId) ?? game.world.leagues[0] : null;
+  const table = useMemo(
+    () => (game && league ? leagueTable(league, game.world) : []),
+    // rev: the game changes in place, so its identity alone does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game, league, rev],
+  );
+  if (!game || !league) return <Redirect href="/" />;
   const world = game.world;
-  const league = world.leagues.find((l) => l.id === leagueId) ?? world.leagues[0];
-  const table = leagueTable(league, world);
   // Zones follow the real links between leagues.
   const up = league.parentId ? league.swap ?? 0 : 0;
   const down = world.leagues.find((l) => l.parentId === league.id)?.swap ?? 0;
@@ -29,7 +35,7 @@ export default function LeagueScreen() {
     <Screen title={league.name} nav={game.mode === 'manager' ? 'manager' : undefined}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {world.leagues.map((l) => (
-          <Pressable key={l.id} onPress={() => setLeagueId(l.id)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: l.id === league.id ? colors.accent : colors.card, borderWidth: 1, borderColor: l.id === league.id ? colors.accent : colors.border }}>
+          <Pressable key={l.id} onPress={() => setLeagueId(l.id)} accessibilityRole="button" accessibilityState={{ selected: l.id === league.id }} style={{ paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: 999, backgroundColor: l.id === league.id ? colors.accent : colors.card, borderWidth: 1, borderColor: l.id === league.id ? colors.accent : colors.border }}>
             <T bold style={{ fontSize: 12.5, color: l.id === league.id ? colors.ink : colors.muted }}>{l.name}</T>
           </Pressable>
         ))}
@@ -58,10 +64,15 @@ export default function LeagueScreen() {
             const c = world.clubs[r.clubId];
             const mine = r.clubId === myClub;
             const zone = i === 0 ? colors.gold : i >= table.length - down ? colors.red : i < up ? colors.accent : undefined;
+            // Zones also get a word, so they do not rely on colour alone.
+            const tag = i === 0 ? 'C' : i >= table.length - down ? 'R' : i < up ? 'P' : '';
             return (
-              <Row key={r.clubId} style={{ paddingVertical: 5, backgroundColor: mine ? '#123322' : undefined, borderRadius: 6 }}>
+              <Row key={r.clubId} style={{ paddingVertical: 5, backgroundColor: mine ? alpha(colors.accent, 0.1) : undefined, borderRadius: 6 }} accessibilityLabel={`${i + 1}. ${c.name}${tag === 'C' ? ', leaders' : tag === 'P' ? ', promotion place' : tag === 'R' ? ', relegation place' : ''}`}>
                 <T style={{ width: 24, fontSize: 13, color: zone ?? colors.text }}>{i + 1}</T>
-                <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: colors.text, fontFamily: mine ? fonts.bold : fonts.body }}>{c.name}</Text>
+                <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: colors.text, fontFamily: mine ? fonts.bold : fonts.body }}>
+                  {c.name}
+                  {tag ? <Text style={{ color: zone, fontFamily: fonts.semibold, fontSize: 11 }}>{`  ${tag}`}</Text> : null}
+                </Text>
                 {[r.played, r.won, r.drawn, r.lost, r.gd].map((v, j) => (
                   <T key={j} style={{ width: 28, fontSize: 13, textAlign: 'right' }}>
                     {v}
@@ -74,7 +85,7 @@ export default function LeagueScreen() {
             );
           })}
           <T muted style={{ fontSize: 11, marginTop: 6 }}>
-            {[up ? `Top ${up} promoted.` : '', down ? `Bottom ${down} relegated.` : ''].filter(Boolean).join(' ') || 'No promotion or relegation.'}
+            {['C = leaders.', up ? `P = promoted (top ${up}).` : '', down ? `R = relegated (bottom ${down}).` : ''].filter(Boolean).join(' ')}
           </T>
         </Card>
       )}
@@ -107,6 +118,7 @@ export default function LeagueScreen() {
       )}
       {tab === 'scorers' && (
         <Card>
+          {!league.clubIds.some((id) => squad(world, world.clubs[id]).some((p) => p.stats.goals > 0)) && <T muted>No goals yet this season.</T>}
           {league.clubIds
             .flatMap((id) => squad(world, world.clubs[id]))
             .filter((p) => p.stats.goals > 0)

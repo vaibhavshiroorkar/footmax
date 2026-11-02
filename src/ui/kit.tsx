@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect, useRef, useState, useId } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -10,12 +10,13 @@ import { alpha, colors, fonts, gradients, onColor, radius, shade, space } from '
 import { Club } from '../engine/types';
 import { useGame } from '../state/store';
 import { navBadges } from '../engine/alerts';
+import { hapticsOn, motionReduced } from '../state/settings';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const NATIVE = Platform.OS !== 'web';
 
 export function haptic(kind: 'light' | 'medium' | 'success' = 'light') {
-  if (!NATIVE) return;
+  if (!NATIVE || !hapticsOn()) return;
   try {
     if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     else Haptics.impactAsync(kind === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
@@ -39,11 +40,24 @@ export function Sticker({ icon, color, size = 40, solid }: { icon: IconName; col
 
 // Fades and slides a block in; index staggers lists.
 export function FadeIn({ children, index = 0, style }: { children: ReactNode; index?: number; style?: StyleProp<ViewStyle> }) {
-  const v = useState(() => new Animated.Value(0))[0];
+  // With reduced motion, content appears in place.
+  const v = useState(() => new Animated.Value(motionReduced() ? 1 : 0))[0];
   useEffect(() => {
+    if (motionReduced()) return;
     Animated.timing(v, { toValue: 1, duration: 420, delay: Math.min(index, 12) * 50, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE }).start();
   }, [v, index]);
   return <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>{children}</Animated.View>;
+}
+
+// The value, but only after it has stopped changing for `ms`. Searches
+// over thousands of players use it so typing stays smooth.
+export function useDebounced<T>(value: T, ms = 250): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return settled;
 }
 
 // Counts up (or down) to a new value.
@@ -101,18 +115,24 @@ function NavItem({ tab, active, onPress, badge }: { tab: (typeof CAREER_TABS)[nu
   }, [active, s]);
   const outline = `${tab.icon}-outline` as IconName;
   return (
-    <Pressable onPress={onPress} style={{ flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 8 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={badge ? `${tab.label}, ${badge} to do` : tab.label}
+      style={{ flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 8, minHeight: 52 }}
+    >
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: s.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }}>
         <View style={{ width: 54, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? alpha(tab.color, 0.14) : 'transparent' }}>
           <Icon name={active ? tab.icon : outline} size={21} color={active ? tab.color : colors.muted} />
         </View>
         {badge ? (
           <View style={{ position: 'absolute', top: -3, right: 6, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: colors.card }}>
-            <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 9 }}>{badge > 99 ? '99' : badge}</Text>
+            <Text style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 10 }}>{badge > 99 ? '99' : badge}</Text>
           </View>
         ) : null}
       </Animated.View>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: active ? colors.text : colors.muted, marginTop: 3 }}>{tab.label}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: active ? colors.text : colors.muted, marginTop: 3 }}>{tab.label}</Text>
     </Pressable>
   );
 }
@@ -169,13 +189,16 @@ export function Screen({ children, title, back = true, right, scroll = true, nav
           <View style={[styles.side, { alignItems: 'flex-end' }]}>{right}</View>
         </View>
       )}
-      {scroll ? (
-        <ScrollView contentContainerStyle={[styles.scroll, nav && { paddingBottom: 24 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {body}
-        </ScrollView>
-      ) : (
-        <View style={[styles.scroll, { flex: 1 }]}>{body}</View>
-      )}
+      {/* iOS does not move content out from under the keyboard by itself. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} enabled={Platform.OS === 'ios'}>
+        {scroll ? (
+          <ScrollView contentContainerStyle={[styles.scroll, nav && { paddingBottom: 24 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+            {body}
+          </ScrollView>
+        ) : (
+          <View style={[styles.scroll, { flex: 1 }]}>{body}</View>
+        )}
+      </KeyboardAvoidingView>
       {nav && <BottomNav mode={nav} />}
     </SafeAreaView>
   );
@@ -190,6 +213,7 @@ export function IconButton({ icon, onPress, label, color = colors.text }: { icon
       }}
       hitSlop={10}
       accessibilityLabel={label}
+      accessibilityRole="button"
       style={({ pressed }) => [styles.iconBtn, pressed && { transform: [{ scale: 0.9 }] }]}
     >
       <Icon name={icon} size={20} color={color} />
@@ -262,6 +286,9 @@ export function Button({ label, onPress, variant = 'primary', disabled, sub, sty
         onPressIn={() => to(1)}
         onPressOut={() => to(0)}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={sub ? `${label}. ${sub}` : label}
+        accessibilityState={{ disabled: !!disabled }}
         style={[styles.btn, small && styles.btnSmall, plain && styles.btnPlain, ghost && { backgroundColor: 'transparent' }, variant === 'primary' && !disabled && styles.btnGlow]}
       >
         {face && <LinearGradient colors={face as unknown as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: small ? 12 : radius.md }]} />}
@@ -277,8 +304,35 @@ export function Button({ label, onPress, variant = 'primary', disabled, sub, sty
   );
 }
 
-export function Row({ children, style, gap = space.sm }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) {
-  return <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>;
+// For big one-tap actions: the first tap arms it and changes the label,
+// the second tap within a few seconds does it.
+export function ConfirmButton({ confirmLabel = 'Tap again to confirm', onPress, label, variant, ...rest }: Parameters<typeof Button>[0] & { confirmLabel?: string }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3500);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <Button
+      {...rest}
+      label={armed ? confirmLabel : label}
+      variant={armed ? 'gold' : variant}
+      onPress={() => {
+        if (!armed) return setArmed(true);
+        setArmed(false);
+        onPress();
+      }}
+    />
+  );
+}
+
+export function Row({ children, style, gap = space.sm, accessibilityLabel }: { children: ReactNode; style?: StyleProp<ViewStyle>; gap?: number; accessibilityLabel?: string }) {
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]} accessible={!!accessibilityLabel} accessibilityLabel={accessibilityLabel}>
+      {children}
+    </View>
+  );
 }
 
 export function StatBar({ label, value, max = 100, color = colors.accent, right, icon, light }: { label: string; value: number; max?: number; color?: string; right?: string; icon?: IconName; light?: boolean }) {
@@ -367,7 +421,7 @@ export function RatingRing({ value, max = 99, size = 72, color = colors.accent, 
         <Circle cx={50} cy={50} r={r} stroke={light ? colors.accent : color} strokeWidth={7} fill="none" strokeDasharray={`${c * pct} ${c}`} strokeLinecap="round" transform="rotate(-90 50 50)" />
       </Svg>
       <AnimatedNumber value={value} style={{ fontFamily: fonts.display, fontSize: size * 0.4, color: colors.text, lineHeight: size * 0.44 }} />
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 8.5, color: light ? 'rgba(255,255,255,0.7)' : colors.muted, letterSpacing: 1.2 }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: light ? 'rgba(255,255,255,0.7)' : colors.muted, letterSpacing: 1.2 }}>{label}</Text>
     </View>
   );
 }
@@ -396,6 +450,8 @@ export function Tabs<K extends string>({ tabs, value, onChange }: { tabs: { key:
               haptic();
               onChange(t.key);
             }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             style={[styles.tab, active && { backgroundColor: colors.cardAlt, borderColor: colors.borderStrong }]}
           >
             <Text style={[styles.tabText, active && { color: colors.text }]} numberOfLines={1}>
@@ -415,6 +471,9 @@ export function Choice({ active, label, sub, onPress, half }: { active: boolean;
         haptic();
         onPress();
       }}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={sub ? `${label}. ${sub}` : label}
       style={({ pressed }) => [styles.choice, half && { minWidth: '45%', flexGrow: 1 }, active && styles.choiceActive, pressed && { transform: [{ scale: 0.97 }] }]}
     >
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -455,6 +514,8 @@ function toastIcon(text: string): { icon: IconName; color: string } {
 // A tappable toast. With href it is a call to action and tapping opens it.
 export function Toast({ text, href, onClose }: { text: string | null; href?: string; onClose: () => void }) {
   const router = useRouter();
+  // Sits above the tab bar and the home indicator on notched phones.
+  const insets = useSafeAreaInsets();
   const y = useState(() => new Animated.Value(140))[0];
   useEffect(() => {
     if (text) Animated.spring(y, { toValue: 0, useNativeDriver: NATIVE, friction: 8, tension: 90 }).start();
@@ -463,7 +524,7 @@ export function Toast({ text, href, onClose }: { text: string | null; href?: str
   if (!text) return null;
   const { icon, color } = href ? { icon: 'alert-circle' as IconName, color: colors.accent } : toastIcon(text);
   return (
-    <Animated.View style={[styles.toastWrap, { transform: [{ translateY: y }] }]}>
+    <Animated.View style={[styles.toastWrap, { bottom: 92 + insets.bottom, transform: [{ translateY: y }] }]}>
       <Pressable
         onPress={() => {
           onClose();
@@ -507,7 +568,7 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 4, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3, borderWidth: 1 },
   pillText: { fontSize: 11.5, fontFamily: fonts.medium },
   tabs: { backgroundColor: colors.card, borderRadius: radius.md, padding: 4, borderWidth: 1, borderColor: colors.border },
-  tab: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  tab: { flex: 1, paddingVertical: 8, minHeight: 40, justifyContent: 'center', borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
   tabText: { color: colors.muted, fontFamily: fonts.medium, fontSize: 13 },
   choice: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12, backgroundColor: colors.bgElev },
   choiceActive: { borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.07) },

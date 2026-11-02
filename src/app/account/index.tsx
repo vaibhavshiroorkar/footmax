@@ -59,7 +59,7 @@ export default function Account() {
         <T muted style={{ fontSize: 13 }}>
           Your username shows on leaderboards and your public profile. 3 to 20 characters: lowercase letters, numbers and _.
         </T>
-        <TextInput style={inputStyle} value={username} onChangeText={(t) => setName(t.toLowerCase().replace(/[^a-z0-9_]/g, ''))} maxLength={20} autoCapitalize="none" placeholder="username" placeholderTextColor={colors.muted} keyboardAppearance="dark" />
+        <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} value={username} onChangeText={(t) => setName(t.toLowerCase().replace(/[^a-z0-9_]/g, ''))} maxLength={20} autoCapitalize="none" placeholder="username" placeholderTextColor={colors.muted} />
         {error && <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.red }}>{error}</Text>}
         {changed && (
           <Button

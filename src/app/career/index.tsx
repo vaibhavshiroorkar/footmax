@@ -15,6 +15,7 @@ import { Avatar } from '../../ui/avatar';
 import { formAverage } from '../../engine/lineup';
 import { coachTrust, trustLabel } from '../../engine/relations';
 import { upgradeCount } from '../../engine/alerts';
+import { FirstRunTips } from '../../ui/firstRunTips';
 import { MilestonesPeek, ObjectivesCard, SeasonReview } from '../../ui/progressCards';
 
 export default function CareerHub() {
@@ -69,6 +70,7 @@ export default function CareerHub() {
         </TeamHero>
       </FadeIn>
 
+      <FirstRunTips />
       <SeasonReview game={game} />
 
       <FadeIn index={1}>
@@ -113,6 +115,7 @@ export default function CareerHub() {
             { label: 'Awards', sub: "Ballon d'Or race", href: '/awards', icon: 'medal', color: colors.gold },
             { label: 'Honours', sub: 'Trophy history', href: '/honours', icon: 'trophy', color: colors.purple },
             { label: 'Leaderboards', sub: 'Best careers online', href: '/leaderboards', icon: 'stats-chart', color: colors.accent },
+            { label: 'Settings', sub: 'Speed, motion, account', href: '/settings', icon: 'settings-outline', color: colors.muted },
           ]}
         />
       </FadeIn>

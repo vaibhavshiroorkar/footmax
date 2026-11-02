@@ -12,7 +12,7 @@ export const colors = {
   borderStrong: '#323d57',
   text: '#f1f4fa',
   muted: '#8b95ad',
-  faint: '#596380',
+  faint: '#7682a0',
   onBg: '#f1f4fa',
   onBgMuted: '#8b95ad',
   white: '#ffffff',

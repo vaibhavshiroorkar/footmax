@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Button, Icon, IconName, haptic } from './kit';
 import { alpha, colors, fonts } from './theme';
+import { motionReduced } from '../state/settings';
 
 const NATIVE = Platform.OS !== 'web';
 const CONFETTI = [colors.accent, colors.gold, colors.teal, colors.blue, colors.purple, '#ffffff'];
@@ -59,6 +60,7 @@ function Piece({ index, width, height }: { index: number; width: number; height:
 function Rays({ color }: { color: string }) {
   const spin = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
+    if (motionReduced()) return;
     const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 9000, easing: Easing.linear, useNativeDriver: NATIVE }));
     loop.start();
     return () => loop.stop();
@@ -98,7 +100,7 @@ export function Celebration({ data, onClose }: { data: CelebrationData | null; o
   if (!data) return null;
   return (
     <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(4,6,12,0.78)', alignItems: 'center', justifyContent: 'center' }]} onPress={onClose}>
-      {Array.from({ length: 50 }, (_, i) => (
+      {Array.from({ length: motionReduced() ? 0 : 50 }, (_, i) => (
         <Piece key={`${data.title}-${i}`} index={i} width={width} height={height} />
       ))}
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }, { rotate: pop.interpolate({ inputRange: [0, 1], outputRange: ['-8deg', '0deg'] }) }], opacity: pop }}>
