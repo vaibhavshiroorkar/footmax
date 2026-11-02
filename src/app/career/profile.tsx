@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { GrowthChart, MilestonesPeek } from '../../ui/progressCards';
+import { GrowthChart, MilestonesPeek, ObjectivesCard } from '../../ui/progressCards';
 import { LadderCard } from '../../ui/ladder';
 import { retire, squadStatus } from '../../engine/career';
 import { coachTrust, trustLabel } from '../../engine/relations';
@@ -41,6 +41,7 @@ export default function Profile() {
           <Pill label={`Fame ${Math.round(game.career.fame)}`} icon="flame" color={colors.pink} />
         </Row>
       </Card>
+      <ObjectivesCard game={game} />
       <MilestonesPeek game={game} />
       <GrowthChart game={game} />
       <Card>

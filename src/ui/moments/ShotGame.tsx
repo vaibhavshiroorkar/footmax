@@ -22,6 +22,8 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
 };
 const SWEET = [0.6, 0.85];
 const FLIGHT = 0.6;
+// Seconds for the power bar to fill.
+const RISE = 0.9;
 
 // Two taps: the first stops the aim marker, the second the power bar. Then
 // the ball flies and what you see is what counts: out of the keeper's reach
@@ -60,13 +62,21 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const flight = outside ? 0.85 : FLIGHT;
 
   const aimX = phase === 'aim' ? 0.5 + 0.62 * Math.sin(t * speed + setup.offset) : aim;
-  const power = phase === 'power' ? (Math.sin(t * 3.4 - Math.PI / 2) + 1) / 2 : shot?.power ?? 0;
+  // Power climbs fast once the aim is set; wait too long and he shoots at
+  // full power, which flies over the bar.
+  const power = phase === 'power' ? Math.min(1, t / RISE) : shot?.power ?? 0;
+  // In open play a defender closes in while you pick a spot.
+  const aimLimit = kind === 'shot' ? 2.2 + (composure / 99) * 1.2 : Infinity;
 
   const tap = () => {
     if (phase === 'aim') {
       setAim(aimX);
       setPhase('power');
-    } else if (phase === 'power') {
+    } else if (phase === 'power') fire(power);
+  };
+
+  const fire = (power: number) => {
+    {
       // No shot goes exactly where it was aimed. Better finishers stray less;
       // the weaker foot, distance and an overhit ball stray more.
       const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.03 : 0) + range * 0.1 + (power > sweet[1] ? 0.03 : 0);
@@ -86,6 +96,24 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       setPhase('flight');
     }
   };
+
+  // Out of time: tackled while aiming, or the power maxes out and he shoots.
+  const timedOut = useRef(false);
+  const tackled = () => {
+    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: setup.keeper });
+    setPhase('flight');
+  };
+  useEffect(() => {
+    if (timedOut.current) return;
+    // Deferred a tick so the state change happens outside the render pass.
+    if (phase === 'aim' && t > aimLimit) {
+      timedOut.current = true;
+      setTimeout(tackled, 0);
+    } else if (phase === 'power' && t >= RISE) {
+      timedOut.current = true;
+      setTimeout(() => fire(1), 0);
+    }
+  });
 
   // When the ball lands, show the result for a moment, then report it.
   const sent = useRef(false);
@@ -186,6 +214,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             </Text>
           </View>
         )}
+        {phase === 'aim' && aimLimit < Infinity && (
+          <View style={{ width: '100%', height: 4, backgroundColor: colors.bg, borderRadius: 2, overflow: 'hidden', marginTop: 6 }}>
+            <View style={{ width: `${Math.max(0, 1 - t / aimLimit) * 100}%`, height: 4, backgroundColor: t / aimLimit > 0.7 ? colors.red : colors.gold }} />
+          </View>
+        )}
         <View style={{ width: '100%', height: 18, backgroundColor: colors.bg, borderRadius: 9, overflow: 'hidden', marginTop: 8 }}>
           <View style={{ position: 'absolute', left: `${sweet[0] * 100}%`, width: `${(sweet[1] - sweet[0]) * 100}%`, top: 0, bottom: 0, backgroundColor: '#3ddc8455' }} />
           <View style={{ width: `${power * 100}%`, height: 18, backgroundColor: phase === 'aim' ? 'transparent' : colors.accent }} />
@@ -198,7 +231,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
                 ? `One on one! He is rushing out.${chip ? ' Overhit just past green to chip him.' : ''}`
                 : 'Tap to aim. The white line under the keeper is his reach.'
             : phase === 'power'
-              ? 'Tap again for power. Hit the green zone.'
+              ? 'Tap as the power hits the green!'
               : landed
                 ? shot?.text
                 : ' '}

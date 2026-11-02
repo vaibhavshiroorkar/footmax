@@ -86,11 +86,16 @@ moments to play, not a wall of information.
   - penalties and free kicks;
   - headers from crosses and corners;
   - passes picked on the pitch, where options light up as rings, safe to
-    dangerous, with a Shoot button too; a safe pass can come back as a
+    dangerous, with a Shoot button too; the ball goes to the mate you
+    picked (or is cut out on the way), and a safe pass can come back as a
     one-two;
   - dribbles, which use one of four games (read and go, skill combo,
     nutmeg timing, sprint) depending on the skill move picked;
   - tackles and saves.
+- **Shot timing:** the aim slides across the goal; tap to set it. In open
+  play a defender closes in, so wait too long and he takes the ball. Then
+  the power bar rises fast; tap in the green, or at the top it shoots
+  itself at full power and flies over.
 - **Shots are honest:** the shot strays from the aim by composure,
   shooting, weak foot, distance and power. Inside the keeper's reach
   (shown under him) it is saved and parried; out of reach and on target it
@@ -99,11 +104,12 @@ moments to play, not a wall of information.
   the buttons become Shoot, Pass and Take him on, usable anywhere. Off the
   ball they are calls: Call for it, Make a run, Track back (8 minutes
   each, 3 minutes rest).
-- **Screen:** one scoreboard row with speed (1x, 2x, 4x), pause and skip,
+- **Screen:** one scoreboard row with speed (1x, 2x, 4x), pause, sound and skip,
   scorers under it, the pitch, the action buttons, then Feed, Lineups and
   Stats. No pop-up after goals. Full time shows the rating, player of the
   match, XP (the bar fills from where it was), fame, win bonus and what
-  the match unlocked.
+  the match unlocked, and the table (five rows around the team, league or
+  tournament group) with the places moved. The pitch hides at full time.
 - **Managers** change approach and make substitutions at any time.
 - **Sound:** kicks, whistles, crowd, goal roar, groans, chimes
   (`scripts/makeSounds.py`), with a setting to turn it off.
@@ -118,11 +124,12 @@ contracts, board and federation confidence, sackings and job offers.
 
 - Bottom bar: More, Train, Play (the big middle button), Inbox, Me.
 - Play: player strip, rewards, next match with Play inside it, this
-  week's chips, the two closest season goals.
+  week's chips.
 - Train: every attribute first, then Training, Abilities and Moves tabs.
-- More: Life, Clubs, League, Internationals, Awards, Honours, Milestones,
+- More: Life, Clubs, League, Internationals, Awards, Honours,
   Leaderboards, Settings, and a locked legends store (names only).
-- Me: ladder, form and contract, milestones, growth, attributes, history.
+- Me: ladder, form and contract, season goals, milestones, growth,
+  attributes, history.
 - Notifications only appear when the player must act or can upgrade.
 
 ## Accounts and hosting

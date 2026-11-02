@@ -7,6 +7,8 @@ import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } fr
 import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, chooseMoment, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
+import { TableRow, leagueTable, tablePosition } from '../engine/league';
+import { groupTable } from '../engine/international';
 import { useResultFeedback } from '../ui/shared';
 import { formatMoney, fullName, shortName } from '../engine/player';
 import { Club, Game, MatchReward, Player, Style } from '../engine/types';
@@ -93,6 +95,12 @@ export default function MatchScreen() {
   // Manager mode: the touchline panel for changes holds the clock.
   const [changing, setChanging] = useState(false);
   const [skipArmed, setSkipArmed] = useState(false);
+  // League place before the match, so full time can show the move.
+  const [posBefore] = useState(() => {
+    const m = useStore.getState().live;
+    const g = useStore.getState().game;
+    return m && g ? tablePosition(g.world, m[userSide(g, m)].clubId) : 0;
+  });
   // On the ball in open play the buttons become shoot, pass and dribble.
   const [onBall, setOnBall] = useState(false);
   const simRef = useRef<PitchSim | null>(null);
@@ -133,10 +141,11 @@ export default function MatchScreen() {
 
   // The crowd murmurs while the ball is in play.
   const inPlay = kicked && !!live && !live.finished;
+  const soundOn = useSettings((st) => st.sound);
   useEffect(() => {
-    crowdAmbience(inPlay);
+    crowdAmbience(inPlay && soundOn);
     return () => crowdAmbience(false);
-  }, [inPlay]);
+  }, [inPlay, soundOn]);
 
   // A key moment opens when the move that led to it reaches the player.
   const momentOpen = !!pendingKey && (!watching || readyMoment === pendingKey);
@@ -245,6 +254,9 @@ export default function MatchScreen() {
               <Pressable onPress={() => setPaused(!paused)} accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'} style={[styles.ctl, paused && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
                 <Icon name={paused ? 'play' : 'pause'} size={16} color={paused ? colors.ink : colors.text} />
               </Pressable>
+              <Pressable onPress={() => useSettings.getState().set({ sound: !soundOn })} accessibilityRole="button" accessibilityLabel={soundOn ? 'Mute sound' : 'Turn sound on'} style={styles.ctl}>
+                <Icon name={soundOn ? 'volume-high' : 'volume-mute'} size={16} color={soundOn ? colors.text : colors.faint} />
+              </Pressable>
               <Pressable onPress={() => setSkipArmed(!skipArmed)} accessibilityRole="button" accessibilityLabel="Skip to full time" style={[styles.ctl, skipArmed && { borderColor: colors.gold }]}>
                 <Icon name="play-skip-forward" size={16} color={skipArmed ? colors.gold : colors.text} />
               </Pressable>
@@ -281,6 +293,8 @@ export default function MatchScreen() {
         </Card>
       )}
 
+      {/* At full time the result takes the pitch's place, so it all fits on one screen. */}
+      {!live.finished && (
       <LivePitch
         world={world}
         live={live}
@@ -297,6 +311,7 @@ export default function MatchScreen() {
         onBall={setOnBall}
         onSim={(sim) => (simRef.current = sim)}
       />
+      )}
       {/* Passing happens on the pitch: the options light up above, the cards sit here. */}
       {passing && live.pending && (
         <Card glow={colors.gold}>
@@ -355,7 +370,7 @@ export default function MatchScreen() {
       {live.pausedAtHalf && <HalfTimePanel game={game} live={live} side={mySide} />}
       {changing && !live.finished && <HalfTimePanel game={game} live={live} side={mySide} title="Touchline changes" doneLabel="Back to the game" onDone={() => setChanging(false)} />}
 
-      {live.finished && <FullTime game={game} live={live} verdict={verdict} reward={reward} onContinue={leave} />}
+      {live.finished && <FullTime game={game} live={live} verdict={verdict} reward={reward} onContinue={leave} posBefore={posBefore} />}
 
       {kicked && (
         <>
@@ -385,7 +400,7 @@ function verdictOf(game: Game, live: MatchState): 'WIN' | 'LOSS' | 'DRAW' {
 }
 
 // Full time: the result, then what it earned, counted up in place.
-function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; live: MatchState; verdict: 'WIN' | 'LOSS' | 'DRAW'; reward: MatchReward | null; onContinue: () => void }) {
+function FullTime({ game, live, verdict, reward, onContinue, posBefore }: { game: Game; live: MatchState; verdict: 'WIN' | 'LOSS' | 'DRAW'; reward: MatchReward | null; onContinue: () => void; posBefore: number }) {
   const color = verdict === 'WIN' ? colors.green : verdict === 'LOSS' ? colors.red : colors.gold;
   const pop = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
@@ -424,7 +439,7 @@ function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; liv
           <Row gap={8}>
             <Gain label="XP" value={reward.xp} color={colors.gold} icon="sparkles" />
             <Gain label="Fame" value={reward.fame} color={colors.pink} icon="flame" decimals={1} />
-            <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />
+            {reward.money > 0 && <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />}
           </Row>
           {c && <XpFill from={reward.xpBefore ?? c.xp} fromLevel={reward.levelBefore ?? c.level} to={c.xp} level={c.level} />}
           {reward.levels > 0 && c && (
@@ -434,7 +449,7 @@ function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; liv
               <Text style={styles.bannerSub}>+{reward.levels} skill point{reward.levels > 1 ? 's' : ''}</Text>
             </View>
           )}
-          {(reward.unlocks ?? []).slice(0, 3).map((u) => (
+          {(reward.unlocks ?? []).slice(0, 2).map((u) => (
             <Row key={u} gap={8} style={styles.unlock}>
               <Icon name="ribbon" size={16} color={colors.gold} />
               <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.text }}>{u}</Text>
@@ -451,6 +466,7 @@ function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; liv
           </T>
         </Row>
       )}
+      <MiniTable game={game} teamId={live[userSide(game, live)].clubId} before={posBefore} />
       <Button label="Continue" icon="arrow-forward" onPress={onContinue} />
     </Card>
   );
@@ -484,6 +500,76 @@ function XpFill({ from, fromLevel, to, level }: { from: number; fromLevel: numbe
       <View style={{ height: 12, borderRadius: 6, backgroundColor: colors.bgElev, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
         <Animated.View style={{ height: '100%', backgroundColor: colors.gold, width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
       </View>
+    </View>
+  );
+}
+
+// The table after the match: the rows around the user's team in the league,
+// or the group in a tournament. Five rows, one line each.
+function MiniTable({ game, teamId, before }: { game: Game; teamId: string; before: number }) {
+  const world = game.world;
+  const club = world.clubs[teamId];
+  const league = club?.leagueId ? world.leagues.find((l) => l.id === club.leagueId) : undefined;
+  let rows: TableRow[] = [];
+  let title = '';
+  if (league) {
+    rows = leagueTable(league, world);
+    title = league.name;
+  } else {
+    for (const t of world.tournaments) {
+      const group = t.groups.find((g) => g.includes(teamId));
+      if (group) {
+        rows = groupTable(world, t, group);
+        title = t.name;
+        break;
+      }
+    }
+  }
+  const at = rows.findIndex((r) => r.clubId === teamId);
+  if (at < 0) return null;
+  const start = Math.max(0, Math.min(rows.length - 5, at - 2));
+  const shown = rows.slice(start, start + 5);
+  const now = at + 1;
+  // Everyone starts level, so a move only means something from game two.
+  const moved = league && before && rows[at].played > 1 ? before - now : 0;
+  return (
+    <View style={{ gap: 4 }}>
+      <Row gap={8}>
+        <Text style={{ flex: 1, fontFamily: fonts.display, fontSize: 18, color: colors.text }} numberOfLines={1}>
+          {title}
+        </Text>
+        {moved !== 0 && (
+          <Row gap={2}>
+            <Icon name={moved > 0 ? 'arrow-up' : 'arrow-down'} size={14} color={moved > 0 ? colors.green : colors.red} />
+            <Text style={{ fontFamily: fonts.display, fontSize: 16, color: moved > 0 ? colors.green : colors.red }}>{Math.abs(moved)}</Text>
+          </Row>
+        )}
+      </Row>
+      <Row gap={8} style={{ paddingHorizontal: 8 }}>
+        <Text style={[styles.tblHead, { width: 22 }]}>#</Text>
+        <Text style={[styles.tblHead, { flex: 1 }]}>Team</Text>
+        <Text style={[styles.tblHead, styles.tblNum]}>P</Text>
+        <Text style={[styles.tblHead, styles.tblNum]}>GD</Text>
+        <Text style={[styles.tblHead, styles.tblNum]}>Pts</Text>
+      </Row>
+      {shown.map((r, i) => {
+        const me = r.clubId === teamId;
+        const team = teamById(world, r.clubId);
+        return (
+          <Row key={r.clubId} gap={8} style={[styles.tblRow, me && { backgroundColor: alpha(colors.accent, 0.14), borderColor: alpha(colors.accent, 0.5) }]}>
+            <Text style={[styles.tblCell, { width: 22, fontFamily: fonts.display, fontSize: 16 }]}>{start + i + 1}</Text>
+            <Row gap={6} style={{ flex: 1 }}>
+              <Badge club={team} size={18} />
+              <Text style={[styles.tblCell, { flex: 1 }, me && { fontFamily: fonts.bold }]} numberOfLines={1}>
+                {team.name}
+              </Text>
+            </Row>
+            <Text style={[styles.tblCell, styles.tblNum]}>{r.played}</Text>
+            <Text style={[styles.tblCell, styles.tblNum]}>{r.gd > 0 ? `+${r.gd}` : r.gd}</Text>
+            <Text style={[styles.tblCell, styles.tblNum, { fontFamily: fonts.bold }]}>{r.points}</Text>
+          </Row>
+        );
+      })}
     </View>
   );
 }
@@ -1047,6 +1133,10 @@ function Stats({ game, live, side }: { game: Game; live: MatchState; side: SideK
 }
 
 const styles = StyleSheet.create({
+  tblHead: { fontFamily: fonts.semibold, fontSize: 11, color: colors.faint, letterSpacing: 0.6 },
+  tblRow: { paddingVertical: 5, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
+  tblCell: { fontFamily: fonts.medium, fontSize: 13, color: colors.text },
+  tblNum: { width: 30, textAlign: 'right' },
   scorerLine: { flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.muted, lineHeight: 17 },
   ctl: { minWidth: 40, height: 34, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev, borderWidth: 1.5, borderColor: colors.borderStrong },
   ctlText: { fontFamily: fonts.display, fontSize: 17, color: colors.text },

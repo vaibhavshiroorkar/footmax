@@ -6,7 +6,7 @@ import { Button, Card, IconButton, Screen } from '../../ui/kit';
 import { colors, fonts } from '../../ui/theme';
 import { CareerSummary } from '../../ui/careerSummary';
 import { FirstRunTips } from '../../ui/firstRunTips';
-import { ObjectivesCard, SeasonReview } from '../../ui/progressCards';
+import { SeasonReview } from '../../ui/progressCards';
 import { ClaimCard, NextMatchCard, PlayerStrip, WeekChips } from '../../ui/playHub';
 
 export default function CareerHub() {
@@ -42,7 +42,6 @@ export default function CareerHub() {
       )}
       <NextMatchCard game={game} />
       <WeekChips game={game} />
-      <ObjectivesCard game={game} compact />
     </Screen>
   );
 }

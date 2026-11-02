@@ -6,7 +6,7 @@ import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
 import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
-import { PlayOutcome, PlayStart, PlayStep, addFinish, assignNumbers, buildPlay, nextStart, playSeed } from './play';
+import { PlayOutcome, PlayStart, PlayStep, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
 
 export type SideKey = 'home' | 'away';
 // 'choice' asks the user what to do (shoot, pass or dribble) before the
@@ -170,6 +170,9 @@ export interface MatchState {
   play?: PlayStep[];
   // Side that kicks off next, after a goal or at half time.
   kickoff?: SideKey;
+  // The pass the last pass moment played: who it was for and whether it
+  // arrived. The pitch draws exactly that pass.
+  lastPass?: { to: string; ok: boolean };
   // The career player's current call, and when the next one is allowed.
   shout?: { kind: ShoutKind; until: number };
   shoutReady?: number;
@@ -648,6 +651,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const passQ = played ? q : q * (target?.openness ?? 0.5);
       const ok = target && rng.chance(clamp(0.25 + 0.65 * passQ * skill(actor.attrs.passing) + 0.04 * lvl('playmaker'), 0.05, 0.95));
       const focused = actor.id === s.focus.playerId;
+      if (target) s.lastPass = { to: target.playerId, ok: !!ok };
       if (ok && target && target.kind === 'safe' && focused && (m.chain ?? 0) < 2) {
         // A one-two: the ball comes back and the user goes again, a little
         // further forward.
@@ -763,7 +767,32 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
   const lastShot = [...s.events.slice(from)].reverse().find((e) => e.type === 'goal' || e.type === 'save' || e.type === 'miss');
   const forward = attKey === 'home' ? 1 : -1;
   const defenders = s[defKey].onPitch.filter((id) => world.players[id]?.position !== 'GK');
-  if (s.pending) {
+  // Where the receiver of the user's pass stands: his slot, pushed up with
+  // the attack.
+  const pass = m.kind === 'pass' && s.lastPass && s[attKey].onPitch.includes(s.lastPass.to) ? s.lastPass : undefined;
+  s.lastPass = undefined;
+  const mateSpot = (id: string) => {
+    const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.6, lat: 0.5 };
+    return toPitch(attKey, { depth: Math.min(0.9, slot.depth + 0.22), lat: slot.lat });
+  };
+  if (pass) {
+    // The ball goes to the team-mate the user picked, whatever happens next.
+    const at = mateSpot(pass.to);
+    if (!pass.ok) {
+      // Cut out on its way to him.
+      const winner = defenders.length ? rng.pick(defenders) : null;
+      steps.push({ x: (start.x + at.x) / 2, y: (start.y + at.y) / 2, carrier: winner, side: defKey, act: 'win', other: holder });
+    } else if (s.pending) {
+      // A one-two: out to him and back, a little further up.
+      steps.push({ ...at, carrier: pass.to, side: attKey, act: 'pass' });
+      const back = { x: start.x + rng.range(-0.05, 0.05), y: start.y + forward * 0.08 };
+      steps.push({ ...back, carrier: m.actorId, side: attKey, act: 'pass' });
+      steps.push({ ...back, carrier: m.actorId, side: attKey, act: 'moment' });
+    } else {
+      steps.push({ ...at, carrier: pass.to, side: attKey, act: 'pass' });
+      if (result && lastShot?.playerId) addFinish(steps, rng, attKey, lastShot.playerId, result, playSide(world, s, defKey).keeperId);
+    }
+  } else if (s.pending) {
     // A beaten man: the run goes on and the user gets the shot.
     steps.push({ x: start.x + rng.range(-0.06, 0.06), y: start.y + forward * 0.06, carrier: m.actorId, side: attKey, act: 'run' });
     const last = steps[steps.length - 1];
