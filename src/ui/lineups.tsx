@@ -66,7 +66,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       {me && !started && (
         <Row gap={8} style={{ flexWrap: 'wrap' }}>
           <Pill label={starting ? 'You start' : live[mySide!].bench.includes(focusId!) ? 'On the bench' : 'Not in the squad'} icon={starting ? 'checkmark-circle' : 'time'} color={starting ? colors.accent : colors.gold} />
-          {form !== null && <Pill label={`Form ${form.toFixed(1)}`} icon="pulse" color={form >= 7 ? colors.accent : form < 6.2 ? colors.red : colors.gold} />}
+          {form !== null && <Pill label={`Form ${form.toFixed(1)}`} icon="pulse" color={form >= 7 ? colors.green : form < 6.2 ? colors.red : colors.gold} />}
         </Row>
       )}
       {me && !started && !starting && form !== null && form < 6.4 && <T muted style={{ fontSize: 12.5 }}>Poor recent form cost you your place. Play well when you come on.</T>}

@@ -61,7 +61,7 @@ export default function Life() {
           <Card key={item.id}>
             <Row style={{ justifyContent: 'space-between' }}>
               <T bold>{item.label}</T>
-              {owned ? <Pill label="Owned" color={colors.accent} /> : <T bold>{formatMoney(item.price)}</T>}
+              {owned ? <Pill label="Owned" color={colors.green} /> : <T bold>{formatMoney(item.price)}</T>}
             </Row>
             <T muted style={{ fontSize: 13 }}>
               {item.description}

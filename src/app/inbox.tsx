@@ -157,7 +157,7 @@ export default function Inbox() {
         ) : (
           <View style={{ alignItems: 'center', gap: 8, paddingVertical: 40 }}>
             <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: alpha(colors.accent, 0.12), alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="checkmark-done" size={30} color={colors.accent} />
+              <Icon name="checkmark-done" size={30} color={colors.green} />
             </View>
             <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, letterSpacing: 0.5, textTransform: 'uppercase' }}>All clear</Text>
             <T muted style={{ textAlign: 'center', fontSize: 13 }}>

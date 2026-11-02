@@ -57,7 +57,7 @@ export function PassPanel({ options, names, playmaker = 0, picked, onDone }: { o
   return (
     <View style={{ gap: 8 }}>
       <View style={{ height: 8, backgroundColor: colors.bg, borderRadius: 4, overflow: 'hidden' }}>
-        <View style={{ width: `${left * 100}%`, height: 8, backgroundColor: left > 0.3 ? colors.accent : colors.red }} />
+        <View style={{ width: `${left * 100}%`, height: 8, backgroundColor: left > 0.3 ? colors.green : colors.red }} />
       </View>
       <T bold style={{ textAlign: 'center' }}>
         {done ?? 'Tap a lit-up team-mate on the pitch, or pick below.'}

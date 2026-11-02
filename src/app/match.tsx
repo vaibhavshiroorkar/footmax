@@ -344,7 +344,7 @@ function verdictOf(game: Game, live: MatchState): 'WIN' | 'LOSS' | 'DRAW' {
 
 // Full time: the result, then what it earned, counted up in place.
 function FullTime({ game, live, verdict, reward, onContinue }: { game: Game; live: MatchState; verdict: 'WIN' | 'LOSS' | 'DRAW'; reward: MatchReward | null; onContinue: () => void }) {
-  const color = verdict === 'WIN' ? colors.accent : verdict === 'LOSS' ? colors.red : colors.gold;
+  const color = verdict === 'WIN' ? colors.green : verdict === 'LOSS' ? colors.red : colors.gold;
   const pop = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
     if (motionReduced()) pop.setValue(1);

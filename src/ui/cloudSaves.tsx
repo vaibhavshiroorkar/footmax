@@ -16,7 +16,7 @@ export function cloudStatus(m: SlotMeta, user: string | null, offline: boolean):
   if (m.cloudOnly) return { icon: 'cloud-download-outline', color: colors.blue, label: 'In the cloud' };
   if (m.remoteRev && m.remoteRev > (m.cloudRev ?? 0)) return { icon: 'cloud-download-outline', color: colors.blue, label: 'Newer copy in the cloud' };
   if (isDirty(m) || !m.cloudRev) return offline ? { icon: 'cloud-offline-outline', color: colors.muted, label: 'Waiting for connection' } : { icon: 'cloud-upload-outline', color: colors.muted, label: 'Syncing soon' };
-  return { icon: 'cloud-done-outline', color: colors.accent, label: 'Synced' };
+  return { icon: 'cloud-done-outline', color: colors.green, label: 'Synced' };
 }
 
 function ago(t: number | null): string {
@@ -73,7 +73,7 @@ export function CloudSavesCard() {
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>
           <Row gap={8}>
-            <Icon name={offline ? 'cloud-offline-outline' : 'cloud-done-outline'} size={20} color={offline ? colors.muted : colors.accent} />
+            <Icon name={offline ? 'cloud-offline-outline' : 'cloud-done-outline'} size={20} color={offline ? colors.muted : colors.green} />
             <H2>Cloud saves</H2>
           </Row>
           {busy && <ActivityIndicator color={colors.accent} size="small" />}

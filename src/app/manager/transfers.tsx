@@ -95,7 +95,7 @@ export default function Transfers() {
         </Row>
         <Row style={{ justifyContent: 'space-between' }}>
           <T muted>Window</T>
-          {inTransferWindow(game.world.week) ? <Pill label="Open" color={colors.accent} /> : <Pill label="Closed: free agents only" color={colors.red} />}
+          {inTransferWindow(game.world.week) ? <Pill label="Open" color={colors.green} /> : <Pill label="Closed: free agents only" color={colors.red} />}
         </Row>
         <T muted style={{ fontSize: 12 }}>
           Windows: weeks 1 to 5 and 19 to 22. Every player in the world is listed; stars ask for big wages to join smaller clubs.

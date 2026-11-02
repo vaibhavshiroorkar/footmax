@@ -52,7 +52,7 @@ export default function ManagerHub() {
       >
         {club ? (
           <Row gap={8}>
-            <StatTile light label="Budget" value={formatMoney(club.budget)} icon="wallet" color={club.budget < 0 ? colors.red : colors.accent} />
+            <StatTile light label="Budget" value={formatMoney(club.budget)} icon="wallet" color={club.budget < 0 ? colors.red : colors.green} />
             <StatTile light label="Wages/wk" value={formatMoney(wages)} icon="cash" color={colors.gold} />
             <StatTile light label="Income/wk" value={formatMoney(income)} icon="trending-up" color={colors.teal} />
           </Row>

@@ -181,12 +181,12 @@ export default function Train() {
           <RatingRing value={overall(p)} size={56} />
         </Row>
         <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
-        <Row gap={8}>
+        <Row gap={18}>
           <View style={{ flex: 1 }}>
             <StatBar label={`Energy  |  ${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left`} value={c.energy} color={colors.blue} />
           </View>
           <View style={{ flex: 1 }}>
-            <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.accent} />
+            <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />
           </View>
         </Row>
       </Card>

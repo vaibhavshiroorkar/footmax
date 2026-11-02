@@ -143,7 +143,7 @@ export function TimingGame({ onDone }: { onDone: Done }) {
       </View>
       <Row gap={6} style={{ justifyContent: 'center' }}>
         {Array.from({ length: ROUNDS }, (_, i) => (
-          <Icon key={i} name={i < scores.length ? (scores[i] >= 0.5 ? 'checkmark-circle' : 'close-circle') : 'ellipse-outline'} size={22} color={i < scores.length ? (scores[i] >= 0.5 ? colors.accent : colors.red) : colors.faint} />
+          <Icon key={i} name={i < scores.length ? (scores[i] >= 0.5 ? 'checkmark-circle' : 'close-circle') : 'ellipse-outline'} size={22} color={i < scores.length ? (scores[i] >= 0.5 ? colors.green : colors.red) : colors.faint} />
         ))}
       </Row>
       <Button label="Pass!" icon="send" onPress={tap} />
@@ -249,7 +249,7 @@ export function ReactGame({ onDone, keeper }: { onDone: Done; keeper?: boolean }
       </Row>
       <Row gap={6} style={{ justifyContent: 'center' }}>
         {Array.from({ length: ROUNDS }, (_, i) => (
-          <Icon key={i} name={i < scores.length ? (scores[i] >= 0.5 ? 'checkmark-circle' : 'close-circle') : 'ellipse-outline'} size={22} color={i < scores.length ? (scores[i] >= 0.5 ? colors.accent : colors.red) : colors.faint} />
+          <Icon key={i} name={i < scores.length ? (scores[i] >= 0.5 ? 'checkmark-circle' : 'close-circle') : 'ellipse-outline'} size={22} color={i < scores.length ? (scores[i] >= 0.5 ? colors.green : colors.red) : colors.faint} />
         ))}
       </Row>
     </View>

@@ -10,7 +10,7 @@ import { leagueOf } from '../../engine/league';
 import { targetOverall } from '../../engine/generator';
 
 function interestColor(v: number) {
-  return v >= 70 ? colors.accent : v >= 45 ? colors.gold : colors.red;
+  return v >= 70 ? colors.green : v >= 45 ? colors.gold : colors.red;
 }
 
 export default function Clubs() {

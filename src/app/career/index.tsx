@@ -63,7 +63,7 @@ export default function CareerHub() {
             {p.injuryWeeks > 0 && <Pill label={`Injured ${p.injuryWeeks}w`} icon="medkit" color={colors.red} solid />}
           </Row>
           <Row gap={8}>
-            <StatTile light label="Bank" value={formatMoney(c.money)} icon="wallet" color={colors.accent} />
+            <StatTile light label="Bank" value={formatMoney(c.money)} icon="wallet" color={colors.green} />
             <StatTile light label="Fame" value={String(Math.round(c.fame))} icon="flame" color={colors.pink} />
             <StatTile light label="Level" value={String(c.level)} icon="star" color={colors.gold} />
           </Row>
@@ -93,7 +93,7 @@ export default function CareerHub() {
       <FadeIn index={3}>
         <Card>
           <StatBar label="Energy this week" icon="battery-charging" value={c.energy} color={colors.blue} />
-          <StatBar label="Fitness" icon="pulse" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.accent} />
+          <StatBar label="Fitness" icon="pulse" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />
           <StatBar label="Morale" icon="happy" value={p.morale} color={colors.gold} />
           <Row style={{ justifyContent: 'space-between' }}>
             <T muted>Contract</T>

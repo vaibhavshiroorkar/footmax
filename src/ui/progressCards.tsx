@@ -38,7 +38,7 @@ export function ObjectivesCard({ game }: { game: Game }) {
           <FadeIn key={o.id} index={i}>
             <View style={{ gap: 2, opacity: o.done ? 0.65 : 1 }}>
               <Row gap={8}>
-                <Icon name={o.done ? 'checkmark-circle' : OBJ_ICONS[o.kind]} size={18} color={o.done ? colors.accent : colors.muted} />
+                <Icon name={o.done ? 'checkmark-circle' : OBJ_ICONS[o.kind]} size={18} color={o.done ? colors.green : colors.muted} />
                 <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.text, textDecorationLine: o.done ? 'line-through' : 'none' }}>{o.label}</Text>
                 <Pill label={`+${o.reward.xp} XP`} color={colors.purple} />
               </Row>

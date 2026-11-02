@@ -125,7 +125,7 @@ export default function NewCareer() {
     const out: Partial<Record<AttrKey, { text: string; color: string }>> = {};
     for (const k of ATTR_KEYS) {
       const d = Math.round((mine[k] ?? 0) - (base[k] ?? 0));
-      if (d) out[k] = { text: `${d > 0 ? '+' : ''}${d} body`, color: d > 0 ? colors.accent : colors.red };
+      if (d) out[k] = { text: `${d > 0 ? '+' : ''}${d} body`, color: d > 0 ? colors.green : colors.red };
     }
     return out;
   }, [height, build, role]);
