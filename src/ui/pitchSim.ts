@@ -164,6 +164,28 @@ export class PitchSim {
     this.queue.push(...steps);
   }
 
+  // Is the rest of this move quiet (no shot or key moment coming)? Only then
+  // may the user take over: a move heading for a shot already has a result.
+  quietAhead(): boolean {
+    const busy = (a: PlayStep['act']) => a === 'goal' || a === 'save' || a === 'miss' || a === 'moment' || a === 'cross';
+    if (this.act && busy(this.act.step.act)) return false;
+    return !this.queue.some((st) => busy(st.act));
+  }
+
+  // The user acts on the ball: drop the rest of the move and hold play
+  // around him while he decides.
+  takeOver(playerId: string) {
+    const b = this.bodies.get(playerId);
+    if (!b) return;
+    this.queue = [];
+    this.ball.owner = playerId;
+    this.ball.flight = null;
+    this.attacking = b.side;
+    this.act = { step: { x: this.ball.x / PW, y: this.ball.y / PL, carrier: playerId, side: b.side, act: 'moment' }, t: 0, stage: 0, wait: 0, from: playerId, tx: b.x, ty: b.y };
+    this.holding = true;
+    this.caption = 'Your call!';
+  }
+
   // Nothing left to show: the match can move on to the next minute.
   idle(): boolean {
     return !this.act && !this.queue.length && !this.celebrate && !this.holding;
@@ -288,7 +310,25 @@ export class PitchSim {
         let tx: number;
         let toward: number;
         let dive: number;
-        if (step.act === 'save') {
+        // The shooter faces the defending goal: for the home side (attacking
+        // up the pitch) his left post is at low x, for the away side at high x.
+        const aimX = step.aim === undefined ? undefined : PW / 2 + (step.aim - 0.5) * 2 * GOAL_HALF * (defSide === 'away' ? 1 : -1);
+        if (aimX !== undefined) {
+          tx = aimX;
+          if (step.act === 'save') {
+            // He gets to it: that is what a save is.
+            toward = lineY + inward * 0.9;
+            dive = tx;
+          } else if (step.act === 'goal') {
+            toward = lineY - inward * 1.6;
+            // Full stretch, a little short.
+            const gap = Math.abs(tx - kx);
+            dive = kx + Math.sign(tx - kx) * Math.max(0, gap - 1.4);
+          } else {
+            toward = lineY - inward * 2;
+            dive = kx + clamp(tx - kx, -0.8, 0.8);
+          }
+        } else if (step.act === 'save') {
           tx = clamp(kx + clamp(target.x - kx, -KEEPER_REACH * 0.8, KEEPER_REACH * 0.8), lo, hi);
           toward = lineY + inward * 0.9;
           dive = tx;
@@ -311,7 +351,10 @@ export class PitchSim {
         const fy = this.ball.y;
         const d = dist(fx, fy, tx, toward);
         this.ball.owner = null;
-        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur: Math.max(0.3, d / (step.header ? 17 : 27)), peak: step.header ? 0.6 : step.act === 'miss' && Math.random() < 0.4 ? 3.2 : 1.2 };
+        let dur = Math.max(0.3, d / (step.header ? 17 : 27));
+        // A save means he gets there, so the ball never beats his dive.
+        if (step.act === 'save' && keeper) dur = Math.max(dur, (dist(keeper.x, keeper.y, tx, lineY + inward * 0.7) / (keeper.top * 1.5)) * 1.25 + 0.1);
+        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur, peak: step.header ? 0.6 : step.act === 'miss' && Math.random() < 0.4 ? 3.2 : 1.2 };
         this.hooks.onSound?.('kick', 1);
         this.caption = step.header ? `${this.name(shooter?.id)} goes for the header!` : `${this.name(shooter?.id)} shoots!`;
         this.act.from = shooter?.id ?? null;

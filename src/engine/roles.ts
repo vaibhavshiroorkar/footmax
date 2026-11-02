@@ -1,4 +1,4 @@
-import { AttrKey, Position } from './types';
+import { AttrKey, Formation, Position } from './types';
 
 // Exact roles sit on top of the four broad positions. Lineups and team
 // strength still use the broad position; roles shape ratings, starting
@@ -66,3 +66,66 @@ export function rolesFor(broad: Position): Role[] {
 // Unlocked by career level.
 export const SECONDARY_ROLE_LEVEL = 6;
 export const SECONDARY_ROLE_COST = 2;
+
+// The named positions in each formation, one row per line from the back,
+// matching the formation string ("4-2-3-1" has four rows). Midfield wide
+// slots are LM/RM so they stay midfielders, as the lineup picks by line.
+export const FORMATION_SLOTS: Record<Formation, Role[][]> = {
+  '4-4-2': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['ST', 'ST'],
+  ],
+  '4-3-3': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CM', 'CDM', 'CM'],
+    ['LW', 'ST', 'RW'],
+  ],
+  '3-5-2': [
+    ['CB', 'CB', 'CB'],
+    ['LM', 'CM', 'CDM', 'CM', 'RM'],
+    ['ST', 'ST'],
+  ],
+  '4-2-3-1': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM', 'CDM'],
+    ['LW', 'CAM', 'RW'],
+    ['ST'],
+  ],
+};
+
+// How common each role is among generated players of a broad position.
+const ROLE_SHARE: Record<Position, [Role, number][]> = {
+  GK: [['GK', 1]],
+  DEF: [
+    ['CB', 5],
+    ['LB', 2],
+    ['RB', 2],
+    ['LWB', 0.5],
+    ['RWB', 0.5],
+  ],
+  MID: [
+    ['CM', 4],
+    ['CDM', 2],
+    ['CAM', 2],
+    ['LM', 1],
+    ['RM', 1],
+  ],
+  FWD: [
+    ['ST', 4],
+    ['LW', 2],
+    ['RW', 2],
+    ['CF', 1],
+  ],
+};
+
+// A role for a generated player of this broad position. r is 0..1.
+export function rollRole(position: Position, r: number): Role {
+  const list = ROLE_SHARE[position];
+  const total = list.reduce((s, [, w]) => s + w, 0);
+  let x = r * total;
+  for (const [role, w] of list) {
+    if ((x -= w) < 0) return role;
+  }
+  return list[0][0];
+}

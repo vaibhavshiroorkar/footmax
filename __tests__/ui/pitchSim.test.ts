@@ -1,9 +1,9 @@
 import { newCareerGame, startUserMatch } from '../../src/engine/game';
-import { MatchState, chooseMoment, resolveMoment, shout, stepMinute } from '../../src/engine/match';
+import { MatchState, chooseMoment, resolveMoment, shout, stepMinute, takeAction } from '../../src/engine/match';
 import { teamById } from '../../src/engine/lineup';
 import { PlayStep, formationSpots } from '../../src/engine/play';
 import { Game } from '../../src/engine/types';
-import { PL, PitchSim } from '../../src/ui/pitchSim';
+import { PL, PW, PitchSim } from '../../src/ui/pitchSim';
 
 // Plays a whole match through the pitch the way the match screen does:
 // a new minute only when the pitch is idle, each move queued once (by the
@@ -92,5 +92,52 @@ describe('live pitch', () => {
     expect(goals.length).toBeGreaterThan(0);
     for (const g of saves) expect(g.gap).toBeLessThan(1.5);
     for (const g of goals) expect(g.gap).toBeGreaterThan(1);
+  });
+});
+
+describe('aimed shots on the pitch', () => {
+  // The shooter's left post: low x when attacking up the pitch (home), high
+  // x when attacking down it (away).
+  const shoot = (side: 'home' | 'away', aim: number) => {
+    const sim = new PitchSim();
+    const spot = { depth: 0.5, lat: 0.5 };
+    sim.sync([
+      { id: 's', side, spot, pos: 'FWD', pace: 70, name: 's' },
+      { id: 'k', side: side === 'home' ? 'away' : 'home', spot: { depth: 0.04, lat: 0.5 }, pos: 'GK', pace: 50, name: 'k' },
+    ]);
+    sim.layout = 'play';
+    sim.ball.owner = 's';
+    sim.enqueue([{ x: 0.5, y: side === 'home' ? 1 : 0, carrier: null, side, act: 'goal', aim }]);
+    sim.update(0.01);
+    return sim.ball.flight!.tx;
+  };
+  it('goes to the side the user aimed, whichever way the team attacks', () => {
+    expect(shoot('home', 0.1)).toBeLessThan(PW / 2);
+    expect(shoot('home', 0.9)).toBeGreaterThan(PW / 2);
+    expect(shoot('away', 0.1)).toBeGreaterThan(PW / 2);
+    expect(shoot('away', 0.9)).toBeLessThan(PW / 2);
+  });
+});
+
+describe('acting on the ball', () => {
+  it('lets the user shoot, pass or dribble from where the ball is', () => {
+    const game: Game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 21 });
+    const s: MatchState = startUserMatch(game)!;
+    const me = game.career!.playerId;
+    const side = s.home.onPitch.includes(me) ? 'home' : s.away.onPitch.includes(me) ? 'away' : null;
+    if (!side) {
+      // On the bench: nothing to act on.
+      expect(takeAction(game.world, s, 'shot', { x: 0.5, y: 0.5 })).toBe(false);
+      return;
+    }
+    const far = side === 'home' ? 0.4 : 0.6;
+    expect(takeAction(game.world, s, 'shot', { x: 0.5, y: far })).toBe(true);
+    expect(s.pending?.kind).toBe('shot');
+    expect(s.pending?.view).toBe('outside');
+    expect(s.pending?.range).toBeGreaterThan(0.5);
+    resolveMoment(game.world, s, 0.5, undefined, undefined, 'miss', 1.3);
+    expect(s.pending).toBeNull();
+    expect(takeAction(game.world, s, 'pass', { x: 0.5, y: 0.5 })).toBe(true);
+    expect(s.pending?.options?.length).toBeGreaterThan(1);
   });
 });

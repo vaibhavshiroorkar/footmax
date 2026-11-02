@@ -11,14 +11,14 @@ import { claimReward, claimables } from '../src/engine/progress';
 
 const seasons = Number(process.argv[2] ?? 6);
 const game = newCareerGame({ firstName: 'Test', lastName: 'Player', nationId: 'ENG', position: 'FWD', seed: Number(process.argv[3] ?? 7) });
-// Two sessions a week use up the energy, as in the game. A real player
+// Three sessions a week use up the energy, as in the game. A real player
 // spreads them, so the probe cycles through the drills.
 const drills = ['finishing', 'technique', 'speed', 'playmaking'];
 let turn = 0;
 for (let s = 0; s < seasons; s++) {
   const season = game.world.season;
   while (game.world.season === season) {
-    for (let k = 0; k < 2; k++) train(game, drills[turn++ % drills.length]);
+    for (let k = 0; k < 3; k++) train(game, drills[turn++ % drills.length]);
     // Collect finished goals and milestones, as a player would.
     for (const r of claimables(game)) claimReward(game, r.kind, r.id);
     for (const sk of SKILLS) upgradeSkill(game, sk.id);

@@ -1,4 +1,6 @@
-import { ATTR_KEYS, Attributes, Game } from './types';
+import { ATTR_KEYS, Attributes, Game, Position } from './types';
+import { overall } from './player';
+import { rolesFor } from './roles';
 import { SAVE_VERSION } from './game';
 
 // Attributes are stored as arrays in ATTR_KEYS order, and floats keep one
@@ -14,7 +16,29 @@ export function serialize(game: Game): string {
 // Upgrades a parsed save one version at a time. The key is the version a
 // step upgrades FROM. Add a step whenever SAVE_VERSION goes up, so older
 // saves (local and cloud) keep loading instead of being thrown away.
-export const MIGRATIONS: Record<number, (g: Record<string, unknown>) => void> = {};
+export const MIGRATIONS: Record<number, (g: Record<string, unknown>) => void> = {
+  // 2 -> 3: every player gets an exact role (LB, CDM, RW...), so lineups and
+  // the pitch can put him in his position. The role is the one his
+  // attributes suit best; left and right sides are split evenly.
+  2: (g) => {
+    const world = g.world as { players: Record<string, { id: string; position: Position; role?: string; attrs: Attributes }> };
+    for (const p of Object.values(world.players)) {
+      if (p.role) continue;
+      const options = rolesFor(p.position);
+      const tie = [...p.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 2;
+      let best = options[0];
+      let top = -1;
+      for (const role of options) {
+        const v = overall({ attrs: p.attrs, position: p.position, role }) + (role.startsWith(tie ? 'R' : 'L') ? 0.01 : 0);
+        if (v > top) {
+          top = v;
+          best = role;
+        }
+      }
+      p.role = best;
+    }
+  },
+};
 
 export type LoadResult = { ok: true; game: Game } | { ok: false; error: 'corrupt' | 'too-new' };
 

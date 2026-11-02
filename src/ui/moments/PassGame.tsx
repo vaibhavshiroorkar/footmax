@@ -28,7 +28,8 @@ function Bars({ value, color }: { value: number; color: string }) {
 // The pass decision. The options also light up on the live pitch, where a
 // tap on a team-mate picks him (see LivePitch targets). Every option trades
 // safety against danger, and waiting lets the defence close the lanes.
-export function PassPanel({ options, names, playmaker = 0, picked, onDone }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; picked?: string | null; onDone: (q: number, text: string, playerId?: string) => void }) {
+// onShoot: forget the pass and have a go yourself.
+export function PassPanel({ options, names, playmaker = 0, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; picked?: string | null; onDone: (q: number, text: string, playerId?: string) => void; onShoot?: () => void }) {
   const LIMIT = BASE_LIMIT + 0.6 * playmaker;
   const [done, setDone] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -60,8 +61,21 @@ export function PassPanel({ options, names, playmaker = 0, picked, onDone }: { o
         <View style={{ width: `${left * 100}%`, height: 8, backgroundColor: left > 0.3 ? colors.green : colors.red }} />
       </View>
       <T bold style={{ textAlign: 'center' }}>
-        {done ?? 'Tap a lit-up team-mate on the pitch, or pick below.'}
+        {done ?? 'Tap a lit-up team-mate, or shoot yourself.'}
       </T>
+      {onShoot && !done && (
+        <Pressable
+          onPress={() => {
+            finished.current = true;
+            onShoot();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Shoot instead"
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, borderRadius: 12, backgroundColor: pressed ? colors.accentDark : colors.accent, borderBottomWidth: 4, borderBottomColor: '#5a7a22' })}
+        >
+          <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.ink }}>SHOOT</Text>
+        </Pressable>
+      )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {options.map((o) => {
           const kind = o.kind ?? 'square';

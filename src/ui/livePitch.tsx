@@ -125,24 +125,36 @@ export interface LivePitchProps {
   // Pass options to light up on the pitch, and what a tap on one does.
   targets?: Record<string, PitchTarget>;
   onTarget?: (id: string) => void;
+  // Tells the match whether the user's player has the ball in a quiet move,
+  // and hands over the pitch so the match can let him act on it.
+  onBall?: (has: boolean) => void;
+  onSim?: (sim: PitchSim) => void;
 }
 
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
-export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget }: LivePitchProps) {
+export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim }: LivePitchProps) {
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
   const sim = useState(() => new PitchSim())[0];
   const registry = useState<Registry>(() => new Map())[0];
-  const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10) }))[0];
+  // z is the ball's height: it lifts the ball off its shadow and grows it,
+  // and the shadow shrinks and fades, so a lob reads clearly against a pass
+  // along the ground.
+  const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10), z: new Animated.Value(0) }))[0];
   const [caption, setCaption] = useState(sim.caption);
   const [callout, setCallout] = useState<Callout | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   // Latest props for the frame loop, which is set up once.
-  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, width, h });
+  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h });
   useEffect(() => {
-    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, width, h };
+    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h };
   });
+  useEffect(() => {
+    onSim?.(sim);
+    // Handed over once; the sim lives as long as this pitch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim]);
 
   // Players on the pitch: who, where they stand in the shape, how fast.
   const ids = `${live.home.onPitch.join(',')}|${live.away.onPitch.join(',')}|${home.formation}|${away.formation}`;
@@ -196,6 +208,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let lastCaption = '';
     let lastCallout: Callout | null = null;
     let lastOwner: string | null = null;
+    let lastOnBall = false;
     const toScreen = (x: number, y: number) => {
       const { width: w, h: hh } = props.current;
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
@@ -213,8 +226,9 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       }
       const b = toScreen(sim.ball.x, sim.ball.y);
       ball.shadow.setValue(b);
-      ball.pos.setValue({ x: b.x, y: b.y - sim.ball.z * 2.2 });
-      ball.size.setValue(10 + sim.ball.z * 1.1);
+      ball.pos.setValue({ x: b.x, y: b.y - sim.ball.z * 5 });
+      ball.size.setValue(10 + sim.ball.z * 2.2);
+      ball.z.setValue(Math.min(1, sim.ball.z / 4));
       if (sim.caption !== lastCaption) {
         lastCaption = sim.caption;
         setCaption(sim.caption);
@@ -226,6 +240,11 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       if (sim.ball.owner !== lastOwner) {
         lastOwner = sim.ball.owner;
         setOwner(sim.ball.owner);
+      }
+      const onBallNow = !!p.focusId && sim.ball.owner === p.focusId && !sim.holding && sim.quietAhead() && sim.layout === 'play';
+      if (onBallNow !== lastOnBall) {
+        lastOnBall = onBallNow;
+        p.onBall?.(onBallNow);
       }
       // Ready for more: ask once per move.
       if (p.running && !p.paused && sim.idle() && !asked.current) {
@@ -293,7 +312,22 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           <Rect x={-2} y={PW / 2 - 3.66} width={2} height={7.32} fill="#ffffff" fillOpacity={0.25} stroke="#ffffff" strokeWidth={0.4} />
           <Rect x={PL} y={PW / 2 - 3.66} width={2} height={7.32} fill="#ffffff" fillOpacity={0.25} stroke="#ffffff" strokeWidth={0.4} />
         </Svg>
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ball.shadow.x, top: ball.shadow.y, width: 9, height: 5, marginLeft: -4.5, marginTop: -1, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.35)' }} />
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: ball.shadow.x,
+            top: ball.shadow.y,
+            width: 10,
+            height: 5,
+            marginLeft: -5,
+            marginTop: -1,
+            borderRadius: 4,
+            backgroundColor: '#000000',
+            opacity: ball.z.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.15] }),
+            transform: [{ scale: ball.z.interpolate({ inputRange: [0, 1], outputRange: [1, 0.55] }) }],
+          }}
+        />
         {dots}
         <Animated.View
           pointerEvents="none"

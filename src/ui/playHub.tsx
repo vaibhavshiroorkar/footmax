@@ -10,6 +10,7 @@ import { ordinal } from '../engine/manager';
 import { teamById } from '../engine/lineup';
 import { actionMessages, upgradeCount } from '../engine/alerts';
 import { drillsFor } from '../engine/career';
+import { coachTrust } from '../engine/relations';
 import { Avatar } from './avatar';
 import { Badge, Button, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
 import { Claimable, claimReward, claimables } from '../engine/progress';
@@ -62,6 +63,12 @@ export function PlayerStrip({ game }: { game: Game }) {
           </View>
           <RatingRing value={overall(p)} size={54} />
         </Row>
+        {club && (
+          <Row gap={12}>
+            <Mood label="Coach" value={coachTrust(game)} icon="person" />
+            <Mood label="Dressing room" value={dressingRoom(game)} icon="people" />
+          </Row>
+        )}
         <Row gap={10}>
           <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.gold }}>LV {c.level}</Text>
           <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
@@ -76,6 +83,36 @@ export function PlayerStrip({ game }: { game: Game }) {
         </Row>
       </Card>
     </Pressable>
+  );
+}
+
+// How happy the squad is: their average morale, 0 to 100. Wins lift it,
+// defeats sink it.
+export function dressingRoom(game: Game): number {
+  const p = game.world.players[game.career?.playerId ?? ''];
+  const club = p?.clubId ? game.world.clubs[p.clubId] : null;
+  if (!club) return 0;
+  const mates = club.playerIds.filter((id) => id !== p.id).map((id) => game.world.players[id]).filter(Boolean);
+  return mates.length ? Math.round(mates.reduce((s, m) => s + m.morale, 0) / mates.length) : 50;
+}
+
+// A small happiness bar with a face that changes with the mood.
+function Mood({ label, value, icon }: { label: string; value: number; icon: IconName }) {
+  const color = value >= 66 ? colors.green : value >= 40 ? colors.gold : colors.red;
+  const face: IconName = value >= 66 ? 'happy' : value >= 40 ? 'remove-circle' : 'sad';
+  return (
+    <View style={{ flex: 1, gap: 3 }} accessibilityLabel={`${label} ${value} out of 100`}>
+      <Row gap={5}>
+        <Icon name={icon} size={12} color={colors.muted} />
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
+          {label}
+        </Text>
+        <Icon name={face} size={14} color={color} />
+      </Row>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
+        <View style={{ width: `${value}%`, height: 6, backgroundColor: color }} />
+      </View>
+    </View>
   );
 }
 

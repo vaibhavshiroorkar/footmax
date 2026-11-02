@@ -15,7 +15,7 @@ import { ROLES, Role } from './roles';
 import { Allocation, STAT_POINTS, STYLE_PRESETS, applyAllocation, autoAllocate } from './creation';
 import { fairWage, fullName } from './player';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function newSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);

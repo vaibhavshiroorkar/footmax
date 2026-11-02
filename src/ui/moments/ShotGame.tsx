@@ -28,7 +28,8 @@ const FLIGHT = 0.6;
 // and on target is a goal, inside his reach is a save, too wide or too much
 // power misses.
 // shooting and weakFoot widen or narrow how far a shot strays from the aim.
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; onDone: (q: number, text: string, outcome: ShotOutcome) => void }) {
+// range: 0 at the edge of the box, 1 from a long way out.
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; onDone: (q: number, text: string, outcome: ShotOutcome, aim: number) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -55,7 +56,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const speed = 2 + (1 - composure / 99) * 2.4;
   // How far the keeper can get across, as a share of the goal's width. Out
   // at your feet in a one on one he covers more of it.
-  const reach = (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.35 : 1);
+  const reach = (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.35 : 1) * (1 + range * 0.5);
   const flight = outside ? 0.85 : FLIGHT;
 
   const aimX = phase === 'aim' ? 0.5 + 0.62 * Math.sin(t * speed + setup.offset) : aim;
@@ -68,7 +69,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     } else if (phase === 'power') {
       // No shot goes exactly where it was aimed. Better finishers stray less;
       // the weaker foot, distance and an overhit ball stray more.
-      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.03 : 0) + (power > sweet[1] ? 0.03 : 0);
+      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.03 : 0) + range * 0.1 + (power > sweet[1] ? 0.03 : 0);
       const x = aim + setup.stray * spread;
       const strayed = Math.abs(x - aim) > 0.06;
       // Two defenders shuffle across in front of a shot from distance.
@@ -91,7 +92,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   useEffect(() => {
     if (phase === 'flight' && shot && t >= flight && !sent.current) {
       sent.current = true;
-      setTimeout(() => onDone(shot.q, shot.text, shot.outcome), 1200);
+      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, shot.x), 1200);
     }
   });
 

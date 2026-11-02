@@ -79,6 +79,8 @@ export interface KeyMoment {
   chain?: number;
   // Where a shot or header comes from, for how the moment looks.
   view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
+  // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
+  range?: number;
 }
 
 export type EventType =
@@ -444,6 +446,34 @@ export function chooseMoment(world: World, s: MatchState, kind: MomentKind): voi
   s.rngState = rng.state;
 }
 
+// The user's player has the ball on the live pitch and acts on his own:
+// shoot from wherever he is, pick a pass, or take his man on. ball is where
+// the pitch shows the ball, so the moment starts from there.
+export function takeAction(world: World, s: MatchState, kind: 'shot' | 'pass' | 'dribble', ball: { x: number; y: number }): boolean {
+  const id = s.focus.playerId;
+  if (!id || s.pending || s.finished || s.pausedAtHalf) return false;
+  const side: SideKey | null = s.home.onPitch.includes(id) ? 'home' : s.away.onPitch.includes(id) ? 'away' : null;
+  if (!side) return false;
+  const rng = new Rng(s.rngState);
+  s.ball = { x: clamp(ball.x, 0, 1), y: clamp(ball.y, 0, 1) };
+  const depth = side === 'home' ? s.ball.y : 1 - s.ball.y;
+  const base = { side, minute: s.minute, keeperId: keeperOf(world, s[other(side)]).id, actorId: id, bonus: 0 };
+  if (kind === 'pass') s.pending = { ...base, kind: 'pass', options: passOptions(rng, world, s, side, id) };
+  else if (kind === 'dribble') s.pending = { ...base, kind: 'dribble' };
+  else s.pending = { ...base, kind: 'shot', view: depth > 0.82 ? 'box' : 'outside', range: clamp((0.82 - depth) / 0.4, 0, 1) };
+  s.rngState = rng.state;
+  return true;
+}
+
+// The user turns down every pass and shoots: from the box if he is in it,
+// from distance if not.
+export function shootInstead(s: MatchState): void {
+  const m = s.pending;
+  if (!m || m.kind !== 'pass') return;
+  const depth = m.side === 'home' ? s.ball.y : 1 - s.ball.y;
+  s.pending = { ...m, kind: 'shot', options: undefined, assistId: undefined, view: depth > 0.8 ? 'box' : 'outside' };
+}
+
 // What the sim would do with a choice: the option that suits the player.
 function autoChoice(world: World, m: KeyMoment): MomentKind {
   const p = world.players[m.actorId];
@@ -487,7 +517,9 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
 // moveId: the skill move the user picked for a dribble moment. forced: what
 // the user's shot actually did in the shot game (goal, save or miss); the
 // match then shows and counts exactly that.
-export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
+// aim: where the user's shot went across the goal (see PlayStep.aim), so the
+// pitch shows the ball going exactly there.
+export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', aim?: number): void {
   let m = s.pending;
   if (!m) return;
   if (m.kind === 'choice') {
@@ -497,7 +529,7 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   s.pending = null;
   const from = s.events.length;
   resolveMomentInner(world, s, m, quality, chosenPlayerId, moveId, forced);
-  visualizeMoment(world, s, m, from);
+  visualizeMoment(world, s, m, from, aim);
 }
 
 function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
@@ -719,7 +751,7 @@ function visualize(world: World, s: MatchState, attKey: SideKey, from: PlayStart
 }
 
 // After a key moment: how it played out on the pitch.
-function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number) {
+function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number, aim?: number) {
   if (!s.visual) return;
   const rng = new Rng(playSeed(s.rngState, s.minute, s.events.length + 1));
   const start = { ...s.ball };
@@ -741,7 +773,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     if (shooter !== holder && s[attKey].onPitch.includes(shooter)) {
       steps.push({ x: 0.5 + rng.range(-0.14, 0.14), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: m.kind === 'pass' ? 'pass' : 'cross' });
     }
-    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header');
+    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header', shooter === m.actorId ? aim : undefined);
   } else if (m.kind === 'tackle') {
     // The user's own tackle: won cleanly.
     steps.push({ x: start.x + rng.range(-0.03, 0.03), y: start.y - forward * 0.03, carrier: m.actorId, side: defKey, act: 'tackle', other: holder });

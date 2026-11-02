@@ -2,7 +2,8 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { Game } from '../engine/types';
 import { MatchState, SideKey } from '../engine/match';
-import { POSITIONS, formAverage, teamById } from '../engine/lineup';
+import { formAverage, teamById } from '../engine/lineup';
+import { assignSlots } from '../engine/play';
 import { overall, shortName } from '../engine/player';
 import { Badge, Card, Icon, Pill, Row, T } from './kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, ratingColor } from './theme';
@@ -16,7 +17,9 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
 
   const column = (side: SideKey) => {
     const team = teamById(game.world, live[side].clubId);
-    const ids = [...live[side].onPitch].sort((a, b) => POSITIONS.indexOf(P[a].position) - POSITIONS.indexOf(P[b].position));
+    // The XI in formation order: keeper, then each line from the back, left to right.
+    const slots = assignSlots(game.world, team, live[side].onPitch);
+    const ids = [...live[side].onPitch].sort((a, b) => (slots[a]?.depth ?? 0.5) - (slots[b]?.depth ?? 0.5) || (slots[a]?.lat ?? 0.5) - (slots[b]?.lat ?? 0.5));
     const row = (id: string, bench: boolean) => {
       const p = P[id];
       const me = id === focusId;
@@ -26,7 +29,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       return (
         <Row key={id} gap={6} style={[{ paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8 }, me && { backgroundColor: alpha(colors.gold, 0.14) }]}>
           <Text style={{ width: 22, textAlign: 'right', fontFamily: fonts.display, fontSize: 15, color: me ? colors.gold : colors.muted }}>{live.numbers?.[id] ?? ''}</Text>
-          <Text style={{ width: 28, fontFamily: fonts.bold, fontSize: 11.5, color: POSITION_COLORS[p.position] }}>{p.role ?? p.position}</Text>
+          <Text style={{ width: 34, fontFamily: fonts.bold, fontSize: 11.5, color: POSITION_COLORS[p.position] }}>{(!bench && slots[id]?.role) || p.role || p.position}</Text>
           <Text style={{ flex: 1, fontFamily: me ? fonts.bold : fonts.medium, fontSize: 12.5, color: bench ? colors.muted : colors.text }} numberOfLines={1}>
             {shortName(p)}
           </Text>

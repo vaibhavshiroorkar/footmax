@@ -69,7 +69,7 @@ export default function PlayerDetail() {
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>
           <T muted>
-            {p.position}, age {p.age}, {nationById(world, p.nationId)?.name}
+            {p.role ?? p.position}, age {p.age}, {nationById(world, p.nationId)?.name}
           </T>
           <T bold style={{ fontSize: 24 }}>
             {ovr}

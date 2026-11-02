@@ -28,7 +28,7 @@ export function PlayerRow({ p, onPress, selected, right, note }: { p: Player; on
     >
       <Row gap={10}>
         <View style={{ width: 38, paddingVertical: 4, borderRadius: 8, backgroundColor: alpha(posColor, 0.15), alignItems: 'center' }}>
-          <Text style={{ color: posColor, fontFamily: fonts.bold, fontSize: 11 }}>{p.position}</Text>
+          <Text style={{ color: posColor, fontFamily: fonts.bold, fontSize: 11 }}>{p.role ?? p.position}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Row gap={5}>

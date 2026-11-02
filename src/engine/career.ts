@@ -17,15 +17,14 @@ export interface Drill {
   energy: number;
 }
 
-// Two sessions a week, each worth a lot, instead of four small ones: fewer
-// taps for the same growth, and every session lands a visible point.
+// Three sessions a week (84 of the 100 energy), leaving room for a rest day.
 export const DRILLS: Drill[] = [
-  { id: 'finishing', label: 'Finishing', attrs: ['shooting', 'composure'], energy: 40 },
-  { id: 'speed', label: 'Sprints and gym', attrs: ['pace', 'physical'], energy: 40 },
-  { id: 'playmaking', label: 'Passing patterns', attrs: ['passing', 'vision'], energy: 40 },
-  { id: 'technique', label: 'Ball mastery', attrs: ['dribbling', 'composure'], energy: 40 },
-  { id: 'defending', label: 'Defensive shape', attrs: ['defending', 'physical'], energy: 40 },
-  { id: 'keeping', label: 'Goalkeeping', attrs: ['goalkeeping', 'composure'], energy: 40 },
+  { id: 'finishing', label: 'Finishing', attrs: ['shooting', 'composure'], energy: 28 },
+  { id: 'speed', label: 'Sprints and gym', attrs: ['pace', 'physical'], energy: 28 },
+  { id: 'playmaking', label: 'Passing patterns', attrs: ['passing', 'vision'], energy: 28 },
+  { id: 'technique', label: 'Ball mastery', attrs: ['dribbling', 'composure'], energy: 28 },
+  { id: 'defending', label: 'Defensive shape', attrs: ['defending', 'physical'], energy: 28 },
+  { id: 'keeping', label: 'Goalkeeping', attrs: ['goalkeeping', 'composure'], energy: 28 },
 ];
 
 // Keepers get their own drill; outfield players do not see it.
@@ -77,7 +76,7 @@ export function trainingGain(p: Player, hasTrainer: boolean): number {
   // tapers so the peak arrives in the mid-to-late twenties, not at 21.
   const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 0.9 : p.age <= 21 ? 0.6 : p.age <= 23 ? 0.45 : p.age <= 27 ? 0.35 : p.age <= 30 ? 0.2 : 0.1;
   const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
-  return 0.24 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+  return 0.17 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
 }
 
 // score is the training mini-game result, 0..1. Quick training uses 0.35.
@@ -103,7 +102,7 @@ export function train(game: Game, drillId: string, score = 0.35): ActionResult &
     gains.push(`${k} +${g.toFixed(1)}`);
   }
   p.fitness = clamp(p.fitness - 4 * (1 - 0.15 * skillLevel(p, 'engine')), 0, 100);
-  const xp = Math.round((c.items.includes('trainer') ? 30 : 20) * (0.7 + score));
+  const xp = Math.round((c.items.includes('trainer') ? 22 : 15) * (0.7 + score));
   let text = `${drill.label}: ${gains.join(', ')}. +${xp} XP.`;
   const lvl = addXp(game, xp);
   recordTraining(game);

@@ -3,6 +3,7 @@ import { Rng, clamp } from './rng';
 import { clubBudget, emptyStats, fairWage, makeAttributes, overall, splitName } from './player';
 import { makeFixtures, SEASON_WEEKS } from './league';
 import { autoSkills } from './skills';
+import { rollRole } from './roles';
 import { BUILTIN_PACK } from '../data/builtin';
 import { ClubSeed, DataPack, PlayerSeed } from '../data/pack';
 import { MINOR_NATIONS, NATION_SEEDS } from '../data/nations';
@@ -85,8 +86,11 @@ function growthPotential(rng: Rng, ovr: number, age: number): number {
 }
 
 export function createPlayer(world: World, rng: Rng, spec: PlayerSpec): Player {
-  const attrs = makeAttributes(rng, spec.position, spec.target, spec.role);
-  const ovr = overall({ attrs, position: spec.position, role: spec.role });
+  // Everyone gets an exact role (LB, CDM, RW...), so lineups and the pitch
+  // can put him where he plays.
+  const role = spec.role ?? (spec.position === 'GK' ? 'GK' : rollRole(spec.position, rng.next()));
+  const attrs = makeAttributes(rng, spec.position, spec.target, role);
+  const ovr = overall({ attrs, position: spec.position, role });
   const name = spec.lastName !== undefined ? { firstName: spec.firstName ?? '', lastName: spec.lastName } : randomName(world, rng, spec.nationId);
   const p: Player = {
     id: newId(world, 'p'),
@@ -108,7 +112,7 @@ export function createPlayer(world: World, rng: Rng, spec: PlayerSpec): Player {
     caps: 0,
     intlGoals: 0,
     real: spec.real,
-    role: spec.role,
+    role,
   };
   p.wage = fairWage(p);
   p.skills = autoSkills(p);

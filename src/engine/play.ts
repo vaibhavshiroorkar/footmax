@@ -1,6 +1,7 @@
-import { Club, Player, Position, World } from './types';
+import { Club, Formation, Player, Position, World } from './types';
 import { Rng, clamp } from './rng';
-import { ROLES, isRole } from './roles';
+import { FORMATION_SLOTS, ROLES, ROLE_NEIGHBOURS, Role, isRole } from './roles';
+import { overall } from './player';
 
 // What the live pitch shows: real moves built from what the sim decided
 // this minute. The sim picks who shoots and whether it goes in; this file
@@ -42,6 +43,9 @@ export interface PlayStep {
   restart?: Restart;
   // Shots with the head, after a cross.
   header?: boolean;
+  // Where the user aimed a shot across the goal, from the shooter's view:
+  // 0 is his left post, 1 his right; outside that is wide.
+  aim?: number;
 }
 
 export interface Spot {
@@ -51,32 +55,59 @@ export interface Spot {
   lat: number;
 }
 
-const ORDER: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
-
-function spotX(p: Player): number {
-  return p.role && isRole(p.role) ? ROLES[p.role].spot.x : 0.5;
+export interface Slot extends Spot {
+  // The named position the player fills in this formation.
+  role: Role;
 }
 
-// Each player's place in the team's shape, from its formation. Within a
-// line, players with a known role stand on their side (left-back left).
-export function formationSpots(world: World, team: Club, ids: string[]): Record<string, Spot> {
+// How well a player suits a slot: his own role first, then a learned second
+// role, then a neighbouring role, then anything in the same line.
+function fit(p: Player, role: Role): number {
+  if (p.role === role) return 4;
+  if (p.secondaryRole === role) return 3;
+  if (p.role && isRole(p.role) && ROLE_NEIGHBOURS[p.role].includes(role)) return 2;
+  if (ROLES[role].broad === p.position) return 1;
+  return 0;
+}
+
+// Puts each player in a named slot of the team's formation (LB, CB, CB, RB,
+// CDM...), the best-suited player first, and gives the slot's place on the
+// pitch. Slots in a line are spread evenly from left to right; holding
+// midfielders sit a little deeper and number tens a little higher.
+export function assignSlots(world: World, team: Club, ids: string[]): Record<string, Slot> {
   const players = ids.map((id) => world.players[id]).filter(Boolean) as Player[];
-  const sorted = [...players].sort((a, b) => ORDER.indexOf(a.position) - ORDER.indexOf(b.position));
-  const keeper = sorted.find((p) => p.position === 'GK');
-  const outfield = sorted.filter((p) => p !== keeper);
-  const rows = team.formation.split('-').map(Number);
-  const out: Record<string, Spot> = {};
-  if (keeper) out[keeper.id] = { depth: 0.04, lat: 0.5 };
-  let i = 0;
-  rows.forEach((n, r) => {
-    const line = outfield.slice(i, i + n).sort((a, b) => spotX(a) - spotX(b));
-    const depth = 0.2 + (0.56 * r) / Math.max(1, rows.length - 1);
-    line.forEach((p, k) => (out[p.id] = { depth, lat: (k + 1) / (line.length + 1) }));
-    i += n;
-  });
-  // Anyone left over (a red card, a forced change) slots into midfield.
-  for (; i < outfield.length; i++) out[outfield[i].id] = { depth: 0.5, lat: 0.5 };
+  const keeper = players.find((p) => p.position === 'GK') ?? null;
+  const outfield = players.filter((p) => p !== keeper);
+  const rows = FORMATION_SLOTS[team.formation as Formation] ?? FORMATION_SLOTS['4-3-3'];
+  const slots = rows.flatMap((row, r) =>
+    row.map((role, k) => {
+      const depth = 0.2 + (0.56 * r) / Math.max(1, rows.length - 1) + (role === 'CDM' ? -0.05 : role === 'CAM' ? 0.05 : 0);
+      return { role, depth, lat: (k + 1) / (row.length + 1) };
+    }),
+  );
+  const out: Record<string, Slot> = {};
+  if (keeper) out[keeper.id] = { role: 'GK', depth: 0.04, lat: 0.5 };
+  const free = new Set(outfield);
+  const open = new Set(slots.map((_, i) => i));
+  // Best fit first, so a natural left-back takes LB before anyone else.
+  for (const need of [4, 3, 2, 1, 0]) {
+    for (const i of [...open]) {
+      const slot = slots[i];
+      const pick = [...free].filter((p) => fit(p, slot.role) >= need).sort((x, y) => overall({ ...y, role: slot.role }) - overall({ ...x, role: slot.role }))[0];
+      if (!pick) continue;
+      out[pick.id] = slot;
+      free.delete(pick);
+      open.delete(i);
+    }
+  }
+  // Anyone left over (more players than slots) holds midfield.
+  for (const p of free) out[p.id] = { role: p.role && isRole(p.role) ? p.role : 'CM', depth: 0.5, lat: 0.5 };
   return out;
+}
+
+// Each player's place in the team's shape. See assignSlots.
+export function formationSpots(world: World, team: Club, ids: string[]): Record<string, Spot> {
+  return assignSlots(world, team, ids);
 }
 
 // Side-relative spot to pitch coordinates. Home attacks up the pitch.
@@ -318,19 +349,19 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
 }
 
 // The end of a move: into the net, into the keeper's hands, or wide.
-export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', shooterId: string, result: 'goal' | 'save' | 'miss', keeperId?: string, header = false): void {
+export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', shooterId: string, result: 'goal' | 'save' | 'miss', keeperId?: string, header = false, aim?: number): void {
   const goalY = side === 'home' ? 1 : 0;
   const inward = side === 'home' ? -1 : 1;
   const last = steps[steps.length - 1];
   if (last && last.carrier !== shooterId) steps.push({ x: 0.5 + rng.range(-0.15, 0.15), y: goalY + inward * rng.range(0.1, 0.16), carrier: shooterId, side, act: 'run' });
   const keeperSide = side === 'home' ? 'away' : 'home';
   if (result === 'goal') {
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header, aim });
   } else if (result === 'save') {
-    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: keeperSide, act: 'save', header });
+    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: keeperSide, act: 'save', header, aim });
   } else {
     const wide = rng.chance(0.5) ? rng.range(0.34, 0.43) : rng.range(0.57, 0.66);
-    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: keeperSide, act: 'miss', restart: 'goalkick', header });
+    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: keeperSide, act: 'miss', restart: 'goalkick', header, aim });
   }
 }
 

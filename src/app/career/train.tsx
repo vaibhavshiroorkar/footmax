@@ -9,7 +9,7 @@ import { GameFor } from '../../ui/training/games';
 import { AttrRow, AttributeGrid } from '../../ui/attributes';
 import { MovesBody } from '../../ui/skillMoves';
 import { alpha, colors, fonts } from '../../ui/theme';
-import { drillsFor, train } from '../../engine/career';
+import { drillsFor, lifeAction, train } from '../../engine/career';
 import { ATTR_LABELS, overall, weightsFor } from '../../engine/player';
 import { AttrKey } from '../../engine/types';
 import { motionReduced } from '../../state/settings';
@@ -236,6 +236,24 @@ export default function Train() {
               );
             })}
           </View>
+          {/* Rest: fitness back, at the cost of some energy. */}
+          <Row gap={10} style={{ padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card }}>
+            <Sticker icon="bed" color={colors.teal} size={36} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.text }}>Rest day</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }}>+20 fitness  |  15 energy</Text>
+            </View>
+            <Button
+              label="Rest"
+              small
+              variant="secondary"
+              disabled={c.energy < 15 || p.fitness >= 100}
+              onPress={() => {
+                const r = mutate((g) => lifeAction(g, 'rest'));
+                setLast(r.text);
+              }}
+            />
+          </Row>
           {sessionsLeft === 0 && <Button label="Done for the week" icon="football" variant="secondary" onPress={() => router.replace('/career')} />}
         </>
       )}

@@ -25,7 +25,7 @@ export default function Life() {
       </Card>
 
       <H2>This week</H2>
-      {LIFE_ACTIONS.map((a) => (
+      {LIFE_ACTIONS.filter((a) => a.id !== 'rest').map((a) => (
         <Card key={a.id}>
           <Row style={{ justifyContent: 'space-between' }}>
             <T bold>{a.label}</T>

@@ -343,9 +343,9 @@ describe('player creation and roles', () => {
     expect(overall(p)).toBeGreaterThanOrEqual(40);
   });
 
-  it('keeps database ratings unchanged (no role set)', () => {
+  it('gives database players a role and keeps their ratings', () => {
     const haaland = Object.values(WORLD.players).find((p) => p.lastName === 'Haaland')!;
-    expect(haaland.role).toBeUndefined();
+    expect(haaland.role).toBeDefined();
     expect(overall(haaland)).toBeGreaterThanOrEqual(89);
   });
 
@@ -527,11 +527,22 @@ describe('save compression', () => {
 });
 
 describe('save migrations', () => {
+  it('gives players in an old save an exact role', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 82 });
+    for (const p of Object.values(game.world.players)) if (!p.real) delete p.role;
+    const old = JSON.parse(serialize(game));
+    old.version = 2;
+    const r = loadSave(JSON.stringify(old));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(Object.values(r.game.world.players).every((p) => !!p.role)).toBe(true);
+  });
+
   it('upgrades an older save step by step and refuses newer ones', () => {
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 81 });
     const text = serialize(game);
     const old = JSON.parse(text);
     old.version = SAVE_VERSION - 1;
+    const original = MIGRATIONS[SAVE_VERSION - 1];
     MIGRATIONS[SAVE_VERSION - 1] = (g) => {
       (g as { migrated?: boolean }).migrated = true;
     };
@@ -540,7 +551,8 @@ describe('save migrations', () => {
       expect(r.ok).toBe(true);
       if (r.ok) expect((r.game as unknown as { migrated: boolean }).migrated).toBe(true);
     } finally {
-      delete MIGRATIONS[SAVE_VERSION - 1];
+      if (original) MIGRATIONS[SAVE_VERSION - 1] = original;
+      else delete MIGRATIONS[SAVE_VERSION - 1];
     }
     old.version = SAVE_VERSION + 1;
     expect(loadSave(JSON.stringify(old))).toEqual({ ok: false, error: 'too-new' });

@@ -34,7 +34,6 @@ export default function More() {
           { label: 'Internationals', sub: 'Tournaments', href: '/tournaments', icon: 'earth', color: colors.orange },
           { label: 'Awards', sub: "Ballon d'Or race", href: '/awards', icon: 'medal', color: colors.gold },
           { label: 'Honours', sub: 'Trophy history', href: '/honours', icon: 'trophy', color: colors.purple },
-          { label: 'Milestones', sub: 'Career landmarks', href: '/career/milestones', icon: 'ribbon', color: colors.gold },
           { label: 'Leaderboards', sub: 'Best careers online', href: '/leaderboards', icon: 'stats-chart', color: colors.accent },
           { label: 'Settings', sub: 'Speed, motion, account', href: '/settings', icon: 'settings-outline', color: colors.muted },
         ]}
