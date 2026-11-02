@@ -4,7 +4,7 @@ import Svg, { Circle, Ellipse, G, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { KeeperFigure } from './Keeper';
 import { T } from '../kit';
-import { colors, fonts } from '../theme';
+import { alpha, colors, fonts } from '../theme';
 
 type Kind = 'shot' | 'penalty' | 'freekick';
 export type ShotOutcome = 'goal' | 'save' | 'miss';
@@ -20,10 +20,16 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
   // One on one: the keeper is out at you and fills more of the goal.
   oneonone: { x: 22, y: 12, w: 256, h: 96 },
 };
-const SWEET = [0.6, 0.85];
+// The power bar's bands, as shares of the bar: low up to LOW, mid up to
+// MID, high up to HIGH, then too high (over the bar).
+const LOW = 0.34;
+const MID = 0.62;
+const HIGH = 0.86;
+// Half the width of goal a blocking defender covers.
+const BLOCK_HALF = 0.055;
 const FLIGHT = 0.6;
-// Seconds for the power bar to fill.
-const RISE = 1.1;
+// Seconds for the power bar to fill. Fast: where you tap sets the power.
+const RISE = 0.9;
 
 // Two taps: the first stops the aim marker, the second the power bar. Then
 // the ball flies and what you see is what counts: out of the keeper's reach
@@ -35,8 +41,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
-  // Finesse Shot widens the power sweet spot.
-  const sweet: [number, number] = [SWEET[0] - 0.04 * finesse, SWEET[1] + 0.03 * finesse];
+  // Finesse Shot pushes back where too high starts.
+  const bands: Bands = { low: LOW, mid: MID, high: Math.min(0.95, HIGH + 0.03 * finesse) };
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
   // x is where the ball actually goes: the aim plus any stray.
@@ -58,8 +64,23 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const speed = 2 + (1 - composure / 99) * 2.4;
   // How far the keeper can get across, as a share of the goal's width. Out
   // at your feet in a one on one he covers more of it.
-  const reach = (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.35 : 1) * (1 + range * 0.5);
+  // Open play: he comes off his line while you aim, which narrows the
+  // angle. Locking the aim freezes him where he got to.
+  const [rushAt, setRushAt] = useState<number | null>(null);
+  const rushing = kind === 'shot' && !outside;
+  const rush = rushing ? Math.min(1, (rushAt ?? (phase === 'aim' ? t : 0)) / (oneOnOne ? 1.8 : 2.8)) : 0;
+  const reach = (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.25 : 1) * (1 + range * 0.15) * (1 + rush * 0.35);
   const flight = outside ? 0.85 : FLIGHT;
+  // How much goal he covers for a shot of this power. Soft or mid-power
+  // shots from distance give him time to get across; a high one does not.
+  const reachAt = (p: number) => {
+    if (kind === 'penalty') return reach;
+    const band = p < bands.low ? 1.6 : p <= bands.mid ? 1 : 0.85;
+    const time = 1 + range * (p > bands.mid ? 0.25 : 0.9);
+    return reach * band * time;
+  };
+  // From the edge of the box one defender is in the way; from far out, two.
+  const blockers = range > 0.55 ? setup.blockers : setup.blockers.slice(0, 1);
 
   const aimX = phase === 'aim' ? 0.5 + 0.62 * Math.sin(t * speed + setup.offset) : aim;
   // Power climbs fast once the aim is set; wait too long and he shoots at
@@ -71,6 +92,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const tap = () => {
     if (phase === 'aim') {
       setAim(aimX);
+      setRushAt(t);
       setPhase('power');
     } else if (phase === 'power') fire(power);
   };
@@ -79,17 +101,17 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     {
       // No shot goes exactly where it was aimed. Better finishers stray less;
       // the weaker foot, distance and an overhit ball stray more.
-      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.03 : 0) + range * 0.1 + (power > sweet[1] ? 0.03 : 0);
+      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0);
       const x = aim + setup.stray * spread;
       const strayed = Math.abs(x - aim) > 0.06;
       // Two defenders shuffle across in front of a shot from distance.
-      const blocked = outside && setup.blockers.some((b) => Math.abs(blockerX(b, t) - x) < 0.07);
-      const lob = oneOnOne && chip && power > sweet[1] && power <= sweet[1] + 0.14;
+      const blocked = outside && blockers.some((b) => Math.abs(blockerX(b, t) - x) < BLOCK_HALF);
+      const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: setup.keeper }
         : lob
           ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: setup.keeper }
-          : judge(kind, x, power, setup, sweet, reach);
+          : judge(kind, x, power, setup, bands, reachAt(power));
       if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
       const wall = kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75;
       setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, ...r });
@@ -129,11 +151,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const landed = k >= 1;
   // After the ball arrives: a parry off the keeper, or on out of play.
   const after = phase === 'flight' && shot ? Math.min(1, Math.max(0, (t - flight) / 0.55)) : 0;
-  const over = !!shot && shot.outcome === 'miss' && shot.power > sweet[1] + 0.06;
+  const over = !!shot && shot.outcome === 'miss' && shot.power > bands.high;
   const wide = !!shot && shot.outcome === 'miss' && !over && (shot.x < 0.02 || shot.x > 0.98);
   // A blocked shot hits the defender's body; a wall shot hits the wall.
   const stopY = shot?.stop === 'block' ? GOAL.y + GOAL.h + 30 : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
-  const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / sweet[1])));
+  const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / bands.high)));
   const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
   let ballX = 150 + (endX - 150) * k;
   let ballY = H - 12 + (targetY - (H - 12)) * k - Math.sin(Math.PI * k) * 10;
@@ -178,11 +200,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
           <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
           {/* The keeper's reach before you shoot, so the gap is readable. */}
-          {phase !== 'flight' && <Rect x={px(setup.keeper - reach)} y={GOAL.y + GOAL.h - 4} width={GOAL.w * reach * 2} height={4} fill="#ffffff" opacity={0.25} />}
+          {phase !== 'flight' && <Rect x={px(Math.max(0, setup.keeper - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
           {outside && (
             <>
               <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />
-              {setup.blockers.map((b, i) => (
+              {blockers.map((b, i) => (
                 <G key={i}>
                   <Ellipse cx={px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t))} cy={GOAL.y + GOAL.h + 52} rx={10} ry={3} fill="#000000" opacity={0.25} />
                   <Rect x={px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t)) - 7} y={GOAL.y + GOAL.h + 20} width={14} height={32} rx={6} fill="#c8102e" />
@@ -192,7 +214,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             </>
           )}
           {kind === 'freekick' && <Rect x={px(setup.wall)} y={GOAL.y + GOAL.h - 46} width={GOAL.w * 0.3} height={46} rx={6} fill="#c8102e" opacity={0.9} />}
-          <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0)} h={oneOnOne ? 74 : outside ? 44 : 58} dive={diveAmount} kit={setup.kit} />
+          <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
           {phase !== 'flight' && (
             <>
               <Circle cx={px(aimX)} cy={GOAL.y + GOAL.h / 2} r={9} stroke="#ffffff" strokeWidth={3} fill={phase === 'aim' ? 'none' : '#ffffff'} />
@@ -214,24 +236,44 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             </Text>
           </View>
         )}
-        {phase === 'aim' && aimLimit < Infinity && (
-          <View style={{ width: '100%', height: 4, backgroundColor: colors.bg, borderRadius: 2, overflow: 'hidden', marginTop: 6 }}>
-            <View style={{ width: `${Math.max(0, 1 - t / aimLimit) * 100}%`, height: 4, backgroundColor: t / aimLimit > 0.7 ? colors.red : colors.gold }} />
-          </View>
-        )}
-        <View style={{ width: '100%', height: 18, backgroundColor: colors.bg, borderRadius: 9, overflow: 'hidden', marginTop: 8 }}>
-          <View style={{ position: 'absolute', left: `${sweet[0] * 100}%`, width: `${(sweet[1] - sweet[0]) * 100}%`, top: 0, bottom: 0, backgroundColor: '#3ddc8455' }} />
-          <View style={{ width: `${power * 100}%`, height: 18, backgroundColor: phase === 'aim' ? 'transparent' : colors.accent }} />
+        {/* One bar under the goal: first the time to aim, then the power. */}
+        <View style={{ width: '100%', height: 30, marginTop: 8, justifyContent: 'center' }}>
+          {phase === 'aim' ? (
+            <View style={{ gap: 4 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{aimLimit < Infinity ? '1. AIM  |  DEFENDER CLOSING' : '1. AIM'}</Text>
+              <View style={{ height: 6, backgroundColor: colors.bg, borderRadius: 3, overflow: 'hidden' }}>
+                {aimLimit < Infinity && <View style={{ width: `${Math.max(0, 1 - t / aimLimit) * 100}%`, height: 6, backgroundColor: t / aimLimit > 0.7 ? colors.red : colors.gold }} />}
+              </View>
+            </View>
+          ) : (
+            <View style={{ gap: 3 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.accent }}>2. POWER  |  {bandName(power, bands)}</Text>
+              <View style={{ height: 18, flexDirection: 'row', borderRadius: 6, overflow: 'hidden' }}>
+                {BAND_VIEW.map((b) => {
+                  const from = b.from(bands);
+                  const to = b.to(bands);
+                  return (
+                    <View key={b.label} style={{ width: `${(to - from) * 100}%`, backgroundColor: alpha(b.color, 0.28), alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.bg }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: b.color }} numberOfLines={1}>
+                        {b.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+                <View style={{ position: 'absolute', left: `${power * 100}%`, top: -2, bottom: -2, width: 4, marginLeft: -2, borderRadius: 2, backgroundColor: '#ffffff' }} />
+              </View>
+            </View>
+          )}
         </View>
         <T bold style={{ marginTop: 10, textAlign: 'center' }}>
           {phase === 'aim'
             ? outside
-              ? 'Long range. Aim between the defenders and away from the keeper.'
+              ? 'Tap to aim: past the defender, away from the keeper.'
               : oneOnOne
-                ? `One on one! He is rushing out.${chip ? ' Overhit just past green to chip him.' : ''}`
-                : 'Tap to aim. The white line under the keeper is his reach.'
+                ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
+                : 'Tap to aim. He comes off his line if you wait.'
             : phase === 'power'
-              ? 'Tap as the power hits the green!'
+              ? 'Tap to set the power!'
               : landed
                 ? shot?.text
                 : ' '}
@@ -257,24 +299,37 @@ function judge(
   x: number,
   power: number,
   setup: { keeper: number; dive: number; wall: number },
-  sweet: [number, number],
+  b: Bands,
   reach: number,
 ): { outcome: ShotOutcome; text: string; q: number; diveTo: number } {
   const toward = (target: number) => clamp(setup.keeper + Math.max(-reach, Math.min(reach, target - setup.keeper)));
   if (x < 0.02 || x > 0.98) return { outcome: 'miss', text: 'Wide of the post!', q: 0.05, diveTo: toward(x) };
-  if (power > sweet[1] + 0.06) return { outcome: 'miss', text: 'Blazed over the bar!', q: 0.05, diveTo: toward(x) };
+  if (power > b.high) return { outcome: 'miss', text: 'Blazed over the bar!', q: 0.05, diveTo: toward(x) };
   if (kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75) return { outcome: 'miss', text: 'Straight into the wall.', q: 0.08, diveTo: setup.keeper };
   if (kind === 'penalty') {
     const diveTo = clamp(setup.keeper + setup.dive * 0.3);
-    if (Math.abs(x - diveTo) < 0.17 || (power < sweet[0] - 0.2 && Math.abs(x - setup.keeper) < 0.25)) return { outcome: 'save', text: 'He guessed right!', q: 0.35, diveTo: x };
-    return { outcome: 'goal', text: power >= sweet[0] ? 'Sent the keeper the wrong way!' : 'Rolled in. Cheeky!', q: 0.95, diveTo };
+    if (Math.abs(x - diveTo) < 0.17 || (power < b.low && Math.abs(x - setup.keeper) < 0.25)) return { outcome: 'save', text: 'He guessed right!', q: 0.35, diveTo: x };
+    return { outcome: 'goal', text: power >= b.low ? 'Sent the keeper the wrong way!' : 'Rolled in. Cheeky!', q: 0.95, diveTo };
   }
-  // A weak shot gives the keeper time to get across.
-  const weak = power < sweet[0] - 0.12;
+  // reach already allows for the power and the distance (see reachAt).
+  const weak = power < b.low;
   const gap = Math.abs(x - setup.keeper);
-  if (gap <= reach * (weak ? 1.6 : 1)) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : 'Within his reach. Parried away!', q: 0.4, diveTo: x };
+  if (gap <= reach) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : power <= b.mid ? 'He had time to get across. Saved!' : 'Within his reach. Parried away!', q: 0.4, diveTo: x };
   // He dives full stretch, but the glove (about a tenth of the goal wide)
   // ends short of the ball.
   const short = clamp(setup.keeper + Math.sign(x - setup.keeper) * Math.max(0, Math.min(reach, gap) - 0.1));
-  return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power >= sweet[0] ? 1 : 0.85, diveTo: short };
+  return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power > b.mid ? 1 : 0.85, diveTo: short };
+}
+
+type Bands = { low: number; mid: number; high: number };
+
+const BAND_VIEW: { label: string; color: string; from: (b: Bands) => number; to: (b: Bands) => number }[] = [
+  { label: 'LOW', color: colors.blue, from: () => 0, to: (b) => b.low },
+  { label: 'MID', color: colors.green, from: (b) => b.low, to: (b) => b.mid },
+  { label: 'HIGH', color: colors.gold, from: (b) => b.mid, to: (b) => b.high },
+  { label: 'TOO HIGH', color: colors.red, from: (b) => b.high, to: () => 1 },
+];
+
+function bandName(p: number, b: Bands): string {
+  return p < b.low ? 'LOW' : p <= b.mid ? 'MID' : p <= b.high ? 'HIGH' : 'TOO HIGH';
 }

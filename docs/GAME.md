@@ -31,7 +31,8 @@ moments to play, not a wall of information.
 ## Player career
 
 - **Creator:** name, nickname, shirt number; nation picked by
-  confederation (a search field with five suggestions); exact position; foot and weak foot; height and build
+  confederation (a search field with five suggestions); exact position;
+  foot and weak foot; height and build
   (they change stats, shown per stat); a playing style and 40 stat points;
   avatar and goal celebration.
 - **Start at the bottom:** the first club is drawn at random from the
@@ -61,14 +62,35 @@ moments to play, not a wall of information.
 ## Matches
 
 - **Engine** (`src/engine/match.ts`): minute by minute, team strength
-  decides chances; the user's player gets key moments. Results never
-  depend on watching.
+  decides chances; the user's player gets key moments (at most 12 a
+  match). Results never depend on watching: anything the pitch needs is
+  drawn from its own random stream (`playSeed`).
 - **Live pitch** (`src/ui/pitchSim.ts`, `src/ui/livePitch.tsx`): a
-  frame-by-frame simulation of 22 players and a ball. Players run at their
-  own pace to their slot in the formation, make runs, press and mark;
-  keepers dive. The engine's move for each minute (`src/engine/play.ts`) is
-  played out: passes, crosses (lobbed balls rise off their shadow),
-  tackles, fouls, offsides, throw-ins, corners, goal kicks, shots.
+  frame-by-frame simulation of 22 players, a ball and a referee. Players
+  run at their own pace to their slot in the formation, make runs, press
+  and mark; keepers dive. The engine's move for each minute
+  (`src/engine/play.ts`) is played out: passes, crosses and throw-ins
+  (lobbed balls rise off their shadow), tackles, fouls, offsides,
+  throw-ins, corners, goal kicks, shots, cards and injuries.
+- **The laws on the pitch** (checked frame by frame in
+  `__tests__/ui/rules.test.ts`):
+  - kick-off: each side in its own half, the other side outside the
+    centre circle; the referee waits until both are lined up; the kick-off
+    goes back to a midfielder first;
+  - offside: off the ball, attackers stay level with the second-last
+    defender (not at corners, not in their own half);
+  - free kicks and corners: the other side 9.15 m away, a four-man wall
+    for free kicks within about 36 m of goal, attackers and markers in the
+    box for corners; goal kicks: the other side out of the box; the kick
+    waits until they are back;
+  - keepers stay in their penalty area and come off their line to narrow
+    the angle when the ball is near;
+  - saves are sometimes tipped behind and shots deflected out: corners;
+  - the ball is fetched to a restart spot instead of jumping there;
+  - fouls bring a player down and give a free kick; a card follows a foul
+    by that player: the referee runs over and shows it (a card shape on
+    screen); a sent-off, subbed or injured player walks off the pitch;
+    an injured player stays down first.
 - **Positions:** each formation has named slots (4-3-3 is GK, LB CB CB RB,
   CM CDM CM, LW ST RW); players fill the slot that suits them and stand
   there on the pitch and in the lineups.
@@ -77,62 +99,76 @@ moments to play, not a wall of information.
   - each move plays once;
   - a save goes where the keeper can reach and he gets to it, and a goal
     goes past his dive;
-  - an aimed shot goes to the same side on the pitch as in the shot game.
+  - an aimed shot goes to the same side on the pitch as in the shot game;
+  - a picked pass goes to the team-mate picked.
 - **Key moments** pop up over the match while the pitch plays on in slow
   motion:
   - a choice: shoot, pass or take him on;
   - shots from the box, from distance (defenders can block) or one on one
     (chip with the chip move);
-  - penalties and free kicks;
+  - penalties, and free kicks with a choice: shoot it, or cross it into
+    the box (the pass options become crosses); both start from a foul on
+    the user shown on the pitch;
   - headers from crosses and corners;
   - passes picked on the pitch, where options light up as rings, safe to
-    dangerous, with a Shoot button too; the ball goes to the mate you
-    picked (or is cut out on the way), and a safe pass can come back as a
-    one-two;
+    dangerous, with a Shoot button too; a safe ball arrives about 85% of
+    the time, a through ball about 65%, better passers more; a safe pass
+    can come back as a one-two;
   - dribbles, which use one of four games (read and go, skill combo,
     nutmeg timing, sprint) depending on the skill move picked;
   - tackles and saves;
   - defending duels: read the pass (pick the lane from the passer's body
     shape; win it and you pick the counter pass), block a shot (slide as
     the ring closes) and head a cross clear (jump as the ball drops).
-- **Zone slider (Defend, Middle, Attack):** sits above the action buttons
-  and starts at the role's zone (strikers, wingers and CAMs attack; CMs,
-  CDMs and wide mids play the middle; defenders defend; keepers have
-  none). It decides what comes to the player:
-  - Attack: more shots and men to beat, few defending moments.
-  - Middle: passes from deep (a good one keeps the move going and
-    sometimes makes a chance), long shots and passes to read.
-  - Defend: tackles, blocks and clearances, few shots.
-- **Shot timing:** the aim slides across the goal; tap to set it. In open
-  play a defender closes in, so wait too long and he takes the ball. Then
-  the power bar rises fast; tap in the green, or at the top it shoots
-  itself at full power and flies over.
-- **Shots are honest:** the shot strays from the aim by composure,
-  shooting, weak foot, distance and power. Inside the keeper's reach
-  (shown under him) it is saved and parried; out of reach and on target it
-  is a goal; wide or overhit misses.
+- **Shooting:** two taps.
+  1. Aim: a marker slides across the goal. In open play a defender closes
+     in (a timer under the goal), and the keeper comes off his line the
+     longer you wait, so his reach grows.
+  2. Power: a fast bar with four bands, LOW, MID, HIGH and TOO HIGH. Where
+     you tap sets the power; at the top it shoots itself, over the bar.
+     LOW is an easy save. MID is placed (less stray). HIGH is hard to save
+     but strays more. TOO HIGH flies over (just into it chips the keeper
+     in a one on one with the chip move). From distance a LOW or MID shot
+     gives the keeper time to get across (his reach band under him widens
+     as you watch); only HIGH beats him from far.
+  The shot strays from the aim by composure, shooting, weak foot and
+  distance. Inside the keeper's reach it is saved; out of reach and on
+  target it is a goal; wide misses.
 - **On the ball:** in a quiet move, when the user's player has the ball,
   the buttons become Shoot, Pass and Take him on, usable anywhere. Play
   slows to slow motion (at any speed) and waits about two seconds while
-  he carries it, so there is time to choose. Off the ball they are calls:
-  Call for it, Make a run, Track back (8 minutes each, 3 minutes rest).
-- **Calls and the zone happen on the pitch:** the player stands higher or
-  deeper by zone; on a run he sprints in behind and gets balls over the
-  top; calling for it he comes short and gets passes to feet; tracking
-  back he gets goal-side, presses and can win the ball (counted as a
-  tackle). A tag (RUN, CALL, BACK) shows over him while a call lasts.
-  Nothing of this happens at a restart or in the first two minutes, and
-  no moment opens before kick-off.
-- **Screen:** one scoreboard row with speed (1x, 2x, 4x), pause, sound and skip,
-  scorers under it, the pitch, the action buttons, then two tabs: Feed,
-  and Teams (possession and shots over both lineups with live ratings,
-  goals and assists). No pop-up after goals. Full time shows the rating, player of the
-  match, XP (the bar fills from where it was), fame, win bonus and what
-  the match unlocked, and the table (five rows around the team, league or
+  he carries it, so there is time to choose.
+- **Calls** (off the ball, 8 minutes each, no cooldown, switch any time):
+  - Make a run: he runs into the box (held onside by the line) and balls
+    are played in behind to him there;
+  - Call for it: he comes short and a team-mate usually passes to him;
+  - Track back: he drops goal-side and presses, and gets tackle moments
+    to win the ball.
+  A tag (RUN, CALL, BACK) shows over him while a call lasts.
+- **Zone slider (Defend, Middle, Attack):** above the action buttons,
+  starting at the role's zone (strikers, wingers and CAMs attack; CMs,
+  CDMs and wide mids play the middle; defenders defend; keepers have
+  none). He stands about 15 m higher or deeper, and it decides what comes
+  to him:
+  - Attack: more shots and men to beat, few defending moments;
+  - Middle: passes from deep (a good one keeps the move going and
+    sometimes makes a chance), long shots and passes to read;
+  - Defend: tackles, blocks and clearances, few shots.
+  No zone moment, call pass or win-back happens at a restart or in the
+  first two minutes, and no moment opens before kick-off.
+- **Screen:** one scoreboard row with speed (1x, 2x, 4x, 8x), pause, sound
+  and skip (to half time or to full time), scorers under it, the pitch,
+  the zone slider, the action buttons, then two tabs: Feed, and Teams
+  (possession and shots, then one team at a time, picked by its crest,
+  with team OVR, each player's OVR, live rating, goals and assists). No
+  pop-up after goals. Full time shows the rating, player of the match,
+  XP (the bar fills from where it was), fame, win bonus, what the match
+  unlocked, and the table (five rows around the team, league or
   tournament group) with the places moved. The pitch hides at full time.
 - **Managers** change approach and make substitutions at any time.
 - **Sound:** kicks, whistles, crowd, goal roar, groans, chimes
-  (`scripts/makeSounds.py`), with a setting to turn it off.
+  (`scripts/makeSounds.py`), with a setting and a button in the match to
+  turn it off.
 
 ## Manager mode
 
@@ -161,15 +197,65 @@ contracts, board and federation confidence, sackings and job offers.
 
 ## Planned next
 
-- Life events with consequences:
-  - dressing-room events and interviews with choices that lead somewhere;
-  - romance and real-life events;
-  - crime, corruption, jail and career-ending injuries that can end the
-    career;
-  - good events that help.
-- Faster stat growth.
-- A bigger gap between strong and weak players, so a 95 can dominate a
-  team of 75s.
-- Abilities as a skill tree per role.
-- Team pages to browse any club's squad.
-- The store stays locked until payments and licensing are decided.
+Asked for and not built yet, in the order they will be done:
+
+1. Dribbles and sprints: beat your man, then choose what comes next
+   (shoot, pass, take on the next man), with a reward that feels big.
+2. VAR: the referee reviews a goal or a penalty, with an animation of
+   him at the monitor, before the decision.
+3. Attributes and abilities as a skill tree per role, unlocking
+   techniques that change moments (curling shots, fake shots, and more).
+4. Money buys many useful things; Clash Royale style cases with
+   equipment that makes the player better.
+5. Faster stat growth, and a bigger gap between strong and weak players
+   so a 95 can dominate a team of 75s.
+6. Life events with consequences: dressing room, interviews with choices,
+   romance, real-life events, crime and jail, corruption, career-ending
+   injuries (some end the career), and good events that help.
+7. A mega search for clubs: browse any club, see its profile, squad,
+   lineup and details, see who has made an offer, and offer yourself to a
+   club.
+8. World Cup qualifying for every nation, so even India can try to
+   qualify.
+9. Start the game in 2010, just after the World Cup, with squads of that
+   time (prime Messi and Ronaldo). This needs 2010 squad data for every
+   league; today's data is 2025/26.
+10. An alignment pass: nothing wraps or overflows, one screen where
+    possible.
+
+The store stays locked until payments and licensing are decided; real
+players appear by name only, never by face.
+
+## Working on the code
+
+- **Stack:** Expo SDK 58, React Native 0.88, React 19, expo-router
+  (screens in `src/app`), zustand stores in `src/state` (the game object is
+  changed in place; `rev` and `liveRev` counters re-render). Fonts: Big
+  Shoulders Display and Rubik. Sound: expo-audio. Read `AGENTS.md` before
+  touching any Expo API, and `DESIGN.md` before changing the look.
+- **Where things are:**
+  - `src/engine/`: the game, free of React. `match.ts` (match engine, key
+    moments, zones, calls, incidents), `play.ts` (the move drawn for each
+    minute), `career.ts`, `progress.ts` (season goals, milestones,
+    claims), `skills.ts` (abilities and skill moves), `roles.ts`
+    (formations and slots), `save.ts` (migrations; `SAVE_VERSION` in
+    `game.ts`), `alerts.ts` (badges).
+  - `src/ui/pitchSim.ts`: the live pitch simulation (no React, tested);
+    `src/ui/livePitch.tsx` draws it.
+  - `src/ui/moments/`: the mini-games (`ShotGame`, `PassGame`,
+    `DribbleGame`, `DribbleMore`, `HeaderGame`, `SaveGame`,
+    `DefendGames`); `useTicker.ts` is their clock.
+  - `src/app/match.tsx`: the match screen; `src/app/career/`: Play
+    (`index.tsx`), Train, Me (`profile.tsx`), More, Life, Clubs.
+  - `src/data/`: nations, leagues and real squads.
+- **Checks before every push:** `npm run typecheck`, `npm run lint`,
+  `npm test`. The tests include whole matches played through the pitch:
+  goals shown exactly once, keepers on the ball for saves, aim sides, the
+  laws (`__tests__/ui/rules.test.ts`) and the zone mix
+  (`__tests__/engine/zones.test.ts`).
+- **Looking at it in a browser:** `npx expo export -p web` builds `dist`;
+  serve it and drive it with headless Chrome. Always start Chrome with
+  `--mute-audio`.
+- **Shipping:** commit and push to `main`; Vercel deploys
+  footmax.vercel.app. The user wants every change pushed so they can see
+  it live, and this file kept up to date with every rule and decision.

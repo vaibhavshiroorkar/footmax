@@ -106,6 +106,10 @@ function CalloutView({ c, home, away }: { c: Callout; home: Club; away: Club }) 
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: big ? 'center' : 'flex-start', paddingTop: big ? 0 : 10 }, big && { backgroundColor: alpha(color, 0.3) }]}>
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }], opacity: pop }}>
+        {(c.tone === 'yellow' || c.tone === 'red') && (
+          // The card itself, held up.
+          <View style={{ width: 22, height: 30, borderRadius: 3, marginBottom: 4, backgroundColor: c.tone === 'red' ? '#e5322d' : '#f6d32d', borderWidth: 1.5, borderColor: '#ffffff', transform: [{ rotate: '-8deg' }] }} />
+        )}
         <Text style={{ fontFamily: fonts.display, fontSize: big ? 64 : 24, color: '#ffffff', letterSpacing: 3, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } }}>{c.text}</Text>
         {c.sub ? <Text style={{ fontFamily: fonts.bold, fontSize: big ? 16 : 12, color: '#ffffff', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>{c.sub}</Text> : null}
       </Animated.View>
@@ -158,6 +162,10 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   const [caption, setCaption] = useState(sim.caption);
   const [callout, setCallout] = useState<Callout | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
+  // Players walking off (subbed, sent off, injured): still drawn until they
+  // reach the touchline.
+  const [gone, setGone] = useState<{ id: string; side: SideKey }[]>([]);
+  const refPos = useState(() => new Animated.ValueXY({ x: -50, y: -50 }))[0];
   // Latest props for the frame loop, which is set up once.
   const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout });
   useEffect(() => {
@@ -223,6 +231,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let lastOwner: string | null = null;
     let lastOnBall = false;
     let onBallAt = 0;
+    let lastGone = '';
     const toScreen = (x: number, y: number) => {
       const { width: w, h: hh } = props.current;
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
@@ -253,6 +262,12 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
         lastCallout = sim.callout;
         setCallout(sim.callout);
       }
+      refPos.setValue(toScreen(sim.ref.x, sim.ref.y));
+      const leavingNow = [...sim.bodies.values()].filter((x) => x.leaving).map((x) => `${x.id}:${x.side}`).join(',');
+      if (leavingNow !== lastGone) {
+        lastGone = leavingNow;
+        setGone(leavingNow ? leavingNow.split(',').map((x) => ({ id: x.split(':')[0], side: x.split(':')[1] as SideKey })) : []);
+      }
       if (sim.ball.owner !== lastOwner) {
         lastOwner = sim.ball.owner;
         setOwner(sim.ball.owner);
@@ -274,7 +289,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [sim, registry, ball]);
+  }, [sim, registry, ball, refPos]);
 
   const size = Math.max(15, Math.min(21, width / 22));
   // When the shirts are too alike, the away side wears its second colour,
@@ -284,7 +299,8 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   const awayKeeper = keeperKit([home.colors[0], awayShirt, homeKeeper], homeKeeper);
   const dots = (['home', 'away'] as SideKey[]).flatMap((side) => {
     const team = side === 'home' ? home : away;
-    return live[side].onPitch.map((id) => {
+    const ids = [...live[side].onPitch, ...gone.filter((g) => g.side === side && !live[side].onPitch.includes(g.id)).map((g) => g.id)];
+    return ids.map((id) => {
       const me = id === focusId;
       const has = id === owner;
       const keeper = world.players[id]?.position === 'GK';
@@ -349,6 +365,11 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           }}
         />
         {dots}
+        {/* The referee: black with a yellow trim. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{ position: 'absolute', left: refPos.x, top: refPos.y, width: size * 0.78, height: size * 0.78, marginLeft: (-size * 0.78) / 2, marginTop: (-size * 0.78) / 2, borderRadius: size, backgroundColor: '#111111', borderWidth: 2, borderColor: '#e8f53b' }}
+        />
         <Animated.View
           pointerEvents="none"
           style={{

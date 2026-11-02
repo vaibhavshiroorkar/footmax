@@ -11,6 +11,7 @@ const SPEEDS: { key: MatchSpeed; label: string }[] = [
   { key: '1', label: '1x' },
   { key: '2', label: '2x' },
   { key: '4', label: '4x' },
+  { key: '8', label: '8x' },
 ];
 
 export default function SettingsScreen() {

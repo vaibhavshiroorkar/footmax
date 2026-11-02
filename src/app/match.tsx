@@ -4,7 +4,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, stepMinute } from '../engine/match';
+import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
@@ -34,6 +34,7 @@ const SPEEDS = [
   { key: '1', label: '1x', ms: 900, mult: 1 },
   { key: '2', label: '2x', ms: 380, mult: 2 },
   { key: '4', label: '4x', ms: 120, mult: 4 },
+  { key: '8', label: '8x', ms: 50, mult: 8 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
 
@@ -269,6 +270,22 @@ export default function MatchScreen() {
       {skipArmed && kicked && !live.finished && (
         <Row gap={8}>
           <Button label="Keep watching" small variant="secondary" style={{ flex: 1 }} onPress={() => setSkipArmed(false)} />
+          {live.half === 1 && (
+            <Button
+              label="To half time"
+              icon="play-forward"
+              small
+              variant="secondary"
+              style={{ flex: 1 }}
+              onPress={() => {
+                setSkipArmed(false);
+                mutateLive((m, g) => simToHalf(g.world, m));
+                // The pitch did not show these goals; the board shows them now.
+                setShownGoals(useStore.getState().live?.scorers.length ?? 0);
+                commitIfDone();
+              }}
+            />
+          )}
           <Button
             label="Sim to full time"
             icon="play-skip-forward"
@@ -830,12 +847,11 @@ function ShoutBar({ game, live }: { game: Game; live: MatchState }) {
     );
   }
   const active = live.shout && live.minute <= live.shout.until ? live.shout.kind : null;
-  const wait = Math.max(0, (live.shoutReady ?? 0) - live.minute);
   return (
     <View style={styles.shoutBar}>
       {SHOUTS.map((sh) => {
         const on = active === sh.kind;
-        const disabled = wait > 0 && !on;
+        const disabled = false;
         return (
           <Pressable
             key={sh.kind}
@@ -857,7 +873,7 @@ function ShoutBar({ game, live }: { game: Game; live: MatchState }) {
                 {sh.label}
               </Text>
             </Row>
-            {(on || disabled) && <Text style={styles.shoutHint}>{on ? `${live.shout!.until - live.minute + 1}' left` : `${wait}'`}</Text>}
+            {on && <Text style={styles.shoutHint}>{`${live.shout!.until - live.minute + 1}' left`}</Text>}
           </Pressable>
         );
       })}
@@ -900,7 +916,10 @@ const CHOICES: Record<string, { label: string; hint: string; icon: IconName }> =
   shot: { label: 'Shoot', hint: 'Go for goal now', icon: 'football' },
   dribble: { label: 'Take him on', hint: 'Beat your man, then shoot', icon: 'flash' },
   pass: { label: 'Pass', hint: 'Find a team-mate', icon: 'git-branch' },
+  freekick: { label: 'Shoot it', hint: 'Over or round the wall', icon: 'football' },
 };
+// A free kick's pass is a ball into the box.
+const SET_PIECE_PASS = { label: 'Cross it in', hint: 'Pick a man in the box', icon: 'arrow-redo' as IconName };
 
 function userSide(game: Game, s: MatchState): SideKey {
   if (s.focus.clubId) return s.home.clubId === s.focus.clubId ? 'home' : 'away';
@@ -940,7 +959,9 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
         ? { title: 'One on one!', icon: base.icon }
         : moment.kind === 'header' && moment.view === 'corner'
           ? { title: 'Corner!', icon: 'flag' as IconName }
-          : base;
+          : moment.setPiece && moment.kind === 'choice'
+            ? { title: 'Free kick', icon: 'navigate' as IconName }
+            : base;
   useEffect(() => haptic('medium'), []);
 
   return (
@@ -973,7 +994,7 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
       {moment.kind === 'choice' && (
         <View style={{ gap: 8 }}>
           {(moment.choices ?? []).map((k: MomentKind) => {
-            const c = CHOICES[k];
+            const c = moment.setPiece && k === 'pass' ? SET_PIECE_PASS : CHOICES[k];
             return (
               <Pressable
                 key={k}

@@ -22,7 +22,11 @@ export type PlayAct =
   | 'foul'
   | 'out'
   | 'offside'
-  | 'moment';
+  | 'moment'
+  // The referee shows a card to carrier; a sent-off player walks.
+  | 'card'
+  // carrier goes down injured.
+  | 'injury';
 
 // How play restarts after a stoppage.
 export type Restart = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'freekick';
@@ -46,6 +50,8 @@ export interface PlayStep {
   // Where the user aimed a shot across the goal, from the shooter's view:
   // 0 is his left post, 1 his right; outside that is wide.
   aim?: number;
+  // A 'card' step: which one.
+  card?: 'yellow' | 'red';
 }
 
 export interface Spot {
@@ -223,12 +229,22 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
   // --- Who starts it ---
   let holder: string | undefined;
   if (from.restart && from.restartSide && from.restartSide !== att.key) {
-    // The other side restarts, then loses it straight away.
+    // The other side restarts and plays it, then loses it.
     const taker = from.restart === 'goalkick' && def.keeperId ? def.keeperId : nearest(from, defOutfield.length ? defOutfield : def.ids, def.key);
     if (taker) add(from, taker, 'start', { restart: from.restart }, def.key);
-    holder = nearest(from, outfield.length ? outfield : att.ids, att.key);
+    let lostBy = taker;
+    if (from.restart === 'kickoff' && taker) {
+      // Rolled back to a midfielder, who then gives it away.
+      const back = defOutfield.filter((id) => id !== taker && world.players[id]?.position === 'MID');
+      const mate = back.length ? rng.pick(back) : undefined;
+      if (mate) {
+        add(toPitch(def.key, { depth: rng.range(0.32, 0.4), lat: clamp(defSpots[mate]?.lat ?? 0.5, 0.25, 0.75) }), mate, 'pass', {}, def.key);
+        lostBy = mate;
+      }
+    }
+    holder = nearest(here(), outfield.length ? outfield : att.ids, att.key);
     if (!holder) return steps;
-    add({ x: from.x + rng.range(-0.06, 0.06), y: clamp(from.y - fwd * rng.range(0.06, 0.14), 0.08, 0.92) }, holder, 'win', { other: taker });
+    add({ x: clamp(here().x + rng.range(-0.06, 0.06), 0.05, 0.95), y: clamp(here().y - fwd * rng.range(0.04, 0.1), 0.08, 0.92) }, holder, 'win', { other: lostBy });
   } else if (from.restart) {
     if (from.restart === 'goalkick' && att.keeperId) holder = att.keeperId;
     else if (from.restart === 'corner') {
@@ -237,6 +253,25 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
     } else holder = nearest(from, outfield.length ? outfield : att.ids, att.key);
     if (!holder) return steps;
     add(from, holder, 'start', { restart: from.restart });
+    if (from.restart === 'kickoff') {
+      const back = outfield.filter((id) => id !== holder && world.players[id]?.position === 'MID');
+      const mate = back.length ? rng.pick(back) : undefined;
+      if (mate) {
+        add(pos(rng.range(0.32, 0.4), clamp(spots[mate]?.lat ?? 0.5, 0.25, 0.75)), mate, 'pass');
+        holder = mate;
+      }
+    }
+    if (from.restart === 'corner' && !(outcome.result && outcome.shooterId)) {
+      // A corner with no chance from it: swung in and headed clear.
+      const target = outfield.filter((id) => id !== holder && world.players[id]?.position !== 'GK');
+      const aimAt = target.length ? rng.pick(target) : holder;
+      add(pos(rng.range(0.88, 0.93), rng.range(0.38, 0.62)), aimAt, 'cross', { header: true });
+      const clearer = defOutfield.length ? nearest(here(), defOutfield, def.key) : undefined;
+      if (clearer) {
+        add({ x: clamp(here().x + rng.range(-0.2, 0.2), 0.1, 0.9), y: here().y - fwd * rng.range(0.22, 0.32) }, clearer, 'win', { other: aimAt }, def.key);
+        return steps;
+      }
+    }
   } else if (from.prev && att.ids.includes(from.prev)) {
     holder = from.prev;
     add(from, holder, 'start');
@@ -358,10 +393,14 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
   if (result === 'goal') {
     steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header, aim });
   } else if (result === 'save') {
-    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: keeperSide, act: 'save', header, aim });
+    // About a third are tipped round the post or over: a corner.
+    const tipped = rng.chance(0.33);
+    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: tipped ? side : keeperSide, act: 'save', header, aim, restart: tipped ? 'corner' : undefined });
   } else {
     const wide = rng.chance(0.5) ? rng.range(0.34, 0.43) : rng.range(0.57, 0.66);
-    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: keeperSide, act: 'miss', restart: 'goalkick', header, aim });
+    // Some are deflected behind off a defender: a corner, not a goal kick.
+    const deflected = rng.chance(0.18);
+    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: deflected ? side : keeperSide, act: 'miss', restart: deflected ? 'corner' : 'goalkick', header, aim });
   }
 }
 
@@ -369,6 +408,7 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
 export function nextStart(steps: PlayStep[] | undefined, fallback: { x: number; y: number }): PlayStart {
   const end = steps?.[steps.length - 1];
   if (!end) return { ...fallback };
+  if (end.act === 'card' || end.act === 'injury') return nextStart(steps!.slice(0, -1), fallback);
   if (end.act === 'goal') return { x: 0.5, y: 0.5, restart: 'kickoff' };
   if (end.restart) {
     // Set pieces are taken from a sensible spot.

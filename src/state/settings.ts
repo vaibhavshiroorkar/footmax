@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AccessibilityInfo } from 'react-native';
 
-export type MatchSpeed = '1' | '2' | '4';
+export type MatchSpeed = '1' | '2' | '4' | '8';
 
 export interface Settings {
   haptics: boolean;
