@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { SkillsBody } from './skills';
 import { useGame, useStore } from '../../state/store';
-import { Button, Card, Icon, IconName, Row, Screen, StatBar, Sticker, T } from '../../ui/kit';
+import { Button, Card, Icon, IconName, Row, Screen, StatBar, Sticker, T, Tabs } from '../../ui/kit';
+import { upgradeCount } from '../../engine/alerts';
 import { GameFor } from '../../ui/training/games';
 import { AttrRow } from '../../ui/attributes';
 import { alpha, colors, fonts } from '../../ui/theme';
@@ -113,7 +115,10 @@ export default function Train() {
   // when it closes, so the gains land where you can see them.
   const [frozen, setFrozen] = useState<Partial<Record<AttrKey, number>> | null>(null);
   const [last, setLast] = useState<string>('');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<'train' | 'skills'>(params.tab === 'skills' ? 'skills' : 'train');
   if (!game?.career) return <Redirect href="/" />;
+  const upgrades = upgradeCount(game);
   const c = game.career;
   const p = game.world.players[c.playerId];
   const drills = drillsFor(p);
@@ -157,7 +162,18 @@ export default function Train() {
   };
 
   return (
-    <Screen title="Training" nav="career">
+    <Screen title={tab === 'skills' ? 'Skills' : 'Training'} nav="career">
+      <Tabs<'train' | 'skills'>
+        tabs={[
+          { key: 'train', label: 'Training' },
+          { key: 'skills', label: upgrades ? `Skills (${upgrades})` : 'Skills' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === 'skills' && <SkillsBody />}
+      {tab === 'train' && (
+      <>
       <Card>
         <Row gap={10}>
           <Sticker icon="battery-charging" color={colors.blue} size={38} />
@@ -211,6 +227,8 @@ export default function Train() {
 
       {sessionsLeft === 0 && (
         <Button label="Training done. Back to the hub" icon="home" variant="secondary" onPress={() => router.replace('/career')} />
+      )}
+      </>
       )}
 
       <Modal visible={!!playing || !!result} transparent animationType="fade" onRequestClose={close}>

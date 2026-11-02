@@ -33,7 +33,14 @@
       ],
       "expo-status-bar",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "scheme": "footmax",
     "backgroundColor": "#0a0e17",

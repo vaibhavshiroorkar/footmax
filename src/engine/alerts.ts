@@ -35,5 +35,5 @@ export function upgradeCount(game: Game): number {
 }
 
 export function navBadges(game: Game): Record<string, number> {
-  return { '/inbox': actionMessages(game).length, '/career/skills': upgradeCount(game) };
+  return { '/inbox': actionMessages(game).length, '/career/train': upgradeCount(game) };
 }

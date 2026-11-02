@@ -1,225 +1,288 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Rect } from 'react-native-svg';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Club, World } from '../engine/types';
 import { MatchState, SideKey } from '../engine/match';
 import { teamById } from '../engine/lineup';
-import { PlayStep, Spot, formationSpots, toPitch } from '../engine/play';
+import { formationSpots } from '../engine/play';
 import { shortName } from '../engine/player';
+import { BodyInfo, Callout, PL, PW, PitchSim } from './pitchSim';
 import { alpha, colors, fonts, luminance } from './theme';
 import { motionReduced } from '../state/settings';
+import { colourGap, keeperKit } from './moments/Keeper';
+import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
-const W = 320;
-const H = 200;
+// The drawing area in metres: the pitch plus a strip for the goals.
+const VX = -3;
+const VW = PL + 6;
+const VY = -1.5;
+const VH = PW + 3;
 
-// How long each step of a move takes on screen, and the pause after it.
-export function playDuration(steps: PlayStep[] | undefined, stepMs: number): number {
-  if (!steps?.length) return stepMs * 2;
-  const last = steps[steps.length - 1].act;
-  const tail = last === 'goal' ? stepMs * 5 : last === 'save' || last === 'miss' ? stepMs * 1.6 : stepMs * 0.4;
-  return steps.length * stepMs + tail;
-}
+const kitFill = (c: Club) => c.colors[0];
+const kitRing = (c: Club) => (c.colors[1] && c.colors[1].toLowerCase() !== c.colors[0].toLowerCase() ? c.colors[1] : luminance(c.colors[0]) > 0.55 ? '#111111' : '#ffffff');
 
-function Dot({ x, y, size, fill, ring, text, textColor, duration, glow }: { x: number; y: number; size: number; fill: string; ring: string; text?: string; textColor: string; duration: number; glow?: boolean }) {
-  const pos = useState(() => new Animated.ValueXY({ x, y }))[0];
+type Registry = Map<string, Animated.ValueXY>;
+
+function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean }) {
+  const v = useState(() => new Animated.ValueXY({ x: -100, y: -100 }))[0];
   useEffect(() => {
-    Animated.timing(pos, { toValue: { x, y }, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: false }).start();
-  }, [x, y, duration, pos]);
+    registry.set(id, v);
+    return () => {
+      registry.delete(id);
+    };
+  }, [id, registry, v]);
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
         position: 'absolute',
-        left: pos.x,
-        top: pos.y,
+        left: v.x,
+        top: v.y,
         width: size,
         height: size,
         marginLeft: -size / 2,
         marginTop: -size / 2,
-        borderRadius: size / 2,
+        // Keepers: a squarer shape in their own colours, with gloves.
+        borderRadius: keeper ? size * 0.32 : size / 2,
         backgroundColor: fill,
         borderWidth: glow ? 2.5 : 1.5,
         borderColor: ring,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: glow ? ring : '#000',
-        shadowOpacity: glow ? 0.9 : 0.35,
+        shadowOpacity: glow ? 0.9 : 0.4,
         shadowRadius: glow ? 6 : 2,
         shadowOffset: { width: 0, height: 1 },
       }}
     >
-      {text ? <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text> : null}
+      <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text>
+      {keeper && (
+        <>
+          <View style={{ position: 'absolute', left: -size * 0.32, top: size * 0.12, width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#111827' }} />
+          <View style={{ position: 'absolute', right: -size * 0.32, top: size * 0.12, width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#111827' }} />
+        </>
+      )}
     </Animated.View>
   );
 }
 
-// A word on the pitch for the end of a move: GOAL, SAVED, WIDE.
-function Callout({ text, sub, color, big }: { text: string; sub?: string; color: string; big: boolean }) {
+function CalloutView({ c, home, away }: { c: Callout; home: Club; away: Club }) {
   const pop = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
     if (motionReduced()) pop.setValue(1);
     else Animated.spring(pop, { toValue: 1, friction: 4, tension: 120, useNativeDriver: NATIVE }).start();
   }, [pop]);
+  const big = c.tone === 'goal';
+  const color = big ? (c.side === 'home' ? home.colors[0] : away.colors[0]) : colors.gold;
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }, big && { backgroundColor: alpha(color, 0.28) }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: big ? 'center' : 'flex-start', paddingTop: big ? 0 : 10 }, big && { backgroundColor: alpha(color, 0.3) }]}>
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }], opacity: pop }}>
-        <Text style={{ fontFamily: fonts.display, fontSize: big ? 64 : 30, color: '#ffffff', letterSpacing: 3, textShadowColor: 'rgba(0,0,0,0.55)', textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } }}>{text}</Text>
-        {sub ? <Text style={{ fontFamily: fonts.bold, fontSize: big ? 16 : 13, color: '#ffffff', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>{sub}</Text> : null}
+        <Text style={{ fontFamily: fonts.display, fontSize: big ? 64 : 24, color: '#ffffff', letterSpacing: 3, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 10, textShadowOffset: { width: 0, height: 2 } }}>{c.text}</Text>
+        {c.sub ? <Text style={{ fontFamily: fonts.bold, fontSize: big ? 16 : 12, color: '#ffffff', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>{c.sub}</Text> : null}
       </Animated.View>
     </View>
   );
 }
 
-const kitFill = (c: Club) => c.colors[0];
-const kitText = (c: Club) => (luminance(c.colors[0]) > 0.55 ? '#111111' : '#ffffff');
-const kitRing = (c: Club) => (c.colors[1] && c.colors[1].toLowerCase() !== c.colors[0].toLowerCase() ? c.colors[1] : luminance(c.colors[0]) > 0.55 ? '#111111' : '#ffffff');
+export interface LivePitchProps {
+  world: World;
+  live: MatchState;
+  focusId?: string;
+  // 1, 2 or 4: how fast the pitch plays.
+  speed: number;
+  width: number;
+  // True while the clock may run. The pitch asks for the next minute when
+  // its current move has played out.
+  running: boolean;
+  paused?: boolean;
+  onNeedMinute?: () => void;
+  onGoal?: () => void;
+  onMomentReady?: () => void;
+}
 
-// The live pitch. Each minute the engine hands over a move (see play.ts);
-// this steps through it, moving the ball from player to player while both
-// teams shift as a block around it.
-export function LivePitch({ world, live, focusId, stepMs, width, onGoal }: { world: World; live: MatchState; focusId?: string; stepMs: number; width: number; onGoal?: () => void }) {
-  const scale = width / W;
-  const h = H * scale;
+// The live pitch: 22 players and a ball, moving every frame (see pitchSim).
+export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady }: LivePitchProps) {
+  const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
-  const play = live.play;
-  const playKey = `${live.minute}-${live.events.length}-${play?.length ?? 0}-${live.pending ? 'p' : ''}`;
-  const [frame, setFrame] = useState({ key: playKey, i: 0 });
-  const current = frame.key === playKey ? frame.i : 0;
+  const sim = useState(() => new PitchSim())[0];
+  const registry = useState<Registry>(() => new Map())[0];
+  const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10) }))[0];
+  const [caption, setCaption] = useState(sim.caption);
+  const [callout, setCallout] = useState<Callout | null>(null);
+  const [owner, setOwner] = useState<string | null>(null);
+  // Latest props for the frame loop, which is set up once.
+  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, width, h });
+  useEffect(() => {
+    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, width, h };
+  });
+
+  // Players on the pitch: who, where they stand in the shape, how fast.
+  const ids = `${live.home.onPitch.join(',')}|${live.away.onPitch.join(',')}|${home.formation}|${away.formation}`;
+  useEffect(() => {
+    const infos: BodyInfo[] = [];
+    for (const side of ['home', 'away'] as SideKey[]) {
+      const team = side === 'home' ? home : away;
+      const spots = formationSpots(world, team, live[side].onPitch);
+      for (const id of live[side].onPitch) {
+        const p = world.players[id];
+        if (!p) continue;
+        infos.push({ id, side, spot: spots[id] ?? { depth: 0.5, lat: 0.5 }, pos: p.position, pace: p.attrs.pace, name: `#${live.numbers?.[id] ?? ''} ${shortName(p)}` });
+      }
+    }
+    sim.sync(infos);
+    // ids stands in for the lineups, which change in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids, sim, world]);
+
+  // Each new move from the engine joins the queue.
+  const playKey = live.play ? `${live.minute}-${live.events.length}-${live.play.length}` : `none-${live.minute}`;
+  const asked = useRef(false);
+  useEffect(() => {
+    if (live.play) sim.enqueue(live.play.map((s) => ({ ...s })));
+    asked.current = false;
+    // A new move is the only thing that should queue one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playKey, sim]);
+
+  // The break: both teams line up again.
+  useEffect(() => {
+    if (live.half === 2 && live.minute <= 46) sim.halfTime('away');
+  }, [live.half, live.minute, sim]);
 
   useEffect(() => {
-    if (!play?.length) return;
-    let i = 0;
-    let t: ReturnType<typeof setTimeout>;
-    const next = () => {
-      setFrame({ key: playKey, i });
-      if (play[i].act === 'goal') onGoal?.();
-      if (i < play.length - 1) {
-        i++;
-        t = setTimeout(next, stepMs);
-      }
-    };
-    next();
-    return () => clearTimeout(t);
-    // onGoal is a fresh function each render; the move only restarts on a new play.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playKey, play, stepMs]);
-
-  const homeIds = live.home.onPitch.join(',');
-  const awayIds = live.away.onPitch.join(',');
-  const spots = useMemo(
-    () => ({ home: formationSpots(world, home, live.home.onPitch), away: formationSpots(world, away, live.away.onPitch) }),
-    // The ids strings stand in for the arrays, which change in place.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [world, home, away, homeIds, awayIds],
-  );
-
-  const step: PlayStep | undefined = play?.[Math.min(current, (play?.length ?? 1) - 1)];
-  const ball = step ? { x: step.x, y: step.y } : live.minute === 0 ? { x: 0.5, y: 0.5 } : live.ball;
-  const carrier = step?.carrier ?? null;
-  // Screen: home attacks left to right. Pitch y (goal to goal) runs along the width.
-  const toScreen = (p: { x: number; y: number }) => ({ left: p.y * width, top: p.x * h });
-
-  const dots: { key: string; x: number; y: number; fill: string; ring: string; text: string; textColor: string; size: number; glow: boolean }[] = [];
-  for (const side of ['home', 'away'] as SideKey[]) {
-    const team = side === 'home' ? home : away;
-    const ids = live[side].onPitch;
-    const ballDepth = side === 'home' ? ball.y : 1 - ball.y;
-    const ballLat = side === 'home' ? ball.x : 1 - ball.x;
-    const inPossession = step ? step.side === side : false;
-    // The block slides with the ball; the side on the ball pushes higher.
-    const positions = ids.map((id) => {
-      const base: Spot = spots[side][id] ?? { depth: 0.5, lat: 0.5 };
-      const keeper = world.players[id]?.position === 'GK';
-      // Before kick-off and at the break, each side stands in its own half.
-      // In play, the side without the ball drops a few yards so the two
-      // midfields do not sit on top of each other.
-      const shift = keeper ? (ballDepth - 0.5) * 0.06 : (ballDepth - 0.45) * (inPossession ? 0.42 : 0.3) + (inPossession ? 0.03 : -0.06);
-      const depth = !step ? (keeper ? 0.04 : 0.1 + base.depth * 0.5) : Math.max(0.02, Math.min(0.97, base.depth + shift));
-      const lat = keeper ? 0.5 + (ballLat - 0.5) * 0.15 : base.lat + (ballLat - 0.5) * 0.22;
-      return { id, ...toPitch(side, { depth, lat }), keeper };
+    sim.setHooks({
+      onGoal: () => props.current.onGoal?.(),
+      onMoment: () => props.current.onMomentReady?.(),
+      // Fast-forwarding at 4x would turn kicks into a rattle; keep the big ones.
+      onSound: (name, volume) => {
+        if (props.current.speed >= 4 && name === 'kick') return;
+        playSound(name, volume);
+      },
     });
-    // Without the ball, the nearest two close it down.
-    if (!inPossession && step) {
-      const chasers = positions
-        .filter((p) => !p.keeper)
-        .map((p) => ({ p, d: Math.hypot(p.x - ball.x, p.y - ball.y) }))
-        .sort((a, b) => a.d - b.d)
-        .slice(0, 2);
-      chasers.forEach(({ p }, k) => {
-        const pull = k === 0 ? 0.6 : 0.3;
-        p.x += (ball.x - p.x) * pull;
-        p.y += (ball.y - p.y) * pull;
-      });
-    }
-    for (const p of positions) {
-      const me = p.id === focusId;
-      const has = p.id === carrier;
-      const pos = has ? { x: ball.x, y: ball.y + (side === 'home' ? -0.02 : 0.02) } : p;
-      const s = toScreen(pos);
-      dots.push({
-        key: p.id,
-        x: s.left,
-        y: s.top,
-        fill: kitFill(team),
-        ring: me ? colors.gold : has ? '#ffffff' : kitRing(team),
-        text: String(live.numbers?.[p.id] ?? ''),
-        textColor: kitText(team),
-        size: (me ? 22 : 19) * Math.min(1.25, Math.max(0.85, scale)),
-        glow: me || has,
-      });
-    }
-  }
+    let raf = 0;
+    let last = 0;
+    let lastCaption = '';
+    let lastCallout: Callout | null = null;
+    let lastOwner: string | null = null;
+    const toScreen = (x: number, y: number) => {
+      const { width: w, h: hh } = props.current;
+      return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
+    };
+    const frame = (now: number) => {
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      const p = props.current;
+      // A key moment plays in slow motion while the user decides.
+      const scale = p.paused ? 0 : sim.holding ? 0.25 : p.speed;
+      sim.update(dt * scale);
+      for (const [id, body] of sim.bodies) {
+        const v = registry.get(id);
+        if (v) v.setValue(toScreen(body.x, body.y));
+      }
+      const b = toScreen(sim.ball.x, sim.ball.y);
+      ball.shadow.setValue(b);
+      ball.pos.setValue({ x: b.x, y: b.y - sim.ball.z * 2.2 });
+      ball.size.setValue(10 + sim.ball.z * 1.1);
+      if (sim.caption !== lastCaption) {
+        lastCaption = sim.caption;
+        setCaption(sim.caption);
+      }
+      if (sim.callout !== lastCallout) {
+        lastCallout = sim.callout;
+        setCallout(sim.callout);
+      }
+      if (sim.ball.owner !== lastOwner) {
+        lastOwner = sim.ball.owner;
+        setOwner(sim.ball.owner);
+      }
+      // Ready for more: ask once per move.
+      if (p.running && !p.paused && sim.idle() && !asked.current) {
+        asked.current = true;
+        p.onNeedMinute?.();
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [sim, registry, ball]);
 
-  const ballScreen = toScreen(ball);
-  const act = step?.act;
-  const quick = act === 'goal' || act === 'save' || act === 'miss';
-  const ballMs = quick ? stepMs * 0.45 : stepMs * 0.8;
-  const atEnd = !!play && current >= play.length - 1;
-  const shooterStep = play && play.length > 1 ? play[play.length - 2] : undefined;
-  const name = (id: string | null | undefined) => (id ? `#${live.numbers?.[id] ?? ''} ${shortName(world.players[id])}` : '');
-  const scoringTeam = step?.side === 'home' ? home : away;
+  const size = Math.max(15, Math.min(21, width / 22));
+  // When the shirts are too alike, the away side wears its second colour,
+  // as in a real match. Each keeper wears a colour that clashes with neither.
+  const awayShirt = colourGap(home.colors[0], away.colors[0]) < 140 && away.colors[1] && colourGap(home.colors[0], away.colors[1]) > colourGap(home.colors[0], away.colors[0]) ? away.colors[1] : away.colors[0];
+  const homeKeeper = keeperKit([home.colors[0], awayShirt]);
+  const awayKeeper = keeperKit([home.colors[0], awayShirt, homeKeeper], homeKeeper);
+  const dots = (['home', 'away'] as SideKey[]).flatMap((side) => {
+    const team = side === 'home' ? home : away;
+    return live[side].onPitch.map((id) => {
+      const me = id === focusId;
+      const has = id === owner;
+      const keeper = world.players[id]?.position === 'GK';
+      const fill = keeper ? (side === 'home' ? homeKeeper : awayKeeper) : side === 'away' ? awayShirt : kitFill(team);
+      return (
+        <Dot
+          key={id}
+          id={id}
+          registry={registry}
+          size={me ? size + 3 : size}
+          fill={fill}
+          ring={me ? colors.gold : has ? '#ffffff' : keeper ? '#111827' : side === 'away' && awayShirt !== away.colors[0] ? away.colors[0] : kitRing(team)}
+          text={String(live.numbers?.[id] ?? '')}
+          textColor={luminance(fill) > 0.55 ? '#111111' : '#ffffff'}
+          glow={me || has}
+          keeper={keeper}
+        />
+      );
+    });
+  });
 
-  let caption = live.minute === 0 ? 'Teams are out. Waiting for kick off.' : '';
-  if (step) {
-    const prev = play && current > 0 ? play[current - 1] : undefined;
-    if (act === 'pass' && prev?.carrier) caption = `${name(prev.carrier)}  ->  ${name(carrier)}`;
-    else if (act === 'win') caption = `${name(carrier)} wins the ball`;
-    else if (act === 'goal') caption = `GOAL! ${name(shooterStep?.carrier)}`;
-    else if (act === 'save') caption = `${name(shooterStep?.carrier)} shoots... saved by ${name(carrier)}`;
-    else if (act === 'miss') caption = `${name(shooterStep?.carrier)} shoots wide`;
-    else caption = `${name(carrier)} on the ball`;
-    if (live.pending && atEnd) caption = live.pending.attackerId ? `${name(live.pending.attackerId)} is through on goal!` : `${name(live.pending.actorId)}: your moment!`;
-  }
-
+  const line = { stroke: '#ffffff', strokeOpacity: 0.5, strokeWidth: 0.35, fill: 'none' };
   return (
     <View style={{ gap: 6 }}>
-      <View style={{ width, height: h, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
-        <Svg width={width} height={h} viewBox={`0 0 ${W} ${H}`} style={StyleSheet.absoluteFill}>
-          {Array.from({ length: 8 }, (_, i) => (
-            <Rect key={i} x={i * 40} y={0} width={40} height={H} fill={i % 2 ? colors.pitch : colors.pitchDark} />
+      <View style={{ width, height: h, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.pitchDark }}>
+        <Svg width={width} height={h} viewBox={`${VX} ${VY} ${VW} ${VH}`} style={StyleSheet.absoluteFill}>
+          {Array.from({ length: 10 }, (_, i) => (
+            <Rect key={i} x={i * 10.5} y={0} width={10.5} height={PW} fill={i % 2 ? colors.pitch : colors.pitchDark} />
           ))}
-          <Rect x={6} y={6} width={W - 12} height={H - 12} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Line x1={W / 2} y1={6} x2={W / 2} y2={H - 6} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} />
-          <Circle cx={W / 2} cy={H / 2} r={24} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Circle cx={W / 2} cy={H / 2} r={2} fill="#fff" fillOpacity={0.6} />
-          <Rect x={6} y={50} width={44} height={100} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Rect x={6} y={78} width={16} height={44} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Rect x={W - 50} y={50} width={44} height={100} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Rect x={W - 22} y={78} width={16} height={44} stroke="#fff" strokeOpacity={0.45} strokeWidth={1.5} fill="none" />
-          <Rect x={0} y={86} width={6} height={28} fill="#fff" fillOpacity={act === 'goal' && step?.side === 'away' ? 0.95 : 0.5} />
-          <Rect x={W - 6} y={86} width={6} height={28} fill="#fff" fillOpacity={act === 'goal' && step?.side === 'home' ? 0.95 : 0.5} />
+          <Rect x={0} y={0} width={PL} height={PW} {...line} />
+          <Line x1={PL / 2} y1={0} x2={PL / 2} y2={PW} {...line} />
+          <Circle cx={PL / 2} cy={PW / 2} r={9.15} {...line} />
+          <Circle cx={PL / 2} cy={PW / 2} r={0.5} fill="#ffffff" fillOpacity={0.6} />
+          <Rect x={0} y={PW / 2 - 20.15} width={16.5} height={40.3} {...line} />
+          <Rect x={0} y={PW / 2 - 9.16} width={5.5} height={18.32} {...line} />
+          <Rect x={PL - 16.5} y={PW / 2 - 20.15} width={16.5} height={40.3} {...line} />
+          <Rect x={PL - 5.5} y={PW / 2 - 9.16} width={5.5} height={18.32} {...line} />
+          <Circle cx={11} cy={PW / 2} r={0.45} fill="#ffffff" fillOpacity={0.6} />
+          <Circle cx={PL - 11} cy={PW / 2} r={0.45} fill="#ffffff" fillOpacity={0.6} />
+          <Path d={`M 16.5 ${PW / 2 - 7.3} A 9.15 9.15 0 0 1 16.5 ${PW / 2 + 7.3}`} {...line} />
+          <Path d={`M ${PL - 16.5} ${PW / 2 - 7.3} A 9.15 9.15 0 0 0 ${PL - 16.5} ${PW / 2 + 7.3}`} {...line} />
+          <Rect x={-2} y={PW / 2 - 3.66} width={2} height={7.32} fill="#ffffff" fillOpacity={0.25} stroke="#ffffff" strokeWidth={0.4} />
+          <Rect x={PL} y={PW / 2 - 3.66} width={2} height={7.32} fill="#ffffff" fillOpacity={0.25} stroke="#ffffff" strokeWidth={0.4} />
         </Svg>
-        {dots.map((d) => (
-          <Dot key={d.key} x={d.x} y={d.y} size={d.size} fill={d.fill} ring={d.ring} text={d.text} textColor={d.textColor} duration={stepMs * 0.9} glow={d.glow} />
-        ))}
-        <Dot x={ballScreen.left} y={ballScreen.top} size={11} fill="#ffffff" ring="#111111" textColor="#000" duration={ballMs} />
-        {act === 'goal' && <Callout key={playKey} text="GOAL!" sub={name(shooterStep?.carrier)} color={scoringTeam.colors[0]} big />}
-        {act === 'save' && <Callout key={playKey} text="SAVED" color={colors.blue} big={false} />}
-        {act === 'miss' && <Callout key={playKey} text="WIDE" color={colors.muted} big={false} />}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: ball.shadow.x, top: ball.shadow.y, width: 9, height: 5, marginLeft: -4.5, marginTop: -1, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.35)' }} />
+        {dots}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: ball.pos.x,
+            top: ball.pos.y,
+            width: ball.size,
+            height: ball.size,
+            marginLeft: -5,
+            marginTop: -5,
+            borderRadius: 8,
+            backgroundColor: '#ffffff',
+            borderWidth: 1.5,
+            borderColor: '#111111',
+          }}
+        />
+        {callout && <CalloutView key={`${callout.text}-${callout.until}`} c={callout} home={home} away={away} />}
       </View>
       <View style={{ height: 22, justifyContent: 'center', paddingHorizontal: 4 }}>
-        <Text numberOfLines={1} style={{ fontFamily: act === 'goal' ? fonts.bold : fonts.semibold, fontSize: 13, color: act === 'goal' ? colors.accent : colors.text }}>
+        <Text numberOfLines={1} style={{ fontFamily: callout?.tone === 'goal' ? fonts.bold : fonts.semibold, fontSize: 13, color: callout?.tone === 'goal' ? colors.accent : colors.text }}>
           {caption}
         </Text>
       </View>

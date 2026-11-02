@@ -10,12 +10,15 @@ import { alpha, colors, fonts, gradients, onColor, radius, shade, space } from '
 import { Club } from '../engine/types';
 import { useGame } from '../state/store';
 import { navBadges } from '../engine/alerts';
+import { playSound } from './sound';
 import { hapticsOn, motionReduced } from '../state/settings';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const NATIVE = Platform.OS !== 'web';
 
 export function haptic(kind: 'light' | 'medium' | 'heavy' | 'success' | 'warning' = 'light') {
+  // Taps click on every platform; vibration is phones only.
+  if (kind === 'light' || kind === 'medium') playSound('tap', kind === 'medium' ? 0.6 : 0.4);
   if (!NATIVE || !hapticsOn()) return;
   try {
     if (kind === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -84,10 +87,12 @@ export function AnimatedNumber({ value, style, format = (n: number) => String(Ma
   return <Text style={style}>{format(shown)}</Text>;
 }
 
-const CAREER_TABS: { href: string; icon: IconName; label: string; color: string }[] = [
-  { href: '/career', icon: 'home', label: 'Home', color: colors.accent },
-  { href: '/career/train', icon: 'barbell', label: 'Train', color: colors.accent },
-  { href: '/career/skills', icon: 'sparkles', label: 'Skills', color: colors.accent },
+// Play sits in the middle as the big button; everything else that is not
+// daily lives under More on the left.
+const CAREER_TABS: { href: string; icon: IconName; label: string; color: string; center?: boolean; also?: string[] }[] = [
+  { href: '/career/more', icon: 'grid', label: 'More', color: colors.accent },
+  { href: '/career/train', icon: 'barbell', label: 'Train', color: colors.accent, also: ['/career/skills'] },
+  { href: '/career', icon: 'football', label: 'Play', color: colors.accent, center: true },
   { href: '/inbox', icon: 'mail', label: 'Inbox', color: colors.accent },
   { href: '/career/profile', icon: 'person', label: 'Me', color: colors.accent },
 ];
@@ -116,6 +121,16 @@ function NavItem({ tab, active, onPress, badge }: { tab: (typeof CAREER_TABS)[nu
     Animated.spring(s, { toValue: active ? 1 : 0, useNativeDriver: NATIVE, friction: 7, tension: 140 }).start();
   }, [active, s]);
   const outline = `${tab.icon}-outline` as IconName;
+  if (tab.center) {
+    return (
+      <Pressable onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label} style={{ flex: 1, alignItems: 'center', minHeight: 52 }}>
+        <View style={{ marginTop: -18, width: 58, height: 58, borderRadius: 29, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.bg, shadowColor: colors.accent, shadowOpacity: active ? 0.6 : 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } }}>
+          <Icon name={tab.icon} size={26} color={colors.ink} />
+        </View>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: active ? colors.accent : colors.text, marginTop: 1 }}>{tab.label}</Text>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       onPress={onPress}
@@ -152,7 +167,7 @@ export function BottomNav({ mode }: { mode: 'career' | 'manager' }) {
         <NavItem
           key={t.href}
           tab={t}
-          active={path === t.href}
+          active={path === t.href || ((t as { also?: string[] }).also ?? []).includes(path)}
           badge={badges?.[t.href]}
           onPress={() => {
             if (path === t.href) return;

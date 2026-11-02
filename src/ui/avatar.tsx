@@ -34,18 +34,41 @@ export function Avatar({ look, number, kit, size = 64 }: { look: Look; number?: 
       <SvgText x={50} y={96} fontSize={15} fontFamily={fonts.display} fontWeight="bold" fill={trim} textAnchor="middle">
         {number ?? ''}
       </SvgText>
-      {/* Neck and head */}
-      <Rect x={43} y={58} width={14} height={14} rx={4} fill={shade(skin, -0.08)} />
-      {style === 3 && <Path d="M28 40 C28 22 72 22 72 40 L74 66 L64 62 L64 44 L36 44 L36 62 L26 66 Z" fill={hair} />}
-      <Ellipse cx={50} cy={42} rx={18} ry={21} fill={skin} />
-      <Circle cx={43} cy={44} r={2} fill="#2b1d14" />
-      <Circle cx={57} cy={44} r={2} fill="#2b1d14" />
-      <Path d="M44 53 Q50 57 56 53" stroke="#6b3b2a" strokeWidth={1.8} fill="none" strokeLinecap="round" />
-      {style === 0 && <Path d="M31 38 C31 18 69 18 69 38 C64 30 56 28 50 28 C42 28 36 30 31 38 Z" fill={hair} />}
-      {style === 1 && <Path d="M32 34 C34 20 66 20 68 34 C60 28 40 28 32 34 Z" fill={hair} opacity={0.85} />}
-      {style === 2 && [32, 39, 46, 53, 60, 67].map((x, i) => <Circle key={i} cx={x} cy={26 + (i % 2) * 3} r={7} fill={hair} />)}
-      {style === 3 && <Path d="M32 36 C32 20 68 20 68 36 C60 28 40 28 32 36 Z" fill={hair} />}
-      {style === 4 && <Path d="M45 14 L55 14 L56 34 L44 34 Z" fill={hair} />}
+      {/* Neck, then long hair that falls behind the head. */}
+      <Rect x={43} y={56} width={14} height={16} rx={4} fill={shade(skin, -0.08)} />
+      {style === 3 && <Path d="M30 42 C27 16 73 16 70 42 L73 70 L62 66 L62 48 L38 48 L38 66 L27 70 Z" fill={shade(hair, -0.12)} />}
+      {/* Ears and head. The hair shapes below are drawn on this outline
+          (top of the head at y 23), so they sit on the scalp. */}
+      <Ellipse cx={33} cy={45} rx={3.2} ry={5} fill={shade(skin, -0.06)} />
+      <Ellipse cx={67} cy={45} rx={3.2} ry={5} fill={shade(skin, -0.06)} />
+      <Ellipse cx={50} cy={43} rx={17} ry={20} fill={skin} />
+      <Path d="M41 39 Q43 37.5 46 39" stroke={shade(hair, 0.1)} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      <Path d="M54 39 Q57 37.5 59 39" stroke={shade(hair, 0.1)} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      <Circle cx={43.5} cy={44.5} r={2} fill="#2b1d14" />
+      <Circle cx={56.5} cy={44.5} r={2} fill="#2b1d14" />
+      <Path d="M50 46 L48.5 51 L51 51" stroke={shade(skin, -0.25)} strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M44.5 55 Q50 58.5 55.5 55" stroke="#6b3b2a" strokeWidth={1.8} fill="none" strokeLinecap="round" />
+      {/* Hair */}
+      {(style === 0 || style === 3) && (
+        <Path d="M32 44 C30 29 37 17 50 17 C63 17 70 29 68 44 L66.5 44 C65.5 36 62.5 31.5 57 30 C52 33 44 33 38.5 31 C35.5 34 34 38 33.5 44 Z" fill={hair} />
+      )}
+      {style === 1 && <Path d="M33 41 C32 28 39 20.5 50 20.5 C61 20.5 68 28 67 41 C64.5 33.5 58 30 50 30 C42 30 35.5 33.5 33 41 Z" fill={hair} opacity={0.8} />}
+      {style === 2 && (
+        <>
+          <Path d="M33 42 C31 28 38 19 50 19 C62 19 69 28 67 42 C64 34 58 31 50 31 C42 31 36 34 33 42 Z" fill={hair} />
+          {Array.from({ length: 9 }, (_, i) => {
+            const a = Math.PI + (i * Math.PI) / 8;
+            return <Circle key={i} cx={50 + 17.5 * Math.cos(a)} cy={39 + 18 * Math.sin(a)} r={6.2} fill={hair} />;
+          })}
+        </>
+      )}
+      {style === 4 && (
+        <>
+          <Path d="M33 41 C32 28 39 20.5 50 20.5 C61 20.5 68 28 67 41 C64.5 33.5 58 30 50 30 C42 30 35.5 33.5 33 41 Z" fill={hair} opacity={0.35} />
+          <Path d="M45 13 C47 11 53 11 55 13 L56.5 32 L43.5 32 Z" fill={hair} />
+        </>
+      )}
+      {style === 5 && <Ellipse cx={44} cy={29} rx={5} ry={2.5} fill="#ffffff" opacity={0.25} />}
     </Svg>
   );
 }

@@ -4,6 +4,7 @@ import { AttrKey, Attributes, Player, ATTR_KEYS } from '../engine/types';
 import { ATTR_LABELS, weightsFor } from '../engine/player';
 import { alpha, colors, fonts, ratingColor } from './theme';
 import { motionReduced } from '../state/settings';
+import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
 
@@ -39,6 +40,7 @@ export function AttrRow({ k, value, keyAttr, note, noteColor }: { k: AttrKey; va
       Animated.timing(fill, { toValue: 1, duration: 380, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
         fill.setValue(0);
         setGain(gained);
+        playSound('reward', 0.5);
         pop.setValue(1);
         Animated.spring(pop, { toValue: 0, friction: 4, tension: 70, useNativeDriver: NATIVE }).start(() => setGain(0));
         Animated.timing(fill, { toValue: next, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();

@@ -6,6 +6,7 @@ export type MatchSpeed = '1' | '2' | '4';
 
 export interface Settings {
   haptics: boolean;
+  sound: boolean;
   // The player's choice; the OS "reduce motion" setting also counts.
   reduceMotion: boolean;
   matchSpeed: MatchSpeed;
@@ -15,7 +16,7 @@ export interface Settings {
 }
 
 const KEY = 'footmax-settings';
-const DEFAULTS: Settings = { haptics: true, reduceMotion: false, matchSpeed: '1', autoMoments: false, seenTips: false };
+const DEFAULTS: Settings = { haptics: true, sound: true, reduceMotion: false, matchSpeed: '2', autoMoments: false, seenTips: false };
 
 interface SettingsStore extends Settings {
   osReduceMotion: boolean;
@@ -40,8 +41,8 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
   set: (patch) => {
     set(patch);
-    const { haptics, reduceMotion, matchSpeed, autoMoments, seenTips } = { ...get(), ...patch };
-    AsyncStorage.setItem(KEY, JSON.stringify({ haptics, reduceMotion, matchSpeed, autoMoments, seenTips })).catch(() => {});
+    const { haptics, sound, reduceMotion, matchSpeed, autoMoments, seenTips } = { ...get(), ...patch };
+    AsyncStorage.setItem(KEY, JSON.stringify({ haptics, sound, reduceMotion, matchSpeed, autoMoments, seenTips })).catch(() => {});
   },
 }));
 
@@ -51,3 +52,4 @@ export const motionReduced = () => {
   return s.reduceMotion || s.osReduceMotion;
 };
 export const hapticsOn = () => useSettings.getState().haptics;
+export const soundOn = () => useSettings.getState().sound;

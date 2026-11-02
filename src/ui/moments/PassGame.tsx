@@ -1,42 +1,69 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
-import Svg, { Circle, G, Line, Rect, Text as SvgText } from 'react-native-svg';
+import { Pressable, Text, View } from 'react-native';
+import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { useTicker } from './useTicker';
-import { Button, Row, T } from '../kit';
-import { colors } from '../theme';
-import { PassOption } from '../../engine/match';
+import { T } from '../kit';
+import { alpha, colors, fonts } from '../theme';
+import { PassKind, PassOption } from '../../engine/match';
 
-const BASE_LIMIT = 3.5;
-const SPOTS = [
-  { x: 60, y: 75 },
-  { x: 150, y: 45 },
-  { x: 240, y: 80 },
-];
+const BASE_LIMIT = 4.5;
 
-// Pick the open team-mate before the timer runs out. Markers crowd the
-// team-mates who are covered.
+// Where each kind of ball goes on the little pitch (the goal is at the top).
+const PLACE: Record<PassKind, { x: number; y: number }[]> = {
+  through: [{ x: 150, y: 46 }],
+  cross: [{ x: 262, y: 58 }],
+  square: [{ x: 70, y: 102 }, { x: 228, y: 104 }],
+  safe: [{ x: 58, y: 160 }, { x: 242, y: 162 }],
+};
+
+const LABEL: Record<PassKind, { name: string; hint: string }> = {
+  through: { name: 'Through ball', hint: 'Behind the defence' },
+  cross: { name: 'Cross', hint: 'For a header' },
+  square: { name: 'Square it', hint: 'Across the box' },
+  safe: { name: 'One-two', hint: 'Lay it off, get it back' },
+};
+
+function Bars({ value, color }: { value: number; color: string }) {
+  const n = Math.max(1, Math.round(value * 5));
+  return (
+    <View style={{ flexDirection: 'row', gap: 2 }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <View key={i} style={{ width: 9, height: 6, borderRadius: 2, backgroundColor: i < n ? color : colors.bgElev }} />
+      ))}
+    </View>
+  );
+}
+
+// Pick your pass. Every option trades safety against danger: the ball that
+// is sure to arrive rarely leads to a goal, the killer ball often does not
+// arrive. Decide fast; the longer you wait, the more the defence closes.
 export function PassGame({ options, names, playmaker = 0, onDone }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; onDone: (q: number, text: string, playerId?: string) => void }) {
-  // Playmaker gives more time on the ball.
   const LIMIT = BASE_LIMIT + 0.6 * playmaker;
   const [done, setDone] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const t = useTicker(!done);
   const finished = useRef(false);
-  const markers = useMemo(
-    () =>
-      options.flatMap((o, i) => {
-        const n = o.openness < 0.4 ? 2 : o.openness < 0.7 ? 1 : 0;
-        return Array.from({ length: n }, (_, k) => ({ x: SPOTS[i].x + (k ? 16 : -14), y: SPOTS[i].y + (k ? -12 : 14) }));
-      }),
-    [options],
-  );
+  const placed = useMemo(() => {
+    const used: Partial<Record<PassKind, number>> = {};
+    return options.map((o) => {
+      const kind = o.kind ?? 'square';
+      const k = used[kind] ?? 0;
+      used[kind] = k + 1;
+      const spot = PLACE[kind][k % PLACE[kind].length];
+      const markers = o.openness < 0.45 ? 2 : o.openness < 0.75 ? 1 : 0;
+      return { o, kind, spot, markers };
+    });
+  }, [options]);
 
   const choose = (o: PassOption | undefined, timedOut = false) => {
     if (finished.current) return;
     finished.current = true;
-    const q = o ? clamp(o.openness * (1 - (0.35 * Math.min(t, LIMIT)) / LIMIT)) : 0.05;
-    const text = timedOut ? 'Too slow! The chance is gone.' : q > 0.7 ? 'Great pass!' : q > 0.4 ? 'Risky ball...' : 'That one is well covered.';
+    // Waiting lets defenders close the lanes.
+    const q = o ? clamp(o.openness * (1 - (0.4 * Math.min(t, LIMIT)) / LIMIT) + 0.1) : 0.05;
+    const text = timedOut ? 'Too slow! Closed down.' : q > 0.7 ? 'Perfectly weighted!' : q > 0.45 ? 'It might get there...' : 'Brave ball...';
+    setPicked(o?.playerId ?? null);
     setDone(text);
-    setTimeout(() => onDone(timedOut ? 0.05 : q, text, o?.playerId), 800);
+    setTimeout(() => onDone(timedOut ? 0.05 : q, text, o?.playerId), 700);
   };
 
   useEffect(() => {
@@ -45,36 +72,74 @@ export function PassGame({ options, names, playmaker = 0, onDone }: { options: P
 
   const left = Math.max(0, 1 - t / LIMIT);
   return (
-    <View>
-      <Svg width="100%" height={210} viewBox="0 0 300 200">
+    <View style={{ gap: 8 }}>
+      <Svg width="100%" height={200} viewBox="0 0 300 200">
         <Rect x={0} y={0} width={300} height={200} fill={colors.pitch} />
-        <Rect x={90} y={0} width={120} height={36} stroke={colors.pitchLine} strokeWidth={2} fill="none" />
-        <Line x1={0} y1={199} x2={300} y2={199} stroke={colors.pitchLine} strokeWidth={2} />
-        {markers.map((m, i) => (
-          <Circle key={`d${i}`} cx={m.x} cy={m.y} r={9} fill="#d94b4b" />
+        <Rect x={70} y={0} width={160} height={52} stroke={colors.pitchLine} strokeWidth={2} fill="none" />
+        <Rect x={120} y={0} width={60} height={18} stroke={colors.pitchLine} strokeWidth={2} fill="none" />
+        <Path d="M 110 52 A 40 40 0 0 0 190 52" stroke={colors.pitchLine} strokeWidth={2} fill="none" />
+        {/* A back line the through ball has to beat. */}
+        <Line x1={20} y1={66} x2={280} y2={66} stroke="#ffffff22" strokeWidth={1} strokeDasharray="3,4" />
+        {[60, 120, 180, 240].map((x) => (
+          <Circle key={x} cx={x} cy={70} r={8} fill="#d94b4b" opacity={0.85} />
         ))}
-        {options.map((o, i) => (
+        {placed.map(({ o, spot, markers }) => (
           <G key={o.playerId}>
-            <Line x1={150} y1={175} x2={SPOTS[i].x} y2={SPOTS[i].y} stroke="#ffffff33" strokeWidth={2} strokeDasharray="5,5" />
-            <Circle cx={SPOTS[i].x} cy={SPOTS[i].y} r={13} fill={colors.blue} stroke="#ffffff" strokeWidth={2} />
-            <SvgText x={SPOTS[i].x} y={SPOTS[i].y + 30} fill="#ffffff" fontSize={11} fontWeight="bold" textAnchor="middle">
+            <Line x1={150} y1={182} x2={spot.x} y2={spot.y} stroke={picked === o.playerId ? colors.gold : '#ffffff40'} strokeWidth={picked === o.playerId ? 3 : 2} strokeDasharray="5,5" />
+            {Array.from({ length: markers }, (_, k) => (
+              <Circle key={k} cx={spot.x + (k ? 15 : -15)} cy={spot.y + (k ? -9 : 10)} r={8} fill="#d94b4b" />
+            ))}
+            <Circle cx={spot.x} cy={spot.y} r={13} fill={colors.blue} stroke={picked === o.playerId ? colors.gold : '#ffffff'} strokeWidth={2.5} />
+            <SvgText x={spot.x} y={spot.y + 27} fill="#ffffff" fontSize={11} fontWeight="bold" fontFamily={fonts.bold} textAnchor="middle">
               {names[o.playerId]}
             </SvgText>
           </G>
         ))}
-        <Circle cx={150} cy={175} r={12} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
+        <Circle cx={150} cy={182} r={12} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
       </Svg>
-      <View style={{ height: 8, backgroundColor: colors.bg, borderRadius: 4, overflow: 'hidden', marginVertical: 8 }}>
+      <View style={{ height: 8, backgroundColor: colors.bg, borderRadius: 4, overflow: 'hidden' }}>
         <View style={{ width: `${left * 100}%`, height: 8, backgroundColor: left > 0.3 ? colors.accent : colors.red }} />
       </View>
-      <T bold style={{ textAlign: 'center', marginBottom: 8 }}>
-        {done ?? 'Who is open? Pick your pass.'}
+      <T bold style={{ textAlign: 'center' }}>
+        {done ?? 'Safe or deadly? Pick your pass.'}
       </T>
-      <Row>
-        {options.map((o) => (
-          <Button key={o.playerId} label={names[o.playerId]} small variant="secondary" style={{ flex: 1 }} disabled={!!done} onPress={() => choose(o)} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {placed.map(({ o, kind }) => (
+          <Pressable
+            key={o.playerId}
+            disabled={!!done}
+            onPress={() => choose(o)}
+            accessibilityRole="button"
+            accessibilityLabel={`${LABEL[kind].name} to ${names[o.playerId]}`}
+            style={({ pressed }) => ({
+              flexBasis: '48%',
+              flexGrow: 1,
+              padding: 10,
+              gap: 4,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: picked === o.playerId ? colors.gold : colors.border,
+              backgroundColor: pressed ? alpha(colors.accent, 0.14) : colors.bgElev,
+              opacity: done && picked !== o.playerId ? 0.5 : 1,
+            })}
+          >
+            <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.text }} numberOfLines={1}>
+              {LABEL[kind].name}
+            </Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
+              {names[o.playerId]}  |  {LABEL[kind].hint}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ width: 46, fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>Safe</Text>
+              <Bars value={o.openness} color={colors.accent} />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ width: 46, fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>Danger</Text>
+              <Bars value={(o.threat ?? 0.12) / 0.32} color={colors.red} />
+            </View>
+          </Pressable>
         ))}
-      </Row>
+      </View>
     </View>
   );
 }

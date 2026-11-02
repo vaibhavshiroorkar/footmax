@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { AnimatedNumber, Button, Card, FadeIn, Icon, IconName, Pill, Row, Screen, SectionLabel, StatBar, T, haptic } from '../../ui/kit';
+import { AnimatedNumber, Button, Card, FadeIn, Icon, IconName, Pill, Row, SectionLabel, StatBar, T, haptic } from '../../ui/kit';
 import { SkillDef, canUpgrade, skillLevel, skillsFor, xpForLevel } from '../../engine/skills';
 import { learnSecondary, upgradeSkill } from '../../engine/career';
 import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from '../../engine/roles';
@@ -92,7 +92,8 @@ function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: nu
   );
 }
 
-export default function Skills() {
+// The skills panel, shown on the Train tab next to training.
+export function SkillsBody() {
   const game = useGame();
   const mutate = useStore((s) => s.mutate);
   const showToast = useStore((s) => s.showToast);
@@ -106,7 +107,7 @@ export default function Skills() {
   const unlocked = c.level >= SECONDARY_ROLE_LEVEL;
 
   return (
-    <Screen title="Skills" nav="career">
+    <>
       <Card glow={ready.length || secondaryReady ? colors.accent : undefined}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <View>
@@ -161,6 +162,11 @@ export default function Skills() {
       {list.map(({ s }, i) => (
         <SkillCard key={s.id} p={p} s={s} points={c.skillPoints} index={i} />
       ))}
-    </Screen>
+    </>
   );
+}
+
+// Old links to the skills screen land on the Skills half of Train.
+export default function Skills() {
+  return <Redirect href="/career/train?tab=skills" />;
 }

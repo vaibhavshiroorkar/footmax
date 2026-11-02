@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Button, Icon, IconName, haptic } from './kit';
 import { alpha, colors, fonts } from './theme';
 import { motionReduced } from '../state/settings';
+import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
 const CONFETTI = [colors.accent, colors.gold, colors.teal, colors.blue, colors.purple, '#ffffff'];
@@ -91,6 +92,8 @@ export function Celebration({ data, onClose }: { data: CelebrationData | null; o
   useEffect(() => {
     if (!data) return;
     haptic('success');
+    // Goals already have the crowd; everything else gets a fanfare.
+    if (!/^goal/i.test(data.title)) playSound('fanfare', 0.7);
     pop.setValue(0);
     Animated.spring(pop, { toValue: 1, useNativeDriver: NATIVE, friction: 4, tension: 110 }).start();
     if (data.action) return;

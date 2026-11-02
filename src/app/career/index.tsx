@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame } from '../../state/store';
 import { Button, Card, FadeIn, IconButton, Pill, RatingRing, Row, Screen, StatBar, StatTile, T } from '../../ui/kit';
-import { FixtureCard, MatchdayButton, NavGrid } from '../../ui/shared';
+import { FixtureCard, MatchdayButton } from '../../ui/shared';
 import { TeamHero } from '../../ui/hero';
 import { colors, fonts } from '../../ui/theme';
 import { formatMoney, fullName, overall } from '../../engine/player';
@@ -109,20 +109,6 @@ export default function CareerHub() {
         <MilestonesPeek game={game} />
       </FadeIn>
 
-      <FadeIn index={6}>
-        <NavGrid
-          items={[
-            { label: 'Life', sub: 'Social, shop, sponsors', href: '/career/life', icon: 'bag-handle', color: colors.pink },
-            { label: 'Clubs', sub: 'Relations, offer yourself', href: '/career/clubs', icon: 'briefcase', color: colors.teal },
-            { label: 'League', sub: 'Tables and results', href: '/league', icon: 'podium', color: colors.blue },
-            { label: 'Internationals', sub: 'Tournaments', href: '/tournaments', icon: 'earth', color: colors.orange },
-            { label: 'Awards', sub: "Ballon d'Or race", href: '/awards', icon: 'medal', color: colors.gold },
-            { label: 'Honours', sub: 'Trophy history', href: '/honours', icon: 'trophy', color: colors.purple },
-            { label: 'Leaderboards', sub: 'Best careers online', href: '/leaderboards', icon: 'stats-chart', color: colors.accent },
-            { label: 'Settings', sub: 'Speed, motion, account', href: '/settings', icon: 'settings-outline', color: colors.muted },
-          ]}
-        />
-      </FadeIn>
       <View style={{ height: 8 }} />
     </Screen>
   );

@@ -6,15 +6,56 @@ import { skillLevel } from './skills';
 import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
-import { PlayOutcome, PlayStep, addFinish, assignNumbers, buildPlay, playSeed, toPitch } from './play';
+import { PlayOutcome, PlayStart, PlayStep, addFinish, assignNumbers, buildPlay, nextStart, playSeed } from './play';
 
 export type SideKey = 'home' | 'away';
-export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle';
+// 'choice' asks the user what to do (shoot, pass or dribble) before the
+// matching mini-game; 'header' meets a cross.
+export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle' | 'header' | 'choice';
+
+// Career player's calls from the pitch. Each lasts a spell of the match and
+// then needs a rest before the next.
+export type ShoutKind = 'call' | 'run' | 'track';
+export const SHOUT_MINUTES = 10;
+export const SHOUT_COOLDOWN = 12;
+
+export type PassKind = 'safe' | 'square' | 'through' | 'cross';
 
 export interface PassOption {
   playerId: string;
-  // 0..1: how open the teammate is. The best option is near 1.
+  // 0..1: how likely the pass is to arrive.
   openness: number;
+  // What kind of ball it is, and how dangerous it is if it arrives: the
+  // extra chance of scoring from the shot that follows. A safe ball has
+  // little threat but comes straight back to you for a one-two.
+  kind?: PassKind;
+  threat?: number;
+}
+
+// Up to four options with a real trade-off: the safest ball is never the
+// most dangerous one. shooter, when given, is always among them.
+export function passOptions(rng: Rng, world: World, s: MatchState, side: SideKey, actorId: string, shooterId?: string): PassOption[] {
+  const mates = players(world, s[side].onPitch).filter((p) => p.id !== actorId && p.position !== 'GK');
+  if (!mates.length) return [];
+  const forwards = mates.filter((p) => p.position === 'FWD');
+  const tall = [...mates].sort((a, b) => (b.heightCm ?? 180) + b.attrs.physical / 3 - ((a.heightCm ?? 180) + a.attrs.physical / 3))[0];
+  const pick = (pool: Player[], not: string[]) => {
+    const left = pool.filter((p) => !not.includes(p.id));
+    return left.length ? rng.pick(left) : undefined;
+  };
+  const used: string[] = [];
+  const out: PassOption[] = [];
+  const add = (p: Player | undefined, kind: PassKind, openness: number, threat: number) => {
+    if (!p) return;
+    used.push(p.id);
+    out.push({ playerId: p.id, kind, openness, threat });
+  };
+  const runner = shooterId ? world.players[shooterId] : undefined;
+  add(runner && runner.position !== 'GK' ? runner : pick(forwards.length ? forwards : mates, used), 'through', rng.range(0.3, 0.6), rng.range(0.24, 0.32));
+  add(pick(mates.filter((p) => p.position !== 'DEF'), used), 'square', rng.range(0.5, 0.78), rng.range(0.12, 0.2));
+  add(pick(mates.filter((p) => p.position !== 'FWD'), used), 'safe', rng.range(0.82, 0.96), rng.range(0.02, 0.06));
+  if (tall && !used.includes(tall.id) && rng.chance(0.6)) add(tall, 'cross', rng.range(0.4, 0.65), rng.range(0.15, 0.24));
+  return rng.shuffle(out);
 }
 
 export interface KeyMoment {
@@ -31,6 +72,10 @@ export interface KeyMoment {
   attackerId?: string;
   // The shot is on the user's weaker foot.
   weakFoot?: boolean;
+  // A 'choice' moment: what the user can do from here.
+  choices?: MomentKind[];
+  // One-twos played so far in this move.
+  chain?: number;
 }
 
 export type EventType =
@@ -120,9 +165,12 @@ export interface MatchState {
   play?: PlayStep[];
   // Side that kicks off next, after a goal or at half time.
   kickoff?: SideKey;
+  // The career player's current call, and when the next one is allowed.
+  shout?: { kind: ShoutKind; until: number };
+  shoutReady?: number;
 }
 
-const MAX_MOMENTS = 5;
+const MAX_MOMENTS = 8;
 const BASE_CHANCE = 0.215;
 const SUB_MINUTES = [60, 70, 80];
 
@@ -239,16 +287,22 @@ function keeperOf(world: World, side: MatchSide): Player {
 const SHOOT_WEIGHT: Record<Position, number> = { FWD: 5, MID: 2.2, DEF: 0.6, GK: 0.01 };
 const ASSIST_WEIGHT: Record<Position, number> = { FWD: 2, MID: 4, DEF: 1.2, GK: 0.1 };
 
+function shoutActive(s: MatchState, kind: ShoutKind): boolean {
+  return s.shout?.kind === kind && s.minute <= s.shout.until;
+}
+
 function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Player {
   const ps = players(world, side.onPitch);
-  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2));
+  // Making a run or calling for it puts the user's player on the end of more chances.
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'run') ? 2.2 : shoutActive(s, 'call') ? 1.5 : 1);
+  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
 }
 
 function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, shooter: Player): Player | undefined {
   if (!rng.chance(0.7)) return undefined;
   const ps = players(world, side.onPitch).filter((p) => p.id !== shooter.id);
   if (!ps.length) return undefined;
-  const boost = (p: Player) => (p.id === s.focus.playerId ? 1.2 : 1);
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : shoutActive(s, 'call') ? 2.2 : 1.2);
   return rng.weighted(ps, ps.map((p) => ASSIST_WEIGHT[p.position] * (p.attrs.passing / 50) ** 2 * boost(p)));
 }
 
@@ -335,18 +389,23 @@ function buildMoment(rng: Rng, world: World, s: MatchState, sideKey: SideKey, sh
   const focusId = s.focus.playerId;
   const actsAsPasser = assister && (focusId ? assister.id === focusId : rng.chance(0.25));
   if (actsAsPasser && assister) {
-    const mates = players(world, s[sideKey].onPitch).filter((p) => p.id !== assister.id && p.position !== 'GK');
-    const picks = rng.shuffle([...mates]).slice(0, 3);
-    if (!picks.includes(shooter) && picks.length) picks[0] = shooter;
-    const options = picks.map((p, i) => ({ playerId: p.id, openness: i === 0 ? rng.range(0.8, 1) : rng.range(0.15, 0.65) }));
-    return { ...base, kind: 'pass', actorId: assister.id, options: rng.shuffle(options) };
+    return { ...base, kind: 'pass', actorId: assister.id, options: passOptions(rng, world, s, sideKey, assister.id, shooter.id) };
   }
   const role = shooter.role && isRole(shooter.role) ? ROLES[shooter.role] : undefined;
   const dribbleShare = role?.dribbleShare ?? 0.31;
+  // Tall players and centre-backs at set pieces meet more crosses.
+  const headerShare = 0.13 + ((shooter.heightCm ?? 180) >= 186 ? 0.12 : 0) + (shooter.position === 'DEF' ? 0.15 : 0);
   const roll = rng.next();
-  const kind: MomentKind = roll < 0.06 ? 'penalty' : roll < 0.14 ? 'freekick' : roll < 0.14 + 0.86 * dribbleShare ? 'dribble' : 'shot';
-  const weakFoot = shooter.id === focusId && (kind === 'shot' || kind === 'freekick') && rng.chance(0.35);
-  return { ...base, kind, actorId: shooter.id, assistId: kind === 'shot' ? assister?.id : undefined, weakFoot };
+  let kind: MomentKind = roll < 0.06 ? 'penalty' : roll < 0.14 ? 'freekick' : roll < 0.14 + headerShare ? 'header' : rng.chance(dribbleShare) ? 'dribble' : 'shot';
+  // Open play often hands the user the decision first.
+  const mates = players(world, s[sideKey].onPitch).filter((p) => p.id !== shooter.id && p.position !== 'GK');
+  let choices: MomentKind[] | undefined;
+  if (shooter.id === focusId && (kind === 'shot' || kind === 'dribble') && rng.chance(0.6)) {
+    choices = mates.length ? ['shot', 'dribble', 'pass'] : ['shot', 'dribble'];
+    kind = 'choice';
+  }
+  const weakFoot = shooter.id === focusId && (kind === 'shot' || kind === 'freekick' || kind === 'choice') && rng.chance(0.35);
+  return { ...base, kind, actorId: shooter.id, assistId: kind === 'shot' || kind === 'header' || kind === 'choice' ? assister?.id : undefined, weakFoot, choices };
 }
 
 // Career keepers and defenders: an opponent chance can become a save or a
@@ -358,9 +417,47 @@ function defensiveMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey,
   if (!s[defKey].onPitch.includes(focusId)) return null;
   const me = world.players[focusId];
   const role = me.role && isRole(me.role) ? ROLES[me.role] : undefined;
-  if (!role?.defends || !rng.chance(role.defends)) return null;
+  // Tracking back brings even forwards into the defending.
+  const tracking = shoutActive(s, 'track');
+  const p = tracking ? Math.max(role?.defends ?? 0, 0.3) + 0.25 : role?.defends ?? 0;
+  if (!p || !rng.chance(p)) return null;
   const base = { side: defKey, minute: s.minute, keeperId: keeperOf(world, s[defKey]).id, bonus: 0, actorId: focusId, attackerId: shooter.id, assistId: assister?.id };
   return { ...base, kind: me.position === 'GK' ? 'save' : 'tackle' };
+}
+
+// The user picks what to do with a 'choice' moment.
+export function chooseMoment(world: World, s: MatchState, kind: MomentKind): void {
+  const m = s.pending;
+  if (!m || m.kind !== 'choice') return;
+  const rng = new Rng(s.rngState);
+  if (kind === 'pass') {
+    s.pending = { ...m, kind: 'pass', options: passOptions(rng, world, s, m.side, m.actorId), assistId: undefined, choices: undefined };
+  } else {
+    s.pending = { ...m, kind, choices: undefined, assistId: kind === 'shot' ? m.assistId : undefined };
+  }
+  s.rngState = rng.state;
+}
+
+// What the sim would do with a choice: the option that suits the player.
+function autoChoice(world: World, m: KeyMoment): MomentKind {
+  const p = world.players[m.actorId];
+  const opts = m.choices ?? ['shot'];
+  const score = (k: MomentKind) => (k === 'shot' ? p.attrs.shooting + 4 : k === 'dribble' ? p.attrs.dribbling : (p.attrs.passing + p.attrs.vision) / 2 - 2);
+  return [...opts].sort((a, b) => score(b) - score(a))[0];
+}
+
+// A call from the pitch. False while the last one is still resting.
+export function shout(world: World, s: MatchState, kind: ShoutKind): boolean {
+  const id = s.focus.playerId;
+  if (!id || s.finished || s.minute < (s.shoutReady ?? 0)) return false;
+  const side: SideKey = s.home.onPitch.includes(id) ? 'home' : s.away.onPitch.includes(id) ? 'away' : 'home';
+  if (!s[side].onPitch.includes(id)) return false;
+  s.shout = { kind, until: s.minute + SHOUT_MINUTES };
+  s.shoutReady = s.minute + SHOUT_COOLDOWN;
+  const name = shortName(world.players[id]);
+  const text = kind === 'call' ? `${name} is calling for the ball.` : kind === 'run' ? `${name} starts making runs in behind.` : `${name} drops back to help the defence.`;
+  push(s, s.minute, side, 'info', text, id, true);
+  return true;
 }
 
 // Quality the sim uses when the user skips a moment: based on the actor's skill.
@@ -375,13 +472,19 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
           ? p.attrs.goalkeeping
           : m.kind === 'tackle'
             ? p.attrs.defending
-            : (p.attrs.shooting + p.attrs.composure) / 2;
+            : m.kind === 'header'
+              ? (p.attrs.physical + p.attrs.shooting) / 2
+              : (p.attrs.shooting + p.attrs.composure) / 2;
   return clamp(rng.normal(skill / 140, 0.15), 0, 1);
 }
 
 export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string): void {
-  const m = s.pending;
+  let m = s.pending;
   if (!m) return;
+  if (m.kind === 'choice') {
+    chooseMoment(world, s, autoChoice(world, m));
+    m = s.pending!;
+  }
   s.pending = null;
   const from = s.events.length;
   resolveMomentInner(world, s, m, quality, chosenPlayerId);
@@ -458,6 +561,12 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     case 'shot':
       finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher'), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
+    case 'header': {
+      // Height and strength win the ball in the air.
+      const air = ((actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2) as number;
+      finish(0.03 + 0.3 * q * skill(air) - keeperPenalty + m.bonus + 0.02 * lvl('finisher'), 'headerGoal', q > 0.35 ? 'save' : 'headerMiss', m.assistId);
+      break;
+    }
     case 'penalty':
       finish(0.4 + 0.42 * q * skill(actor.attrs.composure) - keeperPenalty / 2 + 0.04 * lvl('setpiece'), 'penaltyGoal', 'penaltyMiss');
       break;
@@ -483,16 +592,25 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const options = m.options ?? [];
       let target: PassOption | undefined = options.find((o) => o.playerId === chosenPlayerId);
       if (!target) {
-        // Skipped: good passers usually see the open man.
-        const sorted = [...options].sort((a, b) => b.openness - a.openness);
+        // Skipped: good passers weigh risk against reward; others guess.
+        const value = (o: PassOption) => o.openness * (0.08 + (o.threat ?? 0.12));
+        const sorted = [...options].sort((a, b) => value(b) - value(a));
         target = rng.chance(actor.attrs.vision / 110) ? sorted[0] : rng.pick(options);
       }
       const passQ = played ? q : q * (target?.openness ?? 0.5);
       const ok = target && rng.chance(clamp(0.25 + 0.65 * passQ * skill(actor.attrs.passing) + 0.04 * lvl('playmaker'), 0.05, 0.95));
-      if (ok && target) {
+      const focused = actor.id === s.focus.playerId;
+      if (ok && target && target.kind === 'safe' && focused && (m.chain ?? 0) < 2) {
+        // A one-two: the ball comes back and the user goes again, a little
+        // further forward.
+        bump(s, actor.id, 0.1);
+        const mate = world.players[target.playerId];
+        push(s, s.minute, m.side, 'info', `${shortName(actor)} plays a one-two with ${shortName(mate)}.`, actor.id, played);
+        s.pending = { ...m, kind: 'choice', choices: ['shot', 'dribble', 'pass'], options: undefined, assistId: mate.id, bonus: m.bonus + 0.04, chain: (m.chain ?? 0) + 1 };
+      } else if (ok && target) {
         bump(s, actor.id, 0.15);
         const receiver = world.players[target.playerId];
-        autoShot(rng, world, s, m.side, receiver, actor, 0.12 + 0.15 * target.openness);
+        autoShot(rng, world, s, m.side, receiver, actor, target.threat ?? 0.12 + 0.15 * target.openness);
         const last = s.events[s.events.length - 1];
         if (last) last.played = played;
       } else {
@@ -557,14 +675,15 @@ function playSide(world: World, s: MatchState, key: SideKey) {
 }
 
 // Where this minute's move starts: the centre spot after a goal or the
-// break, otherwise wherever the last move ended.
-function moveStart(s: MatchState): { x: number; y: number } {
+// break, the spot of a set piece, or wherever the last move ended.
+function moveStart(s: MatchState): PlayStart {
   if (s.kickoff) {
+    const side = s.kickoff;
     s.kickoff = undefined;
     s.play = undefined;
-    return { x: 0.5, y: 0.5 };
+    return { x: 0.5, y: 0.5, restart: 'kickoff', restartSide: side };
   }
-  return { ...s.ball };
+  return nextStart(s.play, s.ball);
 }
 
 function shotResult(s: MatchState, from: number): 'goal' | 'save' | 'miss' | null {
@@ -575,20 +694,12 @@ function shotResult(s: MatchState, from: number): 'goal' | 'save' | 'miss' | nul
   return null;
 }
 
-function visualize(world: World, s: MatchState, attKey: SideKey, start: { x: number; y: number }, outcome: PlayOutcome) {
+function visualize(world: World, s: MatchState, attKey: SideKey, from: PlayStart, outcome: PlayOutcome) {
   if (!s.visual) return;
-  const last = s.play?.[s.play.length - 1];
-  let prev = last?.carrier;
-  // A shot that goes wide is a goal kick: the keeper restarts.
-  if (last?.act === 'miss') {
-    const keeperSide = other(last.side);
-    prev = playSide(world, s, keeperSide).keeperId;
-    start = toPitch(keeperSide, { depth: 0.05, lat: 0.5 });
-  }
-  const steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), start, outcome, prev);
+  const steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), from, outcome);
   s.play = steps;
   const end = steps[steps.length - 1];
-  if (end) s.ball = { x: end.x, y: end.y };
+  if (end) s.ball = { x: Math.min(1, Math.max(0, end.x)), y: Math.min(1, Math.max(0, end.y)) };
 }
 
 // After a key moment: how it played out on the pitch.
@@ -597,28 +708,35 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
   const rng = new Rng(playSeed(s.rngState, s.minute, s.events.length + 1));
   const start = { ...s.ball };
   const attKey: SideKey = m.attackerId ? other(m.side) : m.side;
-  const steps: PlayStep[] = [{ ...start, carrier: m.attackerId ?? m.actorId, side: attKey, act: 'start' }];
+  const defKey = other(attKey);
+  const holder = m.attackerId ?? m.actorId;
+  const steps: PlayStep[] = [{ ...start, carrier: holder, side: attKey, act: 'start' }];
   const result = shotResult(s, from);
   const lastShot = [...s.events.slice(from)].reverse().find((e) => e.type === 'goal' || e.type === 'save' || e.type === 'miss');
   const forward = attKey === 'home' ? 1 : -1;
+  const defenders = s[defKey].onPitch.filter((id) => world.players[id]?.position !== 'GK');
   if (s.pending) {
     // A beaten man: the run goes on and the user gets the shot.
-    steps.push({ x: start.x + rng.range(-0.06, 0.06), y: start.y + forward * 0.05, carrier: m.actorId, side: attKey, act: 'run' });
+    steps.push({ x: start.x + rng.range(-0.06, 0.06), y: start.y + forward * 0.06, carrier: m.actorId, side: attKey, act: 'run' });
+    const last = steps[steps.length - 1];
+    steps.push({ x: last.x, y: last.y, carrier: m.actorId, side: attKey, act: 'moment' });
   } else if (result && lastShot?.playerId) {
-    const shooter = lastShot.playerId === m.actorId && m.kind === 'save' ? (m.attackerId ?? m.actorId) : lastShot.playerId;
-    if (shooter !== (m.attackerId ?? m.actorId) && s[attKey].onPitch.includes(shooter)) {
-      steps.push({ x: 0.5 + rng.range(-0.15, 0.15), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: 'pass' });
+    const shooter = lastShot.playerId === m.actorId && m.kind === 'save' ? holder : lastShot.playerId;
+    if (shooter !== holder && s[attKey].onPitch.includes(shooter)) {
+      steps.push({ x: 0.5 + rng.range(-0.14, 0.14), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: m.kind === 'pass' ? 'pass' : 'cross' });
     }
-    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, other(attKey)).keeperId);
+    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header');
+  } else if (m.kind === 'tackle') {
+    // The user's own tackle: won cleanly.
+    steps.push({ x: start.x + rng.range(-0.03, 0.03), y: start.y - forward * 0.03, carrier: m.actorId, side: defKey, act: 'tackle', other: holder });
   } else {
-    // The move broke down: the other side has it.
-    const winners = s[other(attKey)].onPitch;
-    const winner = m.attackerId ? m.actorId : winners.length ? rng.pick(winners) : null;
-    steps.push({ x: start.x + rng.range(-0.05, 0.05), y: start.y - forward * 0.04, carrier: winner, side: other(attKey), act: 'win' });
+    // The move broke down: a defender steps in.
+    const winner = defenders.length ? rng.pick(defenders) : null;
+    steps.push({ x: start.x + rng.range(-0.05, 0.05), y: start.y - forward * 0.04, carrier: winner, side: defKey, act: m.kind === 'dribble' ? 'tackle' : 'win', other: holder });
   }
   s.play = steps;
   const last = steps[steps.length - 1];
-  s.ball = { x: last.x, y: last.y };
+  s.ball = { x: Math.min(1, Math.max(0, last.x)), y: Math.min(1, Math.max(0, last.y)) };
 }
 
 // --- Main loop -------------------------------------------------------------
@@ -664,8 +782,13 @@ export function stepMinute(world: World, s: MatchState): void {
   const att = attKey === 'home' ? hs : as;
   const def = attKey === 'home' ? as : hs;
   const walls = Math.min(6, players(world, s[defKey].onPitch).reduce((n, p) => n + skillLevel(p, 'wall'), 0));
+  // A run or a call adds a little threat; tracking back takes a little away
+  // from the other side.
+  const focusSide = s.focus.playerId ? (s.home.onPitch.includes(s.focus.playerId) ? 'home' : s.away.onPitch.includes(s.focus.playerId) ? 'away' : null) : null;
+  const shoutMod = !focusSide ? 1 : attKey === focusSide ? (shoutActive(s, 'run') || shoutActive(s, 'call') ? 1.08 : 1) : shoutActive(s, 'track') ? 0.93 : 1;
   const chanceP =
     (1 - 0.02 * walls) *
+    shoutMod *
     BASE_CHANCE * (att.attack / def.defense) ** 1.6 * STYLE_MOD[s[attKey].style].chance * STYLE_MOD[s[defKey].style].concede;
 
   if (rng.chance(chanceP)) {
@@ -685,7 +808,7 @@ export function stepMinute(world: World, s: MatchState): void {
       s.moments++;
       s.rngState = rng.state;
       const passer = s.pending.kind === 'pass';
-      visualize(world, s, attKey, start, { result: 'moment', shooterId: s.pending.actorId, assistId: passer ? undefined : assister?.id });
+      visualize(world, s, attKey, start, { result: 'moment', shooterId: s.pending.actorId, assistId: passer ? undefined : assister?.id, cross: s.pending.kind === 'header' });
       return;
     }
     autoShot(rng, world, s, attKey, shooter, assister, 0);

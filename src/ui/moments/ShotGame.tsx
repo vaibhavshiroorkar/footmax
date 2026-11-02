@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
+import { KeeperFigure } from './Keeper';
 import { T } from '../kit';
 import { colors } from '../theme';
 
@@ -25,6 +26,7 @@ export function ShotGame({ kind, composure, finesse = 0, onDone }: { kind: Kind;
     () => ({
       keeper: 0.3 + Math.random() * 0.4,
       dive: Math.random() < 0.5 ? -1 : 1,
+      kit: ['#22c55e', '#facc15', '#a855f7', '#f97316'][Math.floor(Math.random() * 4)],
       wall: 0.15 + Math.random() * 0.4,
       offset: Math.random() * Math.PI * 2,
     }),
@@ -67,7 +69,7 @@ export function ShotGame({ kind, composure, finesse = 0, onDone }: { kind: Kind;
           <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
           <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
           {kind === 'freekick' && <Rect x={px(setup.wall)} y={GOAL.y + GOAL.h - 46} width={GOAL.w * 0.3} height={46} rx={6} fill="#c8102e" opacity={0.9} />}
-          <Rect x={px(keeperX) - 14} y={GOAL.y + GOAL.h - 58} width={28} height={58} rx={8} fill={colors.gold} />
+          <KeeperFigure x={px(keeperX)} ground={GOAL.y + GOAL.h} h={58} dive={phase === 'done' ? (kind === 'penalty' ? setup.dive * 0.9 : Math.sign(aim - setup.keeper) * 0.75) : 0} kit={setup.kit} />
           <Circle cx={px(aimX)} cy={GOAL.y + GOAL.h / 2} r={9} stroke="#ffffff" strokeWidth={3} fill={phase === 'aim' ? 'none' : '#ffffff'} />
           <Line x1={px(aimX)} y1={GOAL.y + 8} x2={px(aimX)} y2={GOAL.y + GOAL.h - 8} stroke="#ffffff88" strokeWidth={1} />
         </Svg>

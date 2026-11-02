@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
+import { KeeperFigure } from './Keeper';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
 
@@ -45,7 +46,7 @@ export function SaveGame({ reflex = 0, onDone }: { reflex?: number; onDone: (q: 
   const flight = struck ? Math.min(1, (t - setup.delay) / WINDOW) : 0;
   const ballX = 150 + setup.dir * 95 * flight;
   const ballY = 150 - 95 * flight;
-  const keeperX = 150 + (dived ?? 0) * 60;
+  const keeperX = 150 + (dived ?? 0) * 34;
   return (
     <View>
       <Svg width="100%" height={190} viewBox="0 0 300 180">
@@ -55,7 +56,7 @@ export function SaveGame({ reflex = 0, onDone }: { reflex?: number; onDone: (q: 
           <Line key={i} x1={40 + i * 22} y1={20} x2={40 + i * 22} y2={90} stroke="#ffffff22" strokeWidth={1} />
         ))}
         <Line x1={0} y1={90} x2={300} y2={90} stroke={colors.pitchLine} strokeWidth={2} />
-        <Rect x={keeperX - 14} y={34} width={28} height={56} rx={8} fill={colors.gold} />
+        <KeeperFigure x={keeperX} ground={90} h={56} dive={(dived ?? 0) * 0.85} kit={colors.gold} />
         {!struck && <Circle cx={150} cy={165} r={12} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />}
         <Circle cx={ballX} cy={ballY} r={7} fill="#ffffff" />
       </Svg>

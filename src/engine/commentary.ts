@@ -27,6 +27,8 @@ const LINES = {
   blocked: ['{p} shoots, but it is blocked.', 'A defender throws himself in front of {p}.'],
   penaltyGoal: ['{p} steps up... and scores the penalty!', 'Penalty converted by {p}. No chance for {k}.'],
   penaltyMiss: ['{k} saves the penalty from {p}!', '{p} puts the penalty wide!'],
+  headerGoal: ['{p} rises highest and heads it in!', 'Bullet header from {p}! {club} score.', '{p} glances the cross into the corner!'],
+  headerMiss: ['{p} gets his head to it, but it goes over.', '{p} meets the cross but heads wide.'],
   freekickGoal: ['{p} curls the free kick over the wall and in!', 'Free kick from {p}... it nestles in the top corner!'],
   freekickMiss: ['{p} hits the wall with the free kick.', 'The free kick from {p} sails over.'],
   dribbleFail: ['{p} tries to go past his man but loses it.', '{p} is crowded out and the move breaks down.'],

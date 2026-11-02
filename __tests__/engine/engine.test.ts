@@ -494,9 +494,9 @@ describe('alerts and save slots', () => {
     c.skillPoints = 1;
     expect(readyUpgrades(game).map((s) => s.id)).toContain('finisher');
     // One point buys one upgrade, however many skills qualify.
-    expect(navBadges(game)['/career/skills']).toBe(1);
+    expect(navBadges(game)['/career/train']).toBe(1);
     c.skillPoints = 20;
-    expect(navBadges(game)['/career/skills']).toBe(readyUpgrades(game).length);
+    expect(navBadges(game)['/career/train']).toBe(readyUpgrades(game).length);
   });
 
   it('describes a save slot without loading the game', () => {
