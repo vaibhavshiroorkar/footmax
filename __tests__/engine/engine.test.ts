@@ -13,7 +13,7 @@ import { exportPack, parsePackText } from '../../src/engine/editor';
 import { callUpMessage, respond } from '../../src/engine/offers';
 import { addMessage, expireOffers } from '../../src/engine/inbox';
 import { Game } from '../../src/engine/types';
-import { navBadges, readyUpgrades } from '../../src/engine/alerts';
+import { navBadges, readyMoves, readyUpgrades } from '../../src/engine/alerts';
 import { careerTotals } from '../../src/engine/totals';
 import { slotMeta } from '../../src/state/slots';
 import { compress, decompress } from '../../src/state/compress';
@@ -496,7 +496,7 @@ describe('alerts and save slots', () => {
     // One point buys one upgrade, however many skills qualify.
     expect(navBadges(game)['/career/train']).toBe(1);
     c.skillPoints = 20;
-    expect(navBadges(game)['/career/train']).toBe(readyUpgrades(game).length);
+    expect(navBadges(game)['/career/train']).toBe(readyUpgrades(game).length + readyMoves(game).length);
   });
 
   it('describes a save slot without loading the game', () => {

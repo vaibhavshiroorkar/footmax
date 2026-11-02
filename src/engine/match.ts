@@ -2,7 +2,7 @@ import { Fixture, Player, Position, Style, World } from './types';
 import { Rng, clamp } from './rng';
 import { matchRating, shortName } from './player';
 import { bench, startingXI, teamById } from './lineup';
-import { skillLevel } from './skills';
+import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
 import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
@@ -76,6 +76,8 @@ export interface KeyMoment {
   choices?: MomentKind[];
   // One-twos played so far in this move.
   chain?: number;
+  // Where a shot or header comes from, for how the moment looks.
+  view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
 }
 
 export type EventType =
@@ -405,7 +407,8 @@ function buildMoment(rng: Rng, world: World, s: MatchState, sideKey: SideKey, sh
     kind = 'choice';
   }
   const weakFoot = shooter.id === focusId && (kind === 'shot' || kind === 'freekick' || kind === 'choice') && rng.chance(0.35);
-  return { ...base, kind, actorId: shooter.id, assistId: kind === 'shot' || kind === 'header' || kind === 'choice' ? assister?.id : undefined, weakFoot, choices };
+  const view = kind === 'header' ? (rng.chance(0.4) ? 'corner' : 'cross') : rng.chance(0.3) ? 'outside' : 'box';
+  return { ...base, kind, actorId: shooter.id, assistId: kind === 'shot' || kind === 'header' || kind === 'choice' ? assister?.id : undefined, weakFoot, choices, view };
 }
 
 // Career keepers and defenders: an opponent chance can become a save or a
@@ -478,7 +481,10 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
   return clamp(rng.normal(skill / 140, 0.15), 0, 1);
 }
 
-export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string): void {
+// moveId: the skill move the user picked for a dribble moment. forced: what
+// the user's shot actually did in the shot game (goal, save or miss); the
+// match then shows and counts exactly that.
+export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
   let m = s.pending;
   if (!m) return;
   if (m.kind === 'choice') {
@@ -487,11 +493,11 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   }
   s.pending = null;
   const from = s.events.length;
-  resolveMomentInner(world, s, m, quality, chosenPlayerId);
+  resolveMomentInner(world, s, m, quality, chosenPlayerId, moveId, forced);
   visualizeMoment(world, s, m, from);
 }
 
-function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string): void {
+function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
   const rng = new Rng(s.rngState);
   const played = quality !== null;
   const actor = world.players[m.actorId];
@@ -506,17 +512,21 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
 
   const finish = (pGoal: number, kind: LineKind, missKind: LineKind, assistId?: string) => {
     side.shots++;
-    if (rng.chance(clamp(pGoal, 0.02, 0.92))) {
+    pGoal += finishBonus(actor, m.kind);
+    const scored = forced ? forced === 'goal' : rng.chance(clamp(pGoal, 0.02, 0.92));
+    if (scored) {
       s.rngState = rng.state;
       recordGoal(world, s, m.side, actor, assistId ? world.players[assistId] : undefined, kind, played);
       return;
     }
-    if (q > 0.35) {
+    const onTarget = forced ? forced === 'save' : q > 0.35;
+    if (onTarget) {
       side.onTarget++;
       bump(s, keeper.id, 0.25);
     }
     bump(s, actor.id, -0.15);
-    push(s, s.minute, m.side, q > 0.35 ? 'save' : 'miss', line(rng, missKind, { p: shortName(actor), k: shortName(keeper) }), actor.id, played);
+    const said: LineKind = forced ? (forced === 'save' ? (missKind === 'penaltyMiss' ? 'penaltyMiss' : 'save') : missKind === 'save' ? 'miss' : missKind) : missKind;
+    push(s, s.minute, m.side, onTarget ? 'save' : 'miss', line(rng, said, { p: shortName(actor), k: shortName(keeper) }), actor.id, played);
     s.rngState = rng.state;
   };
 
@@ -574,12 +584,15 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       finish(0.02 + 0.22 * q * skill(actor.attrs.shooting) - keeperPenalty / 2 + 0.03 * lvl('setpiece'), 'freekickGoal', 'freekickMiss');
       break;
     case 'dribble': {
-      const ok = rng.chance(clamp(0.2 + 0.7 * q * skill(actor.attrs.dribbling) + 0.04 * (lvl('speedster') + lvl('dribbler')), 0.05, 0.92));
+      // A learned skill move adds to the chance: more for the harder ones.
+      const move = moveId && hasMove(actor, moveId) ? SKILL_MOVES.find((x) => x.id === moveId) : undefined;
+      const flair = move ? 0.02 + 0.02 * move.stars : 0.006 * (actor.moves?.length ?? 0);
+      const ok = rng.chance(clamp(0.2 + 0.7 * q * skill(actor.attrs.dribbling) + 0.04 * (lvl('speedster') + lvl('dribbler')) + flair, 0.05, 0.94));
       if (ok) {
-        bump(s, actor.id, 0.2);
-        push(s, s.minute, m.side, 'info', `${shortName(actor)} skips past the defender and is through!`, actor.id, played);
+        bump(s, actor.id, 0.2 + (move ? 0.05 * move.stars : 0));
+        push(s, s.minute, m.side, 'info', move ? `${shortName(actor)} beats his man with a ${move.label.toLowerCase()} and is through!` : `${shortName(actor)} skips past the defender and is through!`, actor.id, played);
         // A beaten defender leaves a clear shot, which the user also plays.
-        s.pending = { ...m, kind: 'shot', bonus: 0.06 };
+        s.pending = { ...m, kind: 'shot', bonus: 0.06, view: 'oneonone' };
         s.rngState = rng.state;
       } else {
         bump(s, actor.id, -0.1);

@@ -31,6 +31,72 @@ export const SKILLS: SkillDef[] = [
   { id: 'clutch', label: 'Big Game Player', description: 'Better key moments after the 75th minute.', attr: 'composure', needs: [52, 70, 86], ai: [64, 76, 88] },
 ];
 
+export const ABILITY_COST = 1;
+
+// Skill moves: tricks the career player unlocks with skill points. Dribble
+// moves are picked in a dribble moment for a better chance of beating the
+// man; finishing moves add a little to the shots they suit.
+export interface SkillMove {
+  id: string;
+  label: string;
+  kind: 'dribble' | 'finish';
+  stars: 1 | 2 | 3 | 4 | 5;
+  // Icon name from the app's icon set.
+  icon: string;
+  // Dribbling (dribble moves) or shooting (finishing moves) needed.
+  needs: number;
+  description: string;
+}
+
+export const SKILL_MOVES: SkillMove[] = [
+  { id: 'dragback', label: 'Drag back', kind: 'dribble', stars: 1, icon: 'return-down-back', needs: 35, description: 'Pull it back and turn away.' },
+  { id: 'stepover', label: 'Stepover', kind: 'dribble', stars: 2, icon: 'swap-horizontal', needs: 44, description: 'Fake one way, go the other.' },
+  { id: 'ballroll', label: 'Ball roll', kind: 'dribble', stars: 2, icon: 'sync', needs: 46, description: 'Roll it across your body.' },
+  { id: 'nutmeg', label: 'Nutmeg', kind: 'dribble', stars: 2, icon: 'git-merge', needs: 48, description: 'Through his legs.' },
+  { id: 'turn', label: 'Hook turn', kind: 'dribble', stars: 3, icon: 'refresh', needs: 55, description: 'A sharp turn behind the standing leg.' },
+  { id: 'heelflick', label: 'Heel flick', kind: 'dribble', stars: 3, icon: 'footsteps', needs: 58, description: 'Flick it past him with the heel.' },
+  { id: 'roulette', label: 'Roulette', kind: 'dribble', stars: 4, icon: 'reload-circle', needs: 66, description: 'Spin over the ball, twice.' },
+  { id: 'elastico', label: 'Elastico', kind: 'dribble', stars: 4, icon: 'pulse', needs: 70, description: 'Out and back in one touch.' },
+  { id: 'rainbow', label: 'Rainbow flick', kind: 'dribble', stars: 5, icon: 'sparkles', needs: 78, description: 'Over his head from behind.' },
+  { id: 'placed', label: 'Placed finish', kind: 'finish', stars: 1, icon: 'locate', needs: 40, description: 'Shots: a little more accurate.' },
+  { id: 'chip', label: 'Chip shot', kind: 'finish', stars: 2, icon: 'trending-up', needs: 50, description: 'One on ones: lift it over the keeper.' },
+  { id: 'trivela', label: 'Outside foot', kind: 'finish', stars: 3, icon: 'navigate', needs: 60, description: 'Curl it with the outside of the boot.' },
+  { id: 'knuckle', label: 'Knuckleball', kind: 'finish', stars: 3, icon: 'flash', needs: 62, description: 'Free kicks that dip and swerve.' },
+  { id: 'powerheader', label: 'Power header', kind: 'finish', stars: 3, icon: 'arrow-up-circle', needs: 58, description: 'Headers: more power, more goals.' },
+  { id: 'scissor', label: 'Scissor kick', kind: 'finish', stars: 5, icon: 'rocket', needs: 76, description: 'Acrobatic volleys from crosses.' },
+];
+
+export function moveCost(m: SkillMove): number {
+  return m.stars;
+}
+
+export function hasMove(p: Player, id: string): boolean {
+  return !!p.moves?.includes(id);
+}
+
+export function canLearnMove(p: Player, id: string, points: number): { ok: boolean; reason?: string } {
+  const m = SKILL_MOVES.find((x) => x.id === id);
+  if (!m) return { ok: false, reason: 'Unknown move.' };
+  if (hasMove(p, id)) return { ok: false, reason: 'Already learned.' };
+  if (p.position === 'GK') return { ok: false, reason: 'Keepers leave the tricks to others.' };
+  const attr = m.kind === 'dribble' ? p.attrs.dribbling : p.attrs.shooting;
+  if (attr < m.needs) return { ok: false, reason: `Needs ${m.kind === 'dribble' ? 'dribbling' : 'shooting'} ${m.needs}.` };
+  if (points < moveCost(m)) return { ok: false, reason: `Needs ${moveCost(m)} skill point${moveCost(m) > 1 ? 's' : ''}.` };
+  return { ok: true };
+}
+
+// The extra chance a finishing move adds to a kind of key moment.
+export function finishBonus(p: Player, kind: string): number {
+  const has = (id: string) => hasMove(p, id);
+  let b = has('placed') ? 0.015 : 0;
+  if (kind === 'shot' && has('chip')) b += 0.02;
+  if (kind === 'shot' && has('trivela')) b += 0.015;
+  if (kind === 'freekick' && has('knuckle')) b += 0.04;
+  if (kind === 'header' && has('powerheader')) b += 0.04;
+  if (kind === 'header' && has('scissor')) b += 0.02;
+  return b;
+}
+
 // XP needed to go from this level to the next. Rises so early levels come
 // fast and the last skills take most of a career.
 export function xpForLevel(level: number): number {
@@ -53,7 +119,9 @@ export function canUpgrade(p: Player, id: string, points: number): { ok: boolean
   if (!def) return { ok: false, reason: 'Not available for your position.' };
   const lvl = skillLevel(p, id);
   if (lvl >= 3) return { ok: false, reason: 'Maxed out.' };
-  const cost = lvl + 1;
+  // Abilities are the cheap upgrade: one point a level. Skill moves (below)
+  // are where points go further.
+  const cost = ABILITY_COST;
   if (points < cost) return { ok: false, reason: `Needs ${cost} skill point${cost > 1 ? 's' : ''}.` };
   if (p.attrs[def.attr] < def.needs[lvl]) return { ok: false, reason: `Needs ${def.attr} ${def.needs[lvl]}.` };
   return { ok: true };

@@ -3,10 +3,11 @@ import { Animated, Modal, Platform, Pressable, ScrollView, Text, View } from 're
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SkillsBody } from './skills';
 import { useGame, useStore } from '../../state/store';
-import { Button, Card, Icon, IconName, Row, Screen, StatBar, Sticker, T, Tabs } from '../../ui/kit';
-import { upgradeCount } from '../../engine/alerts';
+import { Button, Card, Icon, IconName, RatingRing, Row, Screen, StatBar, Sticker, T, Tabs } from '../../ui/kit';
+import { readyMoves, upgradeCount } from '../../engine/alerts';
 import { GameFor } from '../../ui/training/games';
-import { AttrRow } from '../../ui/attributes';
+import { AttrRow, AttributeGrid } from '../../ui/attributes';
+import { MovesBody } from '../../ui/skillMoves';
 import { alpha, colors, fonts } from '../../ui/theme';
 import { drillsFor, train, trainingGain } from '../../engine/career';
 import { ATTR_LABELS, overall, weightsFor } from '../../engine/player';
@@ -23,6 +24,8 @@ const LOOK: Record<string, { icon: IconName; color: string; game: string }> = {
   defending: { icon: 'shield', color: colors.blue, game: 'Reaction blocks' },
   keeping: { icon: 'hand-left', color: colors.orange, game: 'Reflex saves' },
 };
+
+type Tab = 'train' | 'abilities' | 'moves';
 
 interface Result {
   drill: string;
@@ -116,7 +119,7 @@ export default function Train() {
   const [frozen, setFrozen] = useState<Partial<Record<AttrKey, number>> | null>(null);
   const [last, setLast] = useState<string>('');
   const params = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<'train' | 'skills'>(params.tab === 'skills' ? 'skills' : 'train');
+  const [tab, setTab] = useState<Tab>(params.tab === 'skills' || params.tab === 'abilities' ? 'abilities' : params.tab === 'moves' ? 'moves' : 'train');
   if (!game?.career) return <Redirect href="/" />;
   const upgrades = upgradeCount(game);
   const c = game.career;
@@ -161,74 +164,74 @@ export default function Train() {
     setFrozen(null);
   };
 
+  const shown = { ...p.attrs, ...(frozen ?? {}) };
+  const moves = readyMoves(game).length;
+  const abilities = upgrades - Math.min(upgrades, moves);
   return (
-    <Screen title={tab === 'skills' ? 'Skills' : 'Training'} nav="career">
-      <Tabs<'train' | 'skills'>
-        tabs={[
-          { key: 'train', label: 'Training' },
-          { key: 'skills', label: upgrades ? `Skills (${upgrades})` : 'Skills' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
-      {tab === 'skills' && <SkillsBody />}
-      {tab === 'train' && (
-      <>
+    <Screen title="Train" nav="career">
+      {/* Every attribute first, always in the same place. */}
       <Card>
-        <Row gap={10}>
-          <Sticker icon="battery-charging" color={colors.blue} size={38} />
-          <View style={{ flex: 1 }}>
-            <StatBar label={`Energy  |  ${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left this week`} value={c.energy} color={colors.blue} />
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View>
+            <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Your attributes</Text>
+            <T muted style={{ fontSize: 12 }}>
+              Gold bars fill toward the next point.{nearCap ? ' Near your ceiling: gains are small now.' : ''}
+            </T>
           </View>
+          <RatingRing value={overall(p)} size={56} />
         </Row>
-        <Row gap={10}>
-          <Sticker icon="pulse" color={p.fitness < 50 ? colors.red : colors.accent} size={38} />
+        <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
+        <Row gap={8}>
+          <View style={{ flex: 1 }}>
+            <StatBar label={`Energy  |  ${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left`} value={c.energy} color={colors.blue} />
+          </View>
           <View style={{ flex: 1 }}>
             <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.accent} />
           </View>
         </Row>
-        <T muted style={{ fontSize: 12.5 }}>
-          Two big sessions a week. Play the mini-game for up to 1.5x gains, or quick-train for 0.9x. The gold bar fills toward your next point.
-          {nearCap ? ' You are near your ceiling, so gains are small now.' : ''}
-        </T>
-        <View style={{ height: 18, justifyContent: 'center' }}>
-          <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.accent }}>
-            {last}
-          </Text>
-        </View>
       </Card>
 
-      {drills.map((d) => {
-        const look = LOOK[d.id];
-        const disabled = c.energy < d.energy || p.injuryWeeks > 0;
-        return (
-          <Card key={d.id}>
-            <Row gap={12}>
-              <Sticker icon={look.icon} color={look.color} size={46} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>{d.label}</Text>
-                <T muted style={{ fontSize: 12 }}>
-                  {look.game}  |  about +{(gain * 1.5).toFixed(1)} a session at best
-                </T>
-              </View>
-            </Row>
-            <View>
-              {d.attrs.map((k) => (
-                <AttrRow key={k} k={k} value={frozen?.[k] ?? p.attrs[k]} keyAttr={(w[k] ?? 0) >= 0.15} />
-              ))}
-            </View>
-            <Row>
-              <Button label="Play" icon="game-controller" sub="Up to 1.5x" style={{ flex: 2 }} disabled={disabled} onPress={() => start(d.id)} />
-              <Button label="Quick" icon="flash" sub="0.9x" variant="secondary" style={{ flex: 1 }} disabled={disabled} onPress={() => run(d.id, 0.35, false)} />
-            </Row>
-          </Card>
-        );
-      })}
-
-      {sessionsLeft === 0 && (
-        <Button label="Training done. Back to the hub" icon="home" variant="secondary" onPress={() => router.replace('/career')} />
-      )}
-      </>
+      <Tabs<Tab>
+        tabs={[
+          { key: 'train', label: 'Training' },
+          { key: 'abilities', label: abilities ? `Abilities (${abilities})` : 'Abilities' },
+          { key: 'moves', label: moves ? `Moves (${moves})` : 'Moves' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === 'abilities' && <SkillsBody />}
+      {tab === 'moves' && <MovesBody />}
+      {tab === 'train' && (
+        <>
+          <View style={{ height: 18, justifyContent: 'center' }}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.accent }}>
+              {last || 'Two big sessions a week. Play for up to 1.5x, or quick-train for 0.9x.'}
+            </Text>
+          </View>
+          {drills.map((d) => {
+            const look = LOOK[d.id];
+            const disabled = c.energy < d.energy || p.injuryWeeks > 0;
+            return (
+              <Card key={d.id}>
+                <Row gap={12}>
+                  <Sticker icon={look.icon} color={look.color} size={44} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text }}>{d.label}</Text>
+                    <T muted style={{ fontSize: 12 }}>
+                      {d.attrs.map((k) => ATTR_LABELS[k]).join(' + ')}  |  up to +{(gain * 1.5).toFixed(1)} each
+                    </T>
+                  </View>
+                </Row>
+                <Row>
+                  <Button label="Play" icon="game-controller" sub={look.game} style={{ flex: 2 }} disabled={disabled} onPress={() => start(d.id)} />
+                  <Button label="Quick" icon="flash" sub="0.9x" variant="secondary" style={{ flex: 1 }} disabled={disabled} onPress={() => run(d.id, 0.35, false)} />
+                </Row>
+              </Card>
+            );
+          })}
+          {sessionsLeft === 0 && <Button label="Training done. Back to the hub" icon="home" variant="secondary" onPress={() => router.replace('/career')} />}
+        </>
       )}
 
       <Modal visible={!!playing || !!result} transparent animationType="fade" onRequestClose={close}>

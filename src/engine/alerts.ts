@@ -1,5 +1,5 @@
 import { Game, Message } from './types';
-import { SkillDef, canUpgrade, skillsFor } from './skills';
+import { SkillDef, canUpgrade, skillsFor, SKILL_MOVES, SkillMove, canLearnMove } from './skills';
 import { ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
 
 // The game only nags about things the player has to act on: messages that
@@ -29,8 +29,15 @@ export function canLearnSecondary(game: Game): boolean {
 
 // Every upgrade costs at least a point, so with one point there is one
 // upgrade to make, however many skills qualify.
+export function readyMoves(game: Game): SkillMove[] {
+  const c = game.career;
+  if (!c || c.retired) return [];
+  const p = game.world.players[c.playerId];
+  return SKILL_MOVES.filter((m) => canLearnMove(p, m.id, c.skillPoints).ok);
+}
+
 export function upgradeCount(game: Game): number {
-  const total = readyUpgrades(game).length + (canLearnSecondary(game) ? 1 : 0);
+  const total = readyUpgrades(game).length + readyMoves(game).length + (canLearnSecondary(game) ? 1 : 0);
   return Math.min(total, game.career?.skillPoints ?? 0);
 }
 

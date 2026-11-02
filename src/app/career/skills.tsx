@@ -73,7 +73,7 @@ function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: nu
         </Row>
         {state === 'ready' && (
           <Button
-            label={`Upgrade to level ${cost}  |  ${cost} pt${cost > 1 ? 's' : ''}`}
+            label={`Upgrade to level ${cost}  |  1 pt`}
             icon="arrow-up-circle"
             small
             onPress={() => {
@@ -84,7 +84,7 @@ function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: nu
             }}
           />
         )}
-        {state === 'points' && <Pill label={`Needs ${cost} skill point${cost > 1 ? 's' : ''} (you have ${points})`} icon="lock-closed" color={colors.muted} />}
+        {state === 'points' && <Pill label="Needs 1 skill point" icon="lock-closed" color={colors.muted} />}
         {state === 'attr' && <StatBar label={`${ATTR_LABELS[s.attr]} for level ${cost}`} value={have} max={need} color={colors.blue} right={`${have} / ${need}`} />}
         {state === 'maxed' && <Pill label="Maxed" icon="checkmark-circle" color={colors.gold} />}
       </View>
@@ -121,7 +121,7 @@ export function SkillsBody() {
         </Row>
         <StatBar label="XP to next level" value={c.xp} max={xpForLevel(c.level)} color={colors.accent} right={`${c.xp} / ${xpForLevel(c.level)}`} />
         <T muted style={{ fontSize: 12 }}>
-          Each level gives a skill point. Level 1 of a skill costs 1 point, level 2 costs 2, level 3 costs 3. Each needs a minimum attribute, and level 1 is in reach from the start.
+          Each level gives a skill point. Abilities cost 1 point a level and need a minimum attribute. Spend the rest on skill moves.
         </T>
       </Card>
 

@@ -3,7 +3,7 @@ import { Rng, clamp } from './rng';
 import { avgRating, formatMoney, overall, seasonRows, weightsFor } from './player';
 import { MatchState } from './match';
 import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
-import { canUpgrade, skillLevel, SKILLS } from './skills';
+import { ABILITY_COST, SKILL_MOVES, canLearnMove, canUpgrade, moveCost, skillLevel, SKILLS } from './skills';
 import { movePlayer } from './transfers';
 import { recordTraining } from './progress';
 import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
@@ -123,10 +123,21 @@ export function upgradeSkill(game: Game, skillId: string): ActionResult {
   const check = canUpgrade(p, skillId, c.skillPoints);
   if (!check.ok) return { ok: false, text: check.reason! };
   const lvl = skillLevel(p, skillId) + 1;
-  c.skillPoints -= lvl;
+  c.skillPoints -= ABILITY_COST;
   p.skills = { ...(p.skills ?? {}), [skillId]: lvl };
   const def = SKILLS.find((s) => s.id === skillId)!;
   return { ok: true, text: `${def.label} is now level ${lvl}.` };
+}
+
+export function learnMove(game: Game, moveId: string): ActionResult {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  const check = canLearnMove(p, moveId, c.skillPoints);
+  if (!check.ok) return { ok: false, text: check.reason! };
+  const m = SKILL_MOVES.find((x) => x.id === moveId)!;
+  c.skillPoints -= moveCost(m);
+  p.moves = [...(p.moves ?? []), m.id];
+  return { ok: true, text: `${m.label} learned.` };
 }
 
 export function lifeAction(game: Game, actionId: string): ActionResult {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore, useGame } from '../state/store';
@@ -10,12 +10,12 @@ import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { useResultFeedback } from '../ui/shared';
 import { formatMoney, fullName, shortName } from '../engine/player';
-import { Club, Game, MatchReward, Style } from '../engine/types';
-import { skillLevel, xpForLevel } from '../engine/skills';
-import { ShotGame } from '../ui/moments/ShotGame';
-import { PassGame } from '../ui/moments/PassGame';
+import { Club, Game, MatchReward, Player, Style } from '../engine/types';
+import { SKILL_MOVES, skillLevel, xpForLevel } from '../engine/skills';
+import { ShotGame, ShotOutcome } from '../ui/moments/ShotGame';
+import { PASS_LABEL, PassPanel } from '../ui/moments/PassGame';
 import { DribbleGame } from '../ui/moments/DribbleGame';
-import { LivePitch } from '../ui/livePitch';
+import { LivePitch, PitchTarget } from '../ui/livePitch';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
 import { LineupsCard } from '../ui/lineups';
@@ -44,9 +44,9 @@ export default function MatchScreen() {
   const feedback = useResultFeedback();
   const [speed, setSpeed] = useState<SpeedKey>(() => useSettings.getState().matchSpeed);
   const [paused, setPaused] = useState(false);
-  const [autoMoments, setAutoMoments] = useState(() => useSettings.getState().autoMoments);
+  // Auto-play for moments is a setting now, not a switch on this screen.
+  const autoMoments = useSettings((st) => st.autoMoments);
   const [tab, setTab] = useState<'feed' | 'lineups' | 'stats'>('feed');
-  const [showPitch, setShowPitch] = useState(true);
   const { width } = useWindowDimensions();
   const pitchWidth = Math.min(width, 600) - 32;
   const pace = SPEEDS.find((s) => s.key === speed)!;
@@ -69,7 +69,7 @@ export default function MatchScreen() {
   // A key moment opens once the move that led to it has played out.
   const [readyMoment, setReadyMoment] = useState<string | null>(null);
   const pendingKey = live?.pending ? momentKey(live) : null;
-  const watching = showPitch && kicked;
+  const watching = kicked;
 
   // The result counts the moment the whistle goes, before any button.
   const commitIfDone = () => {
@@ -114,6 +114,8 @@ export default function MatchScreen() {
 
   // A key moment opens when the move that led to it reaches the player.
   const momentOpen = !!pendingKey && (!watching || readyMoment === pendingKey);
+  const passing = momentOpen && !autoMoments && live?.pending?.kind === 'pass';
+  const [passPick, setPassPick] = useState<string | null>(null);
   const onMomentReady = () => {
     const m = useStore.getState().live;
     if (m?.pending) setReadyMoment(momentKey(m));
@@ -207,12 +209,81 @@ export default function MatchScreen() {
         </Card>
       )}
 
-      {(showPitch || !kicked) && (
-        <LivePitch world={world} live={live} focusId={game.career?.playerId} speed={pace.mult} width={pitchWidth} running={running} paused={paused} onNeedMinute={tick} onGoal={onGoalShown} onMomentReady={onMomentReady} />
+      {/* Match controls sit above the pitch, so the commentary stays in view below it. */}
+      {kicked && !live.finished && (
+        <Row gap={6}>
+          <Row gap={4} style={styles.segment}>
+            {SPEEDS.map((sp) => (
+              <Pressable
+                key={sp.key}
+                onPress={() => {
+                  haptic();
+                  setSpeed(sp.key);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Speed ${sp.label}`}
+                accessibilityState={{ selected: speed === sp.key }}
+                style={[styles.segBtn, speed === sp.key && { backgroundColor: colors.accent }]}
+              >
+                <Text style={[styles.segText, speed === sp.key && { color: colors.ink }]}>{sp.label}</Text>
+              </Pressable>
+            ))}
+          </Row>
+          <Button label={paused ? 'Play' : 'Pause'} icon={paused ? 'play' : 'pause'} small variant="secondary" style={{ flex: 1 }} onPress={() => setPaused(!paused)} />
+          <ConfirmButton
+            label="Skip"
+            confirmLabel="Sure?"
+            icon="play-skip-forward"
+            variant="secondary"
+            small
+            style={{ flex: 1 }}
+            onPress={() => {
+              mutateLive((m, g) => simToEnd(g.world, m));
+              commitIfDone();
+            }}
+          />
+        </Row>
       )}
 
-      {kicked && !live.finished && !momentOpen && !live.pausedAtHalf && game.mode === 'career' && <ShoutBar game={game} live={live} />}
-      {kicked && !live.finished && !momentOpen && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
+      <LivePitch
+        world={world}
+        live={live}
+        focusId={game.career?.playerId}
+        speed={pace.mult}
+        width={pitchWidth}
+        running={running}
+        paused={paused}
+        onNeedMinute={tick}
+        onGoal={onGoalShown}
+        onMomentReady={onMomentReady}
+        targets={passing ? passTargets(game, live.pending!) : undefined}
+        onTarget={passing ? setPassPick : undefined}
+      />
+      {/* Passing happens on the pitch: the options light up above, the cards sit here. */}
+      {passing && live.pending && (
+        <Card glow={colors.gold}>
+          <Row gap={8}>
+            <View style={styles.momentIcon}>
+              <Icon name="git-branch" size={18} color="#1a1200" />
+            </View>
+            <Text style={styles.momentTitle}>Pick the pass</Text>
+          </Row>
+          <PassPanel
+            key={pendingKey}
+            options={live.pending.options ?? []}
+            names={Object.fromEntries((live.pending.options ?? []).map((o) => [o.playerId, world.players[o.playerId].lastName]))}
+            playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
+            picked={passPick}
+            onDone={(q, _t, id) => {
+              setPassPick(null);
+              mutateLive((m, g) => resolveMoment(g.world, m, q, id));
+            }}
+          />
+        </Card>
+      )}
+
+      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && <ShoutBar game={game} live={live} />}
+      {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
         <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
       )}
 
@@ -230,48 +301,17 @@ export default function MatchScreen() {
         </>
       )}
 
-      {momentOpen && !autoMoments && <MomentPanel key={pendingKey} game={game} moment={live.pending!} />}
+      {/* Key moments open over the match, with the pitch in slow motion behind. */}
+      <Modal visible={momentOpen && !autoMoments && !passing} transparent animationType="fade" onRequestClose={() => undefined}>
+        <View style={styles.momentBackdrop}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 14 }}>
+            <View style={{ maxWidth: 560, width: '100%', alignSelf: 'center' }}>{momentOpen && live.pending && <MomentPanel key={pendingKey} game={game} moment={live.pending} />}</View>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {live.pausedAtHalf && <HalfTimePanel game={game} live={live} side={mySide} />}
       {changing && !live.finished && <HalfTimePanel game={game} live={live} side={mySide} title="Touchline changes" doneLabel="Back to the game" onDone={() => setChanging(false)} />}
-
-      {kicked && !live.finished && !momentOpen && !live.pausedAtHalf && (
-        <Card>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Row gap={6} style={styles.segment}>
-              {SPEEDS.map((s) => (
-                <Pressable
-                  key={s.key}
-                  onPress={() => {
-                    haptic();
-                    setSpeed(s.key);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Speed ${s.label}`}
-                  accessibilityState={{ selected: speed === s.key }}
-                  style={[styles.segBtn, speed === s.key && { backgroundColor: colors.accent }]}
-                >
-                  <Text style={[styles.segText, speed === s.key && { color: colors.ink }]}>{s.label}</Text>
-                </Pressable>
-              ))}
-            </Row>
-            <Button label={paused ? 'Resume' : 'Pause'} icon={paused ? 'play' : 'pause'} small variant="secondary" onPress={() => setPaused(!paused)} />
-          </Row>
-          <Choice active={showPitch} label="Show live pitch" sub="Watch every pass, shot and goal." onPress={() => setShowPitch(!showPitch)} />
-          <Choice active={autoMoments} label="Auto-play key moments" sub="Let the sim handle the big chances for the rest of this match." onPress={() => setAutoMoments(!autoMoments)} />
-          <ConfirmButton
-            label="Skip to full time"
-            confirmLabel="Sim the rest? Tap again"
-            icon="play-skip-forward"
-            variant="secondary"
-            small
-            onPress={() => {
-              mutateLive((m, g) => simToEnd(g.world, m));
-              commitIfDone();
-            }}
-          />
-        </Card>
-      )}
 
       {live.finished && <FullTime game={game} live={live} verdict={verdict} reward={reward} onContinue={leave} />}
 
@@ -477,6 +517,49 @@ function momentKey(s: MatchState) {
   return `${s.minute}-${m.actorId}-${s.events.length}`;
 }
 
+// The skill moves the player has learned, to pick one before taking his man on.
+function MovePicker({ actor, value, onChange }: { actor: Player; value: string | null; onChange: (id: string | null) => void }) {
+  const moves = SKILL_MOVES.filter((m) => m.kind === 'dribble' && actor.moves?.includes(m.id));
+  if (!moves.length) return <T muted style={{ fontSize: 12 }}>Learn skill moves on the Train tab to use them here.</T>;
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={styles.colHead}>PICK A MOVE</Text>
+      <Row gap={6} style={{ flexWrap: 'wrap' }}>
+        {moves.map((m) => {
+          const on = value === m.id;
+          return (
+            <Pressable
+              key={m.id}
+              accessibilityRole="button"
+              accessibilityLabel={m.label}
+              accessibilityState={{ selected: on }}
+              onPress={() => {
+                haptic();
+                onChange(on ? null : m.id);
+              }}
+              style={[styles.moveChip, on && { borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.16) }]}
+            >
+              <Icon name={m.icon as IconName} size={15} color={on ? colors.accent : colors.text} />
+              <Text style={[styles.shoutLabel, { fontSize: 12 }, on && { color: colors.accent }]}>{m.label}</Text>
+              <Text style={styles.shoutHint}>{'*'.repeat(m.stars)}</Text>
+            </Pressable>
+          );
+        })}
+      </Row>
+    </View>
+  );
+}
+
+// Pass options as rings on the live pitch, coloured by the kind of ball.
+function passTargets(game: Game, m: KeyMoment): Record<string, PitchTarget> {
+  const out: Record<string, PitchTarget> = {};
+  for (const o of m.options ?? []) {
+    const look = PASS_LABEL[o.kind ?? 'square'];
+    out[o.playerId] = { label: `${look.name}: ${game.world.players[o.playerId].lastName}`, color: look.color };
+  }
+  return out;
+}
+
 const SHOUTS: { kind: ShoutKind; label: string; hint: string; icon: IconName }[] = [
   { kind: 'call', label: 'Call for it', hint: 'More of the ball', icon: 'megaphone' },
   { kind: 'run', label: 'Make a run', hint: 'More shots', icon: 'flash' },
@@ -586,10 +669,20 @@ const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }
 function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const actor = game.world.players[moment.actorId];
-  const resolve = (q: number | null, chosen?: string) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen));
+  const [move, setMove] = useState<string | null>(null);
+  const resolve = (q: number | null, chosen?: string, moveId?: string, forced?: ShotOutcome) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, forced));
   const names: Record<string, string> = {};
   for (const o of moment.options ?? []) names[o.playerId] = game.world.players[o.playerId].lastName;
-  const head = MOMENT_TITLES[moment.kind];
+  const base = MOMENT_TITLES[moment.kind];
+  // The same kind of moment reads differently by where it is on the pitch.
+  const head =
+    moment.kind === 'shot' && moment.view === 'outside'
+      ? { title: 'Shot from distance', icon: base.icon }
+      : moment.kind === 'shot' && moment.view === 'oneonone'
+        ? { title: 'One on one!', icon: base.icon }
+        : moment.kind === 'header' && moment.view === 'corner'
+          ? { title: 'Corner!', icon: 'flag' as IconName }
+          : base;
   useEffect(() => haptic('medium'), []);
 
   return (
@@ -639,12 +732,12 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
           })}
         </View>
       )}
-      {moment.kind === 'header' && <HeaderGame air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
-        <ShotGame kind={moment.kind} composure={actor.attrs.composure} finesse={skillLevel(actor, 'finesse')} onDone={(q) => resolve(q)} />
+        <ShotGame kind={moment.kind} composure={actor.attrs.composure} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} chip={!!actor.moves?.includes('chip')} onDone={(q, _t, outcome) => resolve(q, undefined, undefined, outcome)} />
       )}
-      {moment.kind === 'pass' && <PassGame options={moment.options ?? []} names={names} playmaker={skillLevel(actor, 'playmaker')} onDone={(q, _t, id) => resolve(q, id)} />}
-      {moment.kind === 'dribble' && <DribbleGame speed={skillLevel(actor, 'speedster')} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
+      {moment.kind === 'dribble' && <DribbleGame speed={skillLevel(actor, 'speedster')} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
       {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} onDone={(q) => resolve(q)} />}
       {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper')} onDone={(q) => resolve(q)} />}
       <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
@@ -846,6 +939,7 @@ const styles = StyleSheet.create({
   score: { fontFamily: fonts.display, fontSize: 60, color: '#ffffff', lineHeight: 64, letterSpacing: 1, minWidth: 44, textAlign: 'center' },
   possLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.text, letterSpacing: 1 },
   possTrack: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 4, gap: 2 },
+  momentBackdrop: { flex: 1, backgroundColor: 'rgba(4,6,12,0.55)' },
   segment: { backgroundColor: colors.bgElev, borderRadius: 12, padding: 3, borderWidth: 1, borderColor: colors.border },
   segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
   segText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
@@ -859,6 +953,7 @@ const styles = StyleSheet.create({
   unlock: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 12, backgroundColor: alpha(colors.gold, 0.1), borderWidth: 1, borderColor: alpha(colors.gold, 0.3) },
   momentIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   momentTitle: { fontFamily: fonts.display, fontSize: 26, color: colors.accent, letterSpacing: 0.6, textTransform: 'uppercase' },
+  moveChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgElev },
   shoutBar: { flexDirection: 'row', gap: 6, alignItems: 'stretch' },
   shoutBtn: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 8, paddingHorizontal: 4, minHeight: 64, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   shoutLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.text, textAlign: 'center' },

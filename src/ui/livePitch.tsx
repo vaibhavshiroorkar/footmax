@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Club, World } from '../engine/types';
 import { MatchState, SideKey } from '../engine/match';
@@ -24,7 +24,27 @@ const kitRing = (c: Club) => (c.colors[1] && c.colors[1].toLowerCase() !== c.col
 
 type Registry = Map<string, Animated.ValueXY>;
 
-function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean }) {
+export interface PitchTarget {
+  label: string;
+  color: string;
+}
+
+// A team-mate the user can pass to: a coloured ring and a tag, tappable.
+function TargetRing({ v, size, target, onPress }: { v: Animated.ValueXY; size: number; target: PitchTarget; onPress: () => void }) {
+  const ring = size + 18;
+  return (
+    <Animated.View style={{ position: 'absolute', left: v.x, top: v.y, width: ring, height: ring, marginLeft: -ring / 2, marginTop: -ring / 2, zIndex: 5 }}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={target.label} hitSlop={10} style={{ width: ring, height: ring, borderRadius: ring / 2, borderWidth: 3, borderColor: target.color, backgroundColor: alpha(target.color, 0.18) }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: ring, left: -30, right: -30, alignItems: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: '#ffffff', backgroundColor: alpha('#000000', 0.55), paddingHorizontal: 5, borderRadius: 6, overflow: 'hidden' }} numberOfLines={1}>
+          {target.label}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void }) {
   const v = useState(() => new Animated.ValueXY({ x: -100, y: -100 }))[0];
   useEffect(() => {
     registry.set(id, v);
@@ -33,6 +53,8 @@ function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper }: 
     };
   }, [id, registry, v]);
   return (
+    <>
+    {target && onTarget && <TargetRing v={v} size={size} target={target} onPress={() => onTarget(id)} />}
     <Animated.View
       pointerEvents="none"
       style={{
@@ -64,6 +86,7 @@ function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper }: 
         </>
       )}
     </Animated.View>
+    </>
   );
 }
 
@@ -99,10 +122,13 @@ export interface LivePitchProps {
   onNeedMinute?: () => void;
   onGoal?: () => void;
   onMomentReady?: () => void;
+  // Pass options to light up on the pitch, and what a tap on one does.
+  targets?: Record<string, PitchTarget>;
+  onTarget?: (id: string) => void;
 }
 
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
-export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady }: LivePitchProps) {
+export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget }: LivePitchProps) {
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
@@ -233,6 +259,8 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           textColor={luminance(fill) > 0.55 ? '#111111' : '#ffffff'}
           glow={me || has}
           keeper={keeper}
+          target={targets?.[id]}
+          onTarget={onTarget}
         />
       );
     });

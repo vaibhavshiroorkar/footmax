@@ -69,6 +69,8 @@ export interface Player {
   real?: boolean;
   // Skill id -> level 1..3. See skills.ts.
   skills?: Record<string, number>;
+  // Skill moves the career player has learned (see SKILL_MOVES).
+  moves?: string[];
   // Exact role on top of the broad position (see roles.ts). Optional:
   // players without one are rated by their broad position.
   role?: string;
