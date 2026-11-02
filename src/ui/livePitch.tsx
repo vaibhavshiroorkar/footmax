@@ -162,15 +162,19 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids, sim, world]);
 
-  // Each new move from the engine joins the queue.
-  const playKey = live.play ? `${live.minute}-${live.events.length}-${live.play.length}` : `none-${live.minute}`;
+  // Each new move from the engine joins the queue, once. The engine builds a
+  // fresh array for every move, so the array itself is the key: a call, a
+  // card or a sub adds events but must not replay the move.
   const asked = useRef(false);
+  const queued = useRef<unknown>(null);
+  const play = live.play;
   useEffect(() => {
-    if (live.play) sim.enqueue(live.play.map((s) => ({ ...s })));
+    if (play && play !== queued.current) {
+      queued.current = play;
+      sim.enqueue(play.map((s) => ({ ...s })));
+    }
     asked.current = false;
-    // A new move is the only thing that should queue one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playKey, sim]);
+  }, [play, live.minute, sim]);
 
   // The break: both teams line up again.
   useEffect(() => {

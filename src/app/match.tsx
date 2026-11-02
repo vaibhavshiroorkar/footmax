@@ -63,9 +63,9 @@ export default function MatchScreen() {
   const allowLeave = usePreventRemove(guarded, ({ repeat }) => setLeaving({ repeat }));
   const flash = useState(() => new Animated.Value(0))[0];
   const flashBad = useState(() => new Animated.Value(0))[0];
-  // While a goal move is still playing on the pitch, the scoreboard waits
-  // until the pitch reports the ball in the net.
-  const [shownGoal, setShownGoal] = useState<string | null>(null);
+  // Goals the pitch has shown going in. The scoreboard counts only these,
+  // so it never runs ahead of the ball and never takes a goal back.
+  const [shownGoals, setShownGoals] = useState(() => useStore.getState().live?.scorers.length ?? 0);
   // A key moment opens once the move that led to it has played out.
   const [readyMoment, setReadyMoment] = useState<string | null>(null);
   const pendingKey = live?.pending ? momentKey(live) : null;
@@ -92,6 +92,9 @@ export default function MatchScreen() {
   const [changing, setChanging] = useState(false);
   const running = kicked && !!live && !live.finished && !live.pending && !live.pausedAtHalf && !paused && !changing;
   const tick = () => {
+    // Anything the pitch did not get to show is on the board before play goes on.
+    const total = useStore.getState().live?.scorers.length ?? 0;
+    if (shownGoals < total) setShownGoals(total);
     mutateLive((m, g) => stepMinute(g.world, m));
     commitIfDone();
   };
@@ -128,9 +131,11 @@ export default function MatchScreen() {
 
   // Goals: the pitch plays the move, then the scoreboard ticks over with a
   // flash. Your own goals get the big celebration.
-  const announce = (m: MatchState) => {
+  // n: which goal of the match (0 is the first); by default the latest.
+  const announce = (m: MatchState, n?: number) => {
     if (!game) return;
-    const last = [...m.events].reverse().find((e) => e.type === 'goal');
+    const goals = m.events.filter((e) => e.type === 'goal');
+    const last = n === undefined ? goals[goals.length - 1] : goals[n];
     if (!last?.side) return;
     const ours = last.side === userSide(game, m);
     const focus = m.focus.playerId;
@@ -144,13 +149,12 @@ export default function MatchScreen() {
     } else if (ours && !focus) celebrate({ title: 'GOAL!', sub: last.text, icon: 'football', duration: 1600 });
   };
   // On the live pitch, the pitch says when the ball hits the net.
-  const playKey = live ? `${live.minute}-${live.events.length}` : '';
-  const goalMove = live?.play?.[live.play.length - 1]?.act === 'goal' ? live.play[live.play.length - 1] : undefined;
-  const held: SideKey | null = watching && goalMove && !live?.finished && shownGoal !== playKey ? goalMove.side : null;
+  const totalGoals = live?.scorers.length ?? 0;
+  const boardGoals = watching && live && !live.finished ? Math.min(shownGoals, totalGoals) : totalGoals;
   const onGoalShown = () => {
-    if (!live || shownGoal === playKey) return;
-    setShownGoal(playKey);
-    announce(live);
+    if (!live || shownGoals >= live.scorers.length) return;
+    announce(live, shownGoals);
+    setShownGoals(shownGoals + 1);
   };
   // Without the pitch (or skipping to the end) goals land straight away.
   const goalCount = live ? live.home.goals + live.away.goals : 0;
@@ -196,7 +200,7 @@ export default function MatchScreen() {
 
   return (
     <Screen title="Match day" back={false} scroll>
-      <Scoreboard game={game} live={live} home={home} away={away} flash={flash} flashBad={flashBad} held={held} />
+      <Scoreboard game={game} live={live} home={home} away={away} flash={flash} flashBad={flashBad} shown={boardGoals} />
 
       {leaving && (
         <Card glow={colors.gold}>
@@ -424,7 +428,7 @@ function Gain({ label, value, color, icon, decimals = 0, money }: { label: strin
   );
 }
 
-function Scoreboard({ game, live, home, away, flash, flashBad, held }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value; flashBad: Animated.Value; held: SideKey | null }) {
+function Scoreboard({ game, live, home, away, flash, flashBad, shown }: { game: Game; live: MatchState; home: Club; away: Club; flash: Animated.Value; flashBad: Animated.Value; shown: number }) {
   const pulse = useState(() => new Animated.Value(0))[0];
   // The live dot pulses only while the clock runs.
   const ticking = !live.finished && !live.pausedAtHalf;
@@ -437,11 +441,14 @@ function Scoreboard({ game, live, home, away, flash, flashBad, held }: { game: G
   const [hp] = possessionPct(live);
   const clock = live.finished ? 'FULL TIME' : live.pausedAtHalf ? 'HALF TIME' : live.minute === 0 ? 'KICK OFF' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
   // A goal still being played out on the pitch is not on the board yet.
-  const hg = live.home.goals - (held === 'home' ? 1 : 0);
-  const ag = live.away.goals - (held === 'away' ? 1 : 0);
-  const shown = held ? live.scorers.slice(0, -1) : live.scorers;
+  // Goals already seen on the pitch. Shoot-out kicks are not in scorers, so
+  // a finished match shows the real totals.
+  const seen = live.scorers.slice(0, shown);
+  const all = shown >= live.scorers.length;
+  const hg = all ? live.home.goals : seen.filter((g) => g.clubId === live.home.clubId).length;
+  const ag = all ? live.away.goals : seen.filter((g) => g.clubId === live.away.clubId).length;
   const scorers = (side: SideKey) =>
-    shown
+    seen
       .filter((s) => s.clubId === live[side].clubId)
       .map((s) => `${game.world.players[s.playerId].lastName} ${s.minute}'`)
       .join(', ');

@@ -37,7 +37,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
   // x is where the ball actually goes: the aim plus any stray.
-  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number } | null>(null);
+  // stop: the ball never reaches the goal because a defender or the wall
+  // was in the way.
+  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall' } | null>(null);
   const [setup] = useState(() => ({
     keeper: 0.32 + Math.random() * 0.36,
     dive: Math.random() < 0.5 ? -1 : 1,
@@ -78,7 +80,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: setup.keeper }
           : judge(kind, x, power, setup, sweet, reach);
       if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
-      setShot({ power, blockAt: t, x, parry: setup.parry, ...r });
+      const wall = kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75;
+      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, ...r });
       setPhase('flight');
     }
   };
@@ -99,13 +102,20 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const after = phase === 'flight' && shot ? Math.min(1, Math.max(0, (t - flight) / 0.55)) : 0;
   const over = !!shot && shot.outcome === 'miss' && shot.power > sweet[1] + 0.06;
   const wide = !!shot && shot.outcome === 'miss' && !over && (shot.x < 0.02 || shot.x > 0.98);
-  const targetY = over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / sweet[1]));
+  // A blocked shot hits the defender's body; a wall shot hits the wall.
+  const stopY = shot?.stop === 'block' ? GOAL.y + GOAL.h + 30 : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
+  const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / sweet[1])));
   const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
   let ballX = 150 + (endX - 150) * k;
   let ballY = H - 12 + (targetY - (H - 12)) * k - Math.sin(Math.PI * k) * 10;
   let ballR = 8 - 3.5 * k;
   if (after > 0 && shot) {
-    if (shot.outcome === 'save') {
+    if (shot.stop) {
+      // Off the body and away: back toward you and to the side.
+      ballX = endX + shot.parry * 55 * after;
+      ballY = targetY + 40 * after - Math.sin(Math.PI * after) * 16;
+      ballR = 5 + 2 * after;
+    } else if (shot.outcome === 'save') {
       // Palmed away: back out and to the side, bouncing once.
       ballX = endX + shot.parry * 70 * after;
       ballY = targetY + (H - 30 - targetY) * after - Math.sin(Math.PI * after) * 22;
@@ -229,5 +239,8 @@ function judge(
   const weak = power < sweet[0] - 0.12;
   const gap = Math.abs(x - setup.keeper);
   if (gap <= reach * (weak ? 1.6 : 1)) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : 'Within his reach. Parried away!', q: 0.4, diveTo: x };
-  return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power >= sweet[0] ? 1 : 0.85, diveTo: toward(x) };
+  // He dives full stretch, but the glove (about a tenth of the goal wide)
+  // ends short of the ball.
+  const short = clamp(setup.keeper + Math.sign(x - setup.keeper) * Math.max(0, Math.min(reach, gap) - 0.1));
+  return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power >= sweet[0] ? 1 : 0.85, diveTo: short };
 }

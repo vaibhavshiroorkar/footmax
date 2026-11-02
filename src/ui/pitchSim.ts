@@ -64,7 +64,14 @@ interface Active {
   from: string | null;
   tx: number;
   ty: number;
+  // Shots: the keeper facing it and where his dive takes him.
+  keeperId?: string;
+  kx?: number;
+  ky?: number;
 }
+
+// How far a keeper gets across his goal in a dive, in metres.
+export const KEEPER_REACH = 2;
 
 export interface SimHooks {
   onGoal?: () => void;
@@ -268,14 +275,43 @@ export class PitchSim {
       case 'save':
       case 'miss': {
         const shooter = owner ? this.bodies.get(owner) : undefined;
-        const toward = step.act === 'goal' ? (step.y > 0.5 ? PL + 1.6 : -1.6) : target.y;
-        let tx = target.x;
-        if (step.act === 'goal') tx = clamp(tx, PW / 2 - GOAL_HALF + 0.4, PW / 2 + GOAL_HALF - 0.4);
+        // The keeper facing the shot decides where the ball can go, so the
+        // picture always matches the result: a save goes where he can get
+        // to, a goal goes beyond his dive, a miss goes wide of the posts.
+        const defSide = step.act === 'goal' ? (step.side === 'home' ? 'away' : 'home') : step.side;
+        const keeper = [...this.bodies.values()].find((b) => b.pos === 'GK' && b.side === defSide);
+        const lineY = defSide === 'home' ? 0 : PL;
+        const inward = defSide === 'home' ? 1 : -1;
+        const kx = keeper?.x ?? PW / 2;
+        const lo = PW / 2 - GOAL_HALF + 0.35;
+        const hi = PW / 2 + GOAL_HALF - 0.35;
+        let tx: number;
+        let toward: number;
+        let dive: number;
+        if (step.act === 'save') {
+          tx = clamp(kx + clamp(target.x - kx, -KEEPER_REACH * 0.8, KEEPER_REACH * 0.8), lo, hi);
+          toward = lineY + inward * 0.9;
+          dive = tx;
+        } else if (step.act === 'goal') {
+          const side = kx < PW / 2 - 0.3 ? 1 : kx > PW / 2 + 0.3 ? -1 : target.x < 0.5 ? -1 : 1;
+          tx = clamp(PW / 2 + side * (GOAL_HALF - 0.45 - Math.random() * 0.6), lo, hi);
+          if (Math.abs(tx - kx) < KEEPER_REACH + 1) tx = clamp(kx + side * (KEEPER_REACH + 1.2), lo, hi);
+          toward = lineY - inward * 1.6;
+          dive = kx + clamp(tx - kx, -KEEPER_REACH, KEEPER_REACH);
+        } else {
+          const side = target.x < 0.5 ? -1 : 1;
+          tx = PW / 2 + side * (GOAL_HALF + 1 + Math.random() * 3);
+          toward = lineY - inward * 2;
+          dive = kx + clamp(tx - kx, -0.8, 0.8);
+        }
+        this.act.keeperId = keeper?.id;
+        this.act.kx = dive;
+        this.act.ky = lineY + inward * 0.7;
         const fx = this.ball.x;
         const fy = this.ball.y;
         const d = dist(fx, fy, tx, toward);
         this.ball.owner = null;
-        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur: Math.max(0.3, d / (step.header ? 17 : 27)), peak: step.header ? 0.6 : 1.2 };
+        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur: Math.max(0.3, d / (step.header ? 17 : 27)), peak: step.header ? 0.6 : step.act === 'miss' && Math.random() < 0.4 ? 3.2 : 1.2 };
         this.hooks.onSound?.('kick', 1);
         this.caption = step.header ? `${this.name(shooter?.id)} goes for the header!` : `${this.name(shooter?.id)} shoots!`;
         this.act.from = shooter?.id ?? null;
@@ -529,12 +565,11 @@ export class PitchSim {
         if (s.act === 'pass' || s.act === 'cross') return { x: a.tx, y: a.ty };
         if (s.act === 'run' && ball.owner === b.id) return { x: a.tx, y: a.ty };
         if (s.act === 'start' || s.act === 'win' || s.act === 'tackle' || s.act === 'foul' || (s.act === 'run' && ball.owner !== b.id)) return { x: ball.x, y: ball.y };
-        if (s.act === 'save') return { x: ball.flight ? ball.flight.tx : ball.x, y: ball.flight ? clamp(ball.flight.ty, 0.5, PL - 0.5) : ball.y };
       }
       if (s.act === 'offside' && b.id === s.other) return { x: a.tx, y: a.ty };
-      if ((s.act === 'goal' || s.act === 'miss') && b.pos === 'GK' && b.side !== this.attacking && ball.flight) {
-        // The keeper dives for it.
-        return { x: clamp(ball.flight.tx, PW / 2 - GOAL_HALF - 1, PW / 2 + GOAL_HALF + 1), y: b.side === 'home' ? 0.6 : PL - 0.6 };
+      if ((s.act === 'goal' || s.act === 'save' || s.act === 'miss') && b.id === a.keeperId && a.kx !== undefined && a.ky !== undefined) {
+        // The keeper dives as far as he can get, and no further.
+        return { x: a.kx, y: a.ky };
       }
     }
     if (ball.owner === b.id) return { x: b.x + b.vx * 0.3, y: b.y + b.vy * 0.3 };
