@@ -10,6 +10,8 @@ import { useStore } from '../state/store';
 import { Toast } from '../ui/kit';
 import { Celebration } from '../ui/celebration';
 import { ScreenError } from '../ui/screenError';
+import { useAuth } from '../state/auth';
+import { startSync } from '../state/sync';
 import { colors, fonts, gradients } from '../ui/theme';
 
 export default function RootLayout() {
@@ -30,7 +32,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    init();
+    // Accounts and sync start after the local saves are loaded, so the first
+    // cloud pull merges into the real slot list.
+    init().then(() => {
+      useAuth.getState().init();
+      startSync();
+    });
     // Web: paint the page behind the app so overscroll is not white.
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.body.style.backgroundColor = colors.bg;

@@ -10,6 +10,10 @@ import { teamById } from '../engine/lineup';
 import { Avatar } from '../ui/avatar';
 import { MAX_SLOTS, SlotMeta } from '../state/slots';
 import { exportSaveFile, pickSaveFile } from '../state/saveFiles';
+import { useAuth } from '../state/auth';
+import { downloadSlot, keepThisDevice, useSync } from '../state/sync';
+import { needsDownload } from '../state/syncMerge';
+import { GuestUploadCard, cloudStatus } from '../ui/cloudSaves';
 
 function ago(t: number): string {
   const s = Math.max(0, Math.round((Date.now() - t) / 1000));
@@ -44,11 +48,21 @@ function SlotRow({ slot, current, index }: { slot: SlotMeta; current: boolean; i
   const [menu, setMenu] = useState<'closed' | 'open' | 'rename' | 'delete'>('closed');
   const [name, setName] = useState(slot.name ?? slot.title);
   const [busy, setBusy] = useState(false);
+  const user = useAuth((s) => s.session?.user.id ?? null);
+  const offline = useSync((s) => s.offline);
+  const cloud = cloudStatus(slot, user, offline);
 
   const open = async () => {
     if (busy) return;
     haptic();
     setBusy(true);
+    if (needsDownload(slot)) {
+      const err = await downloadSlot(slot.id);
+      if (err) {
+        setBusy(false);
+        return showToast(err);
+      }
+    }
     const ok = await loadSlot(slot.id);
     setBusy(false);
     // loadSlot explains why in a toast.
@@ -71,9 +85,12 @@ function SlotRow({ slot, current, index }: { slot: SlotMeta; current: boolean; i
             <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }} numberOfLines={1}>
               {slot.mode === 'career' ? 'Career' : 'Manager'}  |  {slot.detail}
             </Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.faint }}>
-              {slot.when}  |  saved {ago(slot.updatedAt)}
-            </Text>
+            <Row gap={5}>
+              {cloud && <Icon name={cloud.icon} size={13} color={cloud.color} />}
+              <Text style={{ fontFamily: fonts.body, fontSize: 11, color: colors.muted }} numberOfLines={1}>
+                {slot.when}  |  {cloud ? cloud.label.toLowerCase() : `saved ${ago(slot.updatedAt)}`}
+              </Text>
+            </Row>
           </View>
           {slot.rating !== undefined && (
             <View style={{ alignItems: 'center', minWidth: 34 }}>
@@ -85,6 +102,26 @@ function SlotRow({ slot, current, index }: { slot: SlotMeta; current: boolean; i
             <Icon name="ellipsis-vertical" size={18} color={colors.muted} />
           </Pressable>
         </Pressable>
+        {slot.conflict && (
+          <View style={{ paddingHorizontal: 12, paddingBottom: 12, gap: 8 }}>
+            <T muted style={{ fontSize: 12.5 }}>
+              This save changed on this device and on another one. Which copy do you want to keep? The other is replaced.
+            </T>
+            <Row gap={8}>
+              <Button label="This device" small variant="secondary" style={{ flex: 1 }} onPress={() => keepThisDevice(slot.id)} />
+              <Button
+                label="Cloud copy"
+                small
+                variant="secondary"
+                style={{ flex: 1 }}
+                onPress={async () => {
+                  const err = await downloadSlot(slot.id);
+                  if (err) showToast(err);
+                }}
+              />
+            </Row>
+          </View>
+        )}
         {menu === 'open' && (
           <Row style={{ paddingHorizontal: 12, paddingBottom: 12 }} gap={8}>
             <Button label="Rename" icon="pencil" small variant="secondary" style={{ flex: 1 }} onPress={() => setMenu('rename')} />
@@ -170,8 +207,13 @@ function ModeCard({ icon, color, title, text, onPress, disabled }: { icon: IconN
 export default function Title() {
   const router = useRouter();
   const game = useGame();
-  const slots = useStore((s) => s.slots);
+  const allSlots = useStore((s) => s.slots);
   const slotId = useStore((s) => s.slotId);
+  const authStatus = useAuth((s) => s.status);
+  const profile = useAuth((s) => s.profile);
+  const user = useAuth((s) => s.session?.user.id ?? null);
+  // Saves synced to a different account on a shared device stay hidden.
+  const slots = allSlots.filter((s) => !s.owner || !user || s.owner === user);
   const current = slots.find((s) => s.id === slotId);
   const next = game ? userFixture(game) : undefined;
   const full = slots.length >= MAX_SLOTS;
@@ -180,6 +222,19 @@ export default function Title() {
 
   return (
     <Screen>
+      {authStatus !== 'off' && (
+        <Row style={{ justifyContent: 'flex-end' }}>
+          <Pressable
+            onPress={() => router.push(authStatus === 'signed-in' ? '/account' : '/account/sign-in')}
+            accessibilityRole="button"
+            accessibilityLabel={authStatus === 'signed-in' ? 'Account' : 'Sign in'}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, minHeight: 40, borderRadius: 20, backgroundColor: pressed ? colors.cardAlt : colors.card, borderWidth: 1, borderColor: colors.border })}
+          >
+            <Icon name={authStatus === 'signed-in' ? 'person-circle' : 'log-in-outline'} size={18} color={authStatus === 'signed-in' ? colors.accent : colors.text} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.text }}>{authStatus === 'signed-in' ? (profile ? `@${profile.username}` : 'Account') : authStatus === 'loading' ? '...' : 'Sign in to sync'}</Text>
+          </Pressable>
+        </Row>
+      )}
       <PitchHero height={current ? 200 : 280}>
         <Pill label="2025/26 database" color={colors.accent} icon="football" />
         <Text style={{ fontFamily: fonts.display, fontSize: 64, color: colors.text, lineHeight: 66, marginTop: 8, letterSpacing: 2 }} numberOfLines={1} adjustsFontSizeToFit>
@@ -222,6 +277,8 @@ export default function Title() {
         </FadeIn>
       )}
 
+      <GuestUploadCard />
+
       {slots.length > 0 && (
         <>
           <Row style={{ justifyContent: 'space-between', marginTop: 6 }}>
@@ -262,6 +319,16 @@ export default function Title() {
           router.push(r.game.mode === 'career' ? '/career' : '/manager');
         }}
       />
+      <Pressable onPress={() => router.push('/leaderboards')} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+        <Row gap={10} style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
+          <Icon name="stats-chart" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.text }}>Leaderboards</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }}>The best careers and managers from every player.</Text>
+          </View>
+          <Icon name="chevron-forward" size={18} color={colors.faint} />
+        </Row>
+      </Pressable>
       <Pressable onPress={() => router.push('/editor')} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
         <Row gap={10} style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
           <Icon name="create-outline" size={20} color={colors.purple} />

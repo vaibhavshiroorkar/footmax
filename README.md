@@ -28,6 +28,20 @@ To set it up on a new Vercel account: import the GitHub repo and keep the defaul
 
 The page template, social-preview tags and web app manifest live in `public/`. Icons are in `assets/` (app) and `public/icons/` (web).
 
+## Accounts and cloud saves
+
+Accounts use Supabase: email and password or Google sign-in, cloud saves, leaderboards and public profiles at `/u/<username>`. Without the two Supabase env vars the game runs guest-only and everything stays on the device.
+
+Setting up a Supabase project:
+
+1. Create a project at supabase.com. Copy the project URL and the publishable key from Project Settings > API into `.env.local` (see `.env.example`) and into the Vercel project's environment variables.
+2. Run `supabase/migrations/20261102000000_init.sql` in the SQL editor. It creates the tables, row level security, the private `saves` storage bucket and the account deletion function.
+3. Run `supabase/tests/rls.sql` in the SQL editor. It should end with "RLS checks passed" and leaves no data behind.
+4. Authentication > URL Configuration: set the Site URL to `https://footmax.vercel.app` and add these redirect URLs: `https://footmax.vercel.app/**`, `https://*-<your-vercel-team>.vercel.app/**` (previews), `http://localhost:8081/**` and `footmax://**`.
+5. Authentication > Providers > Google: paste the client ID and secret of a Google Cloud OAuth client (type "Web application") whose authorized redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`.
+
+How sync works: the device is the source of truth while playing. A save uploads about 15 seconds after it changes and when the app goes to the background. Each upload moves the cloud copy to the next revision only if nobody else moved it first; otherwise the save is marked as changed on two devices and the player picks which copy to keep. Leaderboard numbers come from the player's own save, so the database only rejects impossible values.
+
 ## Run it
 
 ```sh

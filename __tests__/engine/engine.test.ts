@@ -14,6 +14,7 @@ import { callUpMessage, respond } from '../../src/engine/offers';
 import { addMessage, expireOffers } from '../../src/engine/inbox';
 import { Game } from '../../src/engine/types';
 import { navBadges, readyUpgrades } from '../../src/engine/alerts';
+import { careerTotals } from '../../src/engine/totals';
 import { slotMeta } from '../../src/state/slots';
 import { compress, decompress } from '../../src/state/compress';
 
@@ -584,5 +585,19 @@ describe('audit fixes', () => {
     const r = bidFee(game, target.id, 1_000_000);
     expect(r.status).toBe('walked');
     expect(game.negotiations[target.id]).toBeUndefined();
+  });
+});
+
+describe('career totals', () => {
+  it('counts the current season and the history, and never drops the peak rating', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 91 });
+    const p = game.world.players[game.career!.playerId];
+    p.history.push({ season: game.world.season - 1, clubId: p.clubId!, apps: 30, goals: 12, assists: 4, ratingSum: 210 });
+    p.stats = { apps: 5, goals: 2, assists: 1, ratingSum: 35 };
+    const t = careerTotals(game);
+    expect(t).toMatchObject({ apps: 35, goals: 14, assists: 5, seasons: 2, mode: 'career' });
+    const peak = t.peakOvr!;
+    for (const k of Object.keys(p.attrs) as (keyof typeof p.attrs)[]) p.attrs[k] = 20;
+    expect(careerTotals(game).peakOvr).toBe(peak);
   });
 });

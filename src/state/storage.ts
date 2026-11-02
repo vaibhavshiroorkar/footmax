@@ -59,6 +59,8 @@ const SLOT_PREFIX = 'footmax-slot-';
 const slotKey = (id: string) => `${SLOT_PREFIX}${id}`;
 
 export const writeSlot = (id: string, text: string) => writeChunked(slotKey(id), compress(text));
+// Stores a save that is already compressed, such as one from the cloud.
+export const writeSlotRaw = (id: string, raw: string) => writeChunked(slotKey(id), raw);
 export async function readSlot(id: string): Promise<string | null> {
   const raw = await readChunked(slotKey(id));
   return raw === null ? null : decompress(raw);

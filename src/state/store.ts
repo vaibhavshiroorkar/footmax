@@ -33,11 +33,16 @@ interface Store {
   slots: SlotMeta[];
   slotId: string | null;
   lastSaved: number | null;
+  // Account that new saves sync to; set by sync.ts while signed in.
+  defaultOwner: string | null;
+  setDefaultOwner: (id: string | null) => void;
+  // Changes slot entries without loading their games (used by sync).
+  patchSlots: (fn: (slots: SlotMeta[]) => SlotMeta[]) => Promise<void>;
   celebrate: (c: CelebrationData | null) => void;
   init: () => Promise<void>;
   // Starts a new game in a fresh slot. False when every slot is in use.
   startGame: (g: Game, name?: string) => boolean;
-  loadSlot: (id: string) => Promise<boolean>;
+  loadSlot: (id: string, force?: boolean) => Promise<boolean>;
   deleteSlot: (id: string) => Promise<void>;
   renameSlot: (id: string, name: string) => Promise<void>;
   saveNow: () => Promise<void>;
@@ -54,11 +59,16 @@ const sortSlots = (slots: SlotMeta[]) => [...slots].sort((a, b) => b.updatedAt -
 
 export const useStore = create<Store>((set, get) => {
   async function persist(): Promise<void> {
-    const { game, slotId, slots } = get();
+    const { game, slotId } = get();
     if (!game || !slotId) return;
     await writeSlot(slotId, serialize(game));
-    const old = slots.find((s) => s.id === slotId);
-    const next = sortSlots([slotMeta(slotId, game, old?.name), ...slots.filter((s) => s.id !== slotId)]);
+    // The slot may have been deleted or switched while writing.
+    if (get().slotId !== slotId) return;
+    // Read the entry after the write: sync may have changed it meanwhile.
+    const old = get().slots.find((s) => s.id === slotId);
+    // Keep the sync fields and count this as a new local revision.
+    const meta: SlotMeta = { ...old, ...slotMeta(slotId, game, old?.name), localRev: (old?.localRev ?? 0) + 1 };
+    const next = sortSlots([meta, ...get().slots.filter((s) => s.id !== slotId)]);
     set({ slots: next, lastSaved: Date.now() });
     await writeIndex(next);
   }
@@ -97,6 +107,13 @@ export const useStore = create<Store>((set, get) => {
     slots: [],
     slotId: null,
     lastSaved: null,
+    defaultOwner: null,
+    setDefaultOwner: (defaultOwner) => set({ defaultOwner }),
+    patchSlots: async (fn) => {
+      const slots = sortSlots(fn(get().slots));
+      set({ slots });
+      await writeIndex(slots);
+    },
     // null closes the current one and shows the next.
     celebrate: (c) => {
       const { celebration, queue } = get();
@@ -133,6 +150,8 @@ export const useStore = create<Store>((set, get) => {
         let slotId: string | null = null;
         let failed = 0;
         for (const s of order) {
+          // Saves listed from the cloud have no local copy until opened.
+          if (s.cloudOnly) continue;
           const text = await readSlot(s.id).catch(() => null);
           const r = text ? loadSave(text) : null;
           if (r?.ok) {
@@ -159,14 +178,15 @@ export const useStore = create<Store>((set, get) => {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = null;
       const id = newSlotId();
-      const slots = sortSlots([slotMeta(id, game, name), ...get().slots]);
+      const owner = get().defaultOwner ?? undefined;
+      const slots = sortSlots([{ ...slotMeta(id, game, name), owner }, ...get().slots]);
       set({ game, slotId: id, slots, rev: get().rev + 1, live: null, celebration: null, queue: [] });
       writeLastSlot(id);
       persist().catch(saveFailed);
       return true;
     },
-    loadSlot: async (id) => {
-      if (id === get().slotId && get().game) return true;
+    loadSlot: async (id, force) => {
+      if (!force && id === get().slotId && get().game) return true;
       await flush();
       const text = await readSlot(id).catch(() => null);
       const r = text ? loadSave(text) : null;

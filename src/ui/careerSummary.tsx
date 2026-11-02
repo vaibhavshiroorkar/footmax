@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Game } from '../engine/types';
 import { avgRating, formatMoney, fullName, overall } from '../engine/player';
 import { Card, H2, Row, T } from './kit';
+import { careerTotals } from '../engine/totals';
 
 export function HistoryTable({ game, playerId }: { game: Game; playerId: string }) {
   const p = game.world.players[playerId];
@@ -37,9 +38,7 @@ export function CareerSummary({ game }: { game: Game }) {
   const c = game.career!;
   const p = game.world.players[c.playerId];
   const all = p.history;
-  const apps = all.reduce((s, h) => s + h.apps, 0);
-  const goals = all.reduce((s, h) => s + h.goals, 0);
-  const assists = all.reduce((s, h) => s + h.assists, 0);
+  const { apps, goals, assists } = careerTotals(game);
   const honours = game.world.honours.filter((h) => h.playerId === p.id);
   const clubTitles = game.world.honours.filter(
     (h) => h.clubId && h.title.endsWith('champions') && all.some((s) => s.season === h.season && s.clubId === h.clubId),

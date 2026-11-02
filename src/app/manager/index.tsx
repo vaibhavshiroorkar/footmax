@@ -34,6 +34,7 @@ export default function ManagerHub() {
     { label: 'Internationals', sub: 'Tournaments', href: '/tournaments', icon: 'earth', color: colors.purple },
     { label: 'Awards', sub: "Ballon d'Or race", href: '/awards', icon: 'medal', color: colors.gold },
     { label: 'Honours', sub: 'Trophy history', href: '/honours', icon: 'trophy', color: colors.gold },
+    { label: 'Leaderboards', sub: 'Best managers online', href: '/leaderboards', icon: 'stats-chart', color: colors.accent },
   ];
 
   const income = club ? (weeklyIncome(game, club, true) + weeklyIncome(game, club, false)) / 2 : 0;
