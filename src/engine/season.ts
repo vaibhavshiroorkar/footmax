@@ -116,6 +116,7 @@ function careerUpkeep(game: Game) {
   c.trainedThisWeek = 0;
   c.fame = clamp(c.fame - 0.15, 0, 100);
   if (c.items.includes('nutrition')) p.fitness = clamp(p.fitness + 6, 0, 100);
+  if (c.items.includes('icebath')) p.fitness = clamp(p.fitness + 3, 0, 100);
   if (c.items.includes('physio') && p.injuryWeeks > 0) p.injuryWeeks = Math.max(0, p.injuryWeeks - 1);
   if (c.items.includes('house')) p.morale = clamp(p.morale + 3, 0, 100);
 }

@@ -293,6 +293,15 @@ contracts, board and federation confidence, sackings and job offers.
 - More, in groups: Your career (Life, Clubs), Football (League,
   Internationals, Awards, Honours), Other (Leaderboards, Settings), then
   the locked legends store as one card (names only).
+- Life: money's home, in three tabs. This week (activities and
+  sponsors); Shop (perks from $3K: ice baths, a media coach for 20% more
+  fame, nutritionist, physio, personal trainer, top agent, car, villa);
+  Cases (`src/engine/equipment.ts`): Bronze $2K, Silver $8K, Gold $25K
+  roll equipment by rarity (common +1, rare +2, epic +3, legendary +5 to
+  one attribute while worn). Six slots: boots, gloves (keepers), shin
+  pads (outfield), training top, headband, smart watch; one piece per
+  slot. A better piece goes on by itself; spares can be worn or sold. The
+  reveal panel keeps its size, so opening a case moves nothing.
 - Clubs: your club first (team rating, table place, the coach's trust),
   then Keen on you or All clubs with a search. Every club shows its team
   rating (the average of its best eleven), the fame it needs before it
@@ -331,13 +340,11 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. Money buys many useful things; Clash Royale style cases with
-   equipment that makes the player better.
-2. Life events with consequences: dressing room, romance, crime and
+1. Life events with consequences: dressing room, romance, crime and
    jail, corruption, career-ending injuries, and good events that help.
-3. World Cup qualifying for every nation, so even India can try to
+2. World Cup qualifying for every nation, so even India can try to
    qualify.
-4. Start the game in 2010, just after the World Cup, with squads of that
+3. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
 

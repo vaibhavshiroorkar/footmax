@@ -43,6 +43,8 @@ export interface ShopItem {
 }
 
 export const SHOP: ShopItem[] = [
+  { id: 'icebath', label: 'Ice baths', price: 3_000, description: 'Recover 3 more fitness each week.' },
+  { id: 'media', label: 'Media coach', price: 6_000, description: 'Fame gains up 20%.' },
   { id: 'nutrition', label: 'Nutritionist', price: 10_000, description: 'Recover 6 more fitness each week. Slower decline with age.' },
   { id: 'physio', label: 'Private physio', price: 25_000, description: 'Injuries heal twice as fast.' },
   { id: 'trainer', label: 'Personal trainer', price: 40_000, description: 'Training gains up 25% and +10 XP per session.' },

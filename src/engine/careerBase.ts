@@ -13,6 +13,8 @@ export function careerPlayer(game: Game): Player {
 // Fame gains shrink as fame grows: early headlines come easily, the top
 // takes a whole career. Without this, fame hit 100 by age 20.
 export function gainFame(c: CareerState, amount: number): void {
+  // A media coach makes every headline count for more.
+  if (amount > 0 && c.items?.includes('media')) amount *= 1.2;
   c.fame = Math.max(0, Math.min(100, c.fame + amount * Math.pow(Math.max(0, 100 - c.fame) / 100, 1.5)));
 }
 

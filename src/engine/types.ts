@@ -309,6 +309,9 @@ export interface CareerState {
   flags?: Record<string, boolean>;
   // What the last match earned, for the full-time screen.
   lastMatch?: MatchReward;
+  // Equipment from cases, and which piece is on in each slot.
+  equipment?: { id: string; slot: 'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch'; name: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; attr: AttrKey; bonus: number }[];
+  equipped?: Partial<Record<'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch', string>>;
 }
 
 export interface MatchReward {

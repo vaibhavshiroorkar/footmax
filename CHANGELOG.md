@@ -2,6 +2,14 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.7.0
+
+- Life has This week, Shop and Cases tabs.
+- Cases (Bronze, Silver, Gold) roll equipment from common to legendary:
+  boots, gloves, shin pads, tops, headbands and watches that add to an
+  attribute while worn. Wear the best, sell the rest.
+- Cheaper shop perks: ice baths and a media coach.
+
 ## 1.6.0
 
 - VAR: some goals are checked. Play holds while the referee goes to the
