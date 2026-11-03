@@ -25,7 +25,8 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
 const LOW = 0.34;
 const MID = 0.64;
 const HIGH = 0.85;
-// Half the width of goal a blocking defender covers.
+// Half the width of goal a blocking defender covers, when the pitch does
+// not say (see Lane).
 const BLOCK_HALF = 0.055;
 const FLIGHT = 0.6;
 // The power bar speeds up as it fills (power = time share ^ EASE), so it
@@ -38,7 +39,9 @@ const EASE = 1.5;
 // power misses.
 // shooting and weakFoot widen or narrow how far a shot strays from the aim.
 // range: 0 at the edge of the box, 1 from a long way out.
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; onDone: (q: number, text: string, outcome: ShotOutcome, aim: number) => void }) {
+// defenders: the men in the way on the live pitch (PitchSim.laneDefenders).
+// A shot into one is blocked, and onDone names him so the pitch shows it.
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; onDone: (q: number, text: string, outcome: ShotOutcome, aim: number, blocker?: string) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -49,7 +52,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // x is where the ball actually goes: the aim plus any stray.
   // stop: the ball never reaches the goal because a defender or the wall
   // was in the way.
-  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall' } | null>(null);
+  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall'; blocker?: number } | null>(null);
   const [setup] = useState(() => ({
     keeper: 0.32 + Math.random() * 0.36,
     dive: Math.random() < 0.5 ? -1 : 1,
@@ -57,6 +60,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     wall: 0.15 + Math.random() * 0.4,
     offset: Math.random() * Math.PI * 2,
     blockers: [0.25 + Math.random() * 0.2, 0.55 + Math.random() * 0.2].map((x) => ({ x, speed: 0.8 + Math.random() * 0.8, phase: Math.random() * 6 })),
+    jitter: [0, 1, 2].map(() => ({ speed: 0.9 + Math.random() * 0.8, phase: Math.random() * 6 })),
     // Two normal draws, used for the stray and for where a parry goes.
     stray: Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random()),
     parry: Math.random() < 0.5 ? -1 : 1,
@@ -80,8 +84,17 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     const time = 1 + range * (p > bands.mid ? 0.25 : 0.9);
     return reach * band * time;
   };
-  // From the edge of the box one defender is in the way; from far out, two.
-  const blockers = range > 0.55 ? setup.blockers : setup.blockers.slice(0, 1);
+  // The men in the way. From the live pitch when it says, shuffling a little
+  // as they close you down. Without it, from distance: one defender from the
+  // edge of the box, two from far out.
+  const blockers: Blocker[] =
+    kind !== 'shot' || oneOnOne
+      ? []
+      : defenders
+        ? defenders.map((d, i) => ({ ...d, ...setup.jitter[i % 3], amp: 0.025 }))
+        : outside
+          ? (range > 0.55 ? setup.blockers : setup.blockers.slice(0, 1)).map((b) => ({ ...b, half: BLOCK_HALF, near: 0.4, amp: 0.14 }))
+          : [];
 
   const aimX = phase === 'aim' ? 0.5 + 0.62 * Math.sin(t * speed + setup.offset) : aim;
   // Power climbs fast once the aim is set; wait too long and he shoots at
@@ -107,8 +120,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0);
       const x = aim + setup.stray * spread;
       const strayed = Math.abs(x - aim) > 0.06;
-      // Two defenders shuffle across in front of a shot from distance.
-      const blocked = outside && blockers.some((b) => Math.abs(blockerX(b, t) - x) < BLOCK_HALF);
+      // Into a defender's body: blocked.
+      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - x) < b.half);
+      const blocked = hit >= 0;
       const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: setup.keeper }
@@ -117,7 +131,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           : judge(kind, x, power, setup, bands, reachAt(power));
       if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
       const wall = kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75;
-      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, ...r });
+      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, ...r });
       setPhase('flight');
     }
   };
@@ -145,7 +159,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   useEffect(() => {
     if (phase === 'flight' && shot && t >= flight && !sent.current) {
       sent.current = true;
-      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, shot.x), 1200);
+      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, shot.x, shot.blocker !== undefined ? blockers[shot.blocker]?.id : undefined), 1200);
     }
   });
 
@@ -157,7 +171,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const over = !!shot && shot.outcome === 'miss' && shot.power > bands.high;
   const wide = !!shot && shot.outcome === 'miss' && !over && (shot.x < 0.02 || shot.x > 0.98);
   // A blocked shot hits the defender's body; a wall shot hits the wall.
-  const stopY = shot?.stop === 'block' ? GOAL.y + GOAL.h + 30 : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
+  const hitMan = shot?.blocker !== undefined ? blockers[shot.blocker] : undefined;
+  const stopY = shot?.stop === 'block' ? (hitMan ? manAt(hitMan, GOAL).ground - manAt(hitMan, GOAL).h * 0.6 : GOAL.y + GOAL.h + 30) : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
   const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / bands.high)));
   const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
   let ballX = 150 + (endX - 150) * k;
@@ -204,18 +219,18 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
           {/* The keeper's reach before you shoot, so the gap is readable. */}
           {phase !== 'flight' && <Rect x={px(Math.max(0, setup.keeper - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
-          {outside && (
-            <>
-              <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />
-              {blockers.map((b, i) => (
-                <G key={i}>
-                  <Ellipse cx={px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t))} cy={GOAL.y + GOAL.h + 52} rx={10} ry={3} fill="#000000" opacity={0.25} />
-                  <Rect x={px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t)) - 7} y={GOAL.y + GOAL.h + 20} width={14} height={32} rx={6} fill="#c8102e" />
-                  <Circle cx={px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t))} cy={GOAL.y + GOAL.h + 15} r={6} fill="#d9a77c" />
-                </G>
-              ))}
-            </>
-          )}
+          {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
+          {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
+            const m = manAt(b, GOAL);
+            const cx = px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t));
+            return (
+              <G key={b.id ?? i}>
+                <Ellipse cx={cx} cy={m.ground} rx={m.w * 0.7} ry={m.w * 0.22} fill="#000000" opacity={0.25} />
+                <Rect x={cx - m.w / 2} y={m.ground - m.h} width={m.w} height={m.h} rx={m.w * 0.42} fill="#c8102e" />
+                <Circle cx={cx} cy={m.ground - m.h - m.w * 0.38} r={m.w * 0.42} fill="#d9a77c" />
+              </G>
+            );
+          })}
           {kind === 'freekick' && <Rect x={px(setup.wall)} y={GOAL.y + GOAL.h - 46} width={GOAL.w * 0.3} height={46} rx={6} fill="#c8102e" opacity={0.9} />}
           <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
           {phase !== 'flight' && (
@@ -274,7 +289,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               ? 'Tap to aim: past the defender, away from the keeper.'
               : oneOnOne
                 ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
-                : 'Tap to aim. He comes off his line if you wait.'
+                : blockers.length
+                  ? 'Tap to aim past the defender. The keeper comes out if you wait.'
+                  : 'Tap to aim. He comes off his line if you wait.'
             : phase === 'power'
               ? 'Tap to set the power!'
               : landed
@@ -286,9 +303,23 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   );
 }
 
+// A man in the way, as the live pitch reports him (see
+// PitchSim.laneDefenders), plus how he shuffles while you aim.
+export type Lane = { id: string; x: number; half: number; near: number };
+type Blocker = Omit<Lane, 'id'> & { id?: string; speed: number; phase: number; amp: number };
+
 // A defender's position across the goal at time t.
-function blockerX(b: { x: number; speed: number; phase: number }, t: number): number {
-  return clamp(b.x + 0.14 * Math.sin(t * b.speed + b.phase));
+function blockerX(b: Blocker, t: number): number {
+  return Math.max(-0.15, Math.min(1.15, b.x + b.amp * Math.sin(t * b.speed + b.phase)));
+}
+
+// How big and how low to draw him: the nearer the shooter, the bigger and
+// the further down the screen. His width is exactly the goal he hides, so a
+// shot that looks past him is past him.
+function manAt(b: Blocker, goal: { y: number; h: number; w: number }): { w: number; h: number; ground: number } {
+  const w = Math.max(8, b.half * 2 * goal.w);
+  const base = goal.y + goal.h + 26;
+  return { w, h: Math.min(w * 2.2, 54), ground: base + b.near * Math.max(0, H - 24 - base) };
 }
 
 function clamp(v: number) {

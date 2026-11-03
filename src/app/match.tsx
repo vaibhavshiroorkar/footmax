@@ -384,7 +384,7 @@ export default function MatchScreen() {
       <Modal visible={momentOpen && !autoMoments && !passing} transparent animationType="fade" onRequestClose={() => undefined}>
         <View style={styles.momentBackdrop}>
           <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 14 }}>
-            <View style={{ maxWidth: 560, width: '100%', alignSelf: 'center' }}>{momentOpen && live.pending && <MomentPanel key={pendingKey} game={game} moment={live.pending} />}</View>
+            <View style={{ maxWidth: 560, width: '100%', alignSelf: 'center' }}>{momentOpen && live.pending && <MomentPanel key={pendingKey} game={game} moment={live.pending} getSim={() => simRef.current} />}</View>
           </ScrollView>
         </View>
       </Modal>
@@ -943,11 +943,13 @@ const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }
   clear: { title: 'Head it clear!', icon: 'arrow-up-circle' },
 };
 
-function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
+function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; getSim: () => PitchSim | null }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const actor = game.world.players[moment.actorId];
   const [move, setMove] = useState<string | null>(null);
-  const resolve = (q: number | null, chosen?: string, moveId?: string, forced?: ShotOutcome, aim?: number) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, forced, aim));
+  const resolve = (q: number | null, chosen?: string, moveId?: string, forced?: ShotOutcome, aim?: number, blocker?: string) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, forced, aim, blocker));
+  // The defenders in the way on the pitch as the moment opens.
+  const [lanes] = useState(() => (moment.kind === 'shot' ? getSim()?.laneDefenders(moment.actorId) : undefined));
   const names: Record<string, string> = {};
   for (const o of moment.options ?? []) names[o.playerId] = game.world.players[o.playerId].lastName;
   const base = MOMENT_TITLES[moment.kind];
@@ -1021,7 +1023,7 @@ function MomentPanel({ game, moment }: { game: Game; moment: KeyMoment }) {
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
-        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} onDone={(q, _t, outcome, aim) => resolve(q, undefined, undefined, outcome, aim)} />
+        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} onDone={(q, _t, outcome, aim, blocker) => resolve(q, undefined, undefined, outcome, aim, blocker)} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}

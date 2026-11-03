@@ -50,6 +50,8 @@ export interface PlayStep {
   // Where the user aimed a shot across the goal, from the shooter's view:
   // 0 is his left post, 1 his right; outside that is wide.
   aim?: number;
+  // A shot that hit this defender (one the shot game showed in the way).
+  blocker?: string;
   // A 'card' step: which one.
   card?: 'yellow' | 'red';
 }
@@ -384,7 +386,7 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
 }
 
 // The end of a move: into the net, into the keeper's hands, or wide.
-export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', shooterId: string, result: 'goal' | 'save' | 'miss', keeperId?: string, header = false, aim?: number): void {
+export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', shooterId: string, result: 'goal' | 'save' | 'miss', keeperId?: string, header = false, aim?: number, blocker?: string): void {
   const goalY = side === 'home' ? 1 : 0;
   const inward = side === 'home' ? -1 : 1;
   const last = steps[steps.length - 1];
@@ -396,6 +398,9 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
     // About a third are tipped round the post or over: a corner.
     const tipped = rng.chance(0.33);
     steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: tipped ? side : keeperSide, act: 'save', header, aim, restart: tipped ? 'corner' : undefined });
+  } else if (blocker) {
+    // Off the defender and behind: a corner.
+    steps.push({ x: 0.5, y: goalY + inward * 0.15, carrier: null, side, act: 'miss', restart: 'corner', aim, blocker });
   } else {
     const wide = rng.chance(0.5) ? rng.range(0.34, 0.43) : rng.range(0.57, 0.66);
     // Some are deflected behind off a defender: a corner, not a goal kick.

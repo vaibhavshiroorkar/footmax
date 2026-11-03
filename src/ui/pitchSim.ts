@@ -179,6 +179,38 @@ export class PitchSim {
     return [...this.bodies.values()].filter((b) => !b.leaving);
   }
 
+  // Opponents standing between a shooter and the goal he faces, so the shot
+  // game can draw the same men the pitch shows. x is where each one sits
+  // across the goal from the shooter's view (as PlayStep.aim). half is how
+  // much of the goal's width his body hides either side: a man close to the
+  // shooter hides more. near is 1 right at the shooter, 0 on the goal line.
+  laneDefenders(shooterId: string): { id: string; x: number; half: number; near: number }[] {
+    const s = this.bodies.get(shooterId);
+    if (!s) return [];
+    const defSide = s.side === 'home' ? 'away' : 'home';
+    const lineY = defSide === 'home' ? 0 : PL;
+    const toGoal = lineY - s.y;
+    if (Math.abs(toGoal) < 2) return [];
+    const flip = defSide === 'away' ? 1 : -1;
+    const out: { id: string; x: number; half: number; near: number; d: number }[] = [];
+    for (const b of this.active()) {
+      if (b.side !== defSide || b.pos === 'GK' || b.down > 0) continue;
+      const ahead = (b.y - s.y) / toGoal;
+      const d = dist(b.x, b.y, s.x, s.y);
+      if (ahead <= 0.03 || ahead >= 0.95 || d > 22) continue;
+      const gx = s.x + (b.x - s.x) / ahead;
+      const x = 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
+      if (x < -0.2 || x > 1.2) continue;
+      // About 0.45 m of body each side of him, seen from the shooter.
+      const half = clamp(0.45 / ahead / (2 * GOAL_HALF), 0.04, 0.12);
+      out.push({ id: b.id, x, half, near: 1 - ahead, d });
+    }
+    return out
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 3)
+      .map(({ id, x, half, near }) => ({ id, x, half, near }));
+  }
+
   // Is this player still part of the move on screen or the one queued?
   private referenced(id: string): boolean {
     const a = this.act?.step;
@@ -450,6 +482,13 @@ export class PitchSim {
           toward = lineY - inward * 2;
           dive = kx + clamp(tx - kx, -0.8, 0.8);
         }
+        // Blocked: the ball hits the defender the shot game showed in the way.
+        const blocker = step.blocker ? this.bodies.get(step.blocker) : undefined;
+        if (blocker) {
+          tx = blocker.x;
+          toward = blocker.y;
+          dive = kx;
+        }
         this.act.keeperId = keeper?.id;
         this.act.kx = dive;
         this.act.ky = lineY + inward * 0.7;
@@ -671,6 +710,16 @@ export class PitchSim {
             this.hooks.onSound?.('ooh', 0.8);
             this.caption = `${shooter} shoots... saved by ${carrier?.name ?? 'the keeper'}`;
             return pause(1.2);
+          }
+          if (step.blocker) {
+            // Off his body and behind the goal line: a corner.
+            const lineY = step.side === 'home' ? PL : 0;
+            const out = step.side === 'home' ? 1 : -1;
+            this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: clamp(this.ball.x + (this.ball.x < PW / 2 ? -6 : 6), 2, PW - 2), ty: lineY + out * 1.5, t: 0, dur: 0.6, peak: 1.6 };
+            this.callout = { text: 'BLOCKED!', sub: `${this.name(step.blocker)}. Corner.`, tone: 'stop', until: this.clock + 1.4 };
+            this.hooks.onSound?.('ooh', 0.7);
+            this.caption = `${shooter} shoots... blocked by ${this.name(step.blocker)}`;
+            return pause(1.4);
           }
           this.callout = { text: step.header ? 'OVER!' : 'WIDE!', sub: step.restart === 'corner' ? 'Off a defender. Corner.' : undefined, tone: 'miss', until: this.clock + 1.2 };
           this.hooks.onSound?.('ooh', 0.7);

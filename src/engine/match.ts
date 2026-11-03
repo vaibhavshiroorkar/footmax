@@ -685,8 +685,9 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
 // the user's shot actually did in the shot game (goal, save or miss); the
 // match then shows and counts exactly that.
 // aim: where the user's shot went across the goal (see PlayStep.aim), so the
-// pitch shows the ball going exactly there.
-export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', aim?: number): void {
+// pitch shows the ball going exactly there. blocker: the defender a missed
+// shot hit, so the pitch shows the block.
+export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', aim?: number, blocker?: string): void {
   let m = s.pending;
   if (!m) return;
   if (m.kind === 'choice') {
@@ -696,7 +697,7 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   s.pending = null;
   const from = s.events.length;
   resolveMomentInner(world, s, m, quality, chosenPlayerId, moveId, forced);
-  visualizeMoment(world, s, m, from, aim);
+  visualizeMoment(world, s, m, from, aim, forced === 'miss' ? blocker : undefined);
 }
 
 function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
@@ -732,6 +733,19 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     s.rngState = rng.state;
   };
 
+  // A badly timed defensive moment is a mistake, and the other side make
+  // him pay: the man he lost gets a far better chance, and his rating takes
+  // a bigger hit, more so if it goes in. A plain lost duel in midfield can
+  // still end in a shot.
+  const blunder = played && q < 0.22;
+  const punish = (attSide: SideKey, shooter: Player, assister: Player | undefined, bonus: number, text: string) => {
+    bump(s, actor.id, -0.15);
+    push(s, s.minute, attSide, 'info', text, shooter.id, played);
+    const goals = s[attSide].goals;
+    autoShot(rng, world, s, attSide, shooter, assister, bonus);
+    if (s[attSide].goals > goals) bump(s, actor.id, -0.25);
+  };
+
   switch (m.kind) {
     case 'save': {
       const attSide = other(m.side);
@@ -763,8 +777,13 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         push(s, s.minute, m.side, 'info', `${shortName(actor)} reads it and wins the ball off ${shortName(attacker)}!`, actor.id, played);
       } else {
         bump(s, actor.id, m.quiet ? -0.08 : -0.15);
-        push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets past ${shortName(actor)}...`, attacker.id, played);
-        if (!m.quiet) autoShot(rng, world, s, attSide, attacker, m.assistId ? world.players[m.assistId] : undefined, 0.05);
+        const assister = m.assistId ? world.players[m.assistId] : undefined;
+        if (blunder) punish(attSide, attacker, assister, m.quiet ? 0.12 : 0.22, `${shortName(actor)} dives in and misses. ${shortName(attacker)} is clean through!`);
+        else {
+          push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets past ${shortName(actor)}...`, attacker.id, played);
+          if (!m.quiet) autoShot(rng, world, s, attSide, attacker, assister, 0.05);
+          else if (rng.chance(0.3)) autoShot(rng, world, s, attSide, attacker, undefined, 0);
+        }
       }
       s.rngState = rng.state;
       break;
@@ -782,9 +801,13 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         s.pending = { side: m.side, minute: s.minute, keeperId: keeperOf(world, s[attSide]).id, actorId: actor.id, bonus: 0, kind: 'pass', deep: true, options: passOptions(rng, world, s, m.side, actor.id) };
       } else {
         bump(s, actor.id, -0.08);
-        push(s, s.minute, attSide, 'info', `${shortName(passer)} threads it past ${shortName(actor)}.`, passer.id, played);
         const target = m.targetId ? world.players[m.targetId] : undefined;
-        if (target && !m.quiet) autoShot(rng, world, s, attSide, target, passer, 0.04);
+        if (blunder) punish(attSide, target ?? passer, target ? passer : undefined, m.quiet ? 0.1 : 0.18, `${shortName(actor)} goes for it and gets nothing. ${shortName(target ?? passer)} is in behind!`);
+        else {
+          push(s, s.minute, attSide, 'info', `${shortName(passer)} threads it past ${shortName(actor)}.`, passer.id, played);
+          if (target && !m.quiet) autoShot(rng, world, s, attSide, target, passer, 0.04);
+          else if (m.quiet && rng.chance(0.25)) autoShot(rng, world, s, attSide, passer, undefined, 0);
+        }
       }
       s.rngState = rng.state;
       break;
@@ -801,7 +824,9 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         push(s, s.minute, m.side, 'info', `${shortName(actor)} throws himself in front of ${shortName(shooter)}'s shot. Blocked!`, actor.id, played);
       } else {
         bump(s, actor.id, -0.1);
-        autoShot(rng, world, s, attSide, shooter, m.assistId ? world.players[m.assistId] : undefined, 0);
+        const assister = m.assistId ? world.players[m.assistId] : undefined;
+        if (blunder) punish(attSide, shooter, assister, 0.12, `${shortName(actor)} turns his back. ${shortName(shooter)} has a clear sight of goal.`);
+        else autoShot(rng, world, s, attSide, shooter, assister, 0);
       }
       s.rngState = rng.state;
       break;
@@ -819,8 +844,12 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         push(s, s.minute, m.side, 'info', `${shortName(actor)} rises highest and heads it clear!`, actor.id, played);
       } else {
         bump(s, actor.id, -0.1);
-        push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets above ${shortName(actor)}...`, attacker.id, played);
-        if (!m.quiet) autoShot(rng, world, s, attSide, attacker, m.assistId ? world.players[m.assistId] : undefined, 0.03);
+        const assister = m.assistId ? world.players[m.assistId] : undefined;
+        if (blunder) punish(attSide, attacker, assister, m.quiet ? 0.1 : 0.18, `${shortName(actor)} misjudges it. ${shortName(attacker)} is free in the box!`);
+        else {
+          push(s, s.minute, attSide, 'info', `${shortName(attacker)} gets above ${shortName(actor)}...`, attacker.id, played);
+          if (!m.quiet) autoShot(rng, world, s, attSide, attacker, assister, 0.03);
+        }
       }
       s.rngState = rng.state;
       break;
@@ -1048,7 +1077,7 @@ function withUser(world: World, s: MatchState, attKey: SideKey, steps: PlayStep[
 }
 
 // After a key moment: how it played out on the pitch.
-function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number, aim?: number) {
+function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number, aim?: number, blocker?: string) {
   if (!s.visual) return;
   const rng = new Rng(playSeed(s.rngState, s.minute, s.events.length + 1));
   const start = { ...s.ball };
@@ -1120,7 +1149,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     if (shooter !== holder && s[attKey].onPitch.includes(shooter)) {
       steps.push({ x: 0.5 + rng.range(-0.14, 0.14), y: (attKey === 'home' ? 1 : 0) - forward * rng.range(0.1, 0.15), carrier: shooter, side: attKey, act: m.kind === 'pass' ? 'pass' : 'cross' });
     }
-    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header' || m.kind === 'clear', shooter === m.actorId ? aim : undefined);
+    addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header' || m.kind === 'clear', shooter === m.actorId ? aim : undefined, shooter === m.actorId ? blocker : undefined);
   } else {
     // The move broke down: a defender steps in.
     const winner = defenders.length ? rng.pick(defenders) : null;
