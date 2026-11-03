@@ -10,7 +10,7 @@ import { ordinal } from '../engine/manager';
 import { teamById } from '../engine/lineup';
 import { actionMessages, upgradeCount } from '../engine/alerts';
 import { drillsFor } from '../engine/career';
-import { coachTrust } from '../engine/relations';
+import { coachTrust, interestedClubs } from '../engine/relations';
 import { Avatar } from './avatar';
 import { Badge, Button, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
 import { Claimable, claimReward, claimables } from '../engine/progress';
@@ -83,6 +83,39 @@ export function PlayerStrip({ game }: { game: Game }) {
         </Row>
       </Card>
     </Pressable>
+  );
+}
+
+// Money and fame, each with where to use it: Life spends money, Clubs is
+// where fame opens doors. Two fixed tiles, so nothing around them moves.
+export function LifeClubTiles({ game }: { game: Game }) {
+  const router = useRouter();
+  const c = game.career!;
+  const keen = interestedClubs(game, 40).filter((x) => x.interest >= 70).length;
+  const tile = (label: string, value: string, sub: string, icon: IconName, color: string, href: string) => (
+    <Pressable
+      onPress={() => router.navigate(href as never)}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}. ${sub}`}
+      style={({ pressed }) => ({ flex: 1, minWidth: 0, height: 88, paddingHorizontal: 12, paddingVertical: 10, gap: 3, borderRadius: 16, borderWidth: 1.5, borderColor: alpha(color, 0.45), backgroundColor: pressed ? alpha(color, 0.16) : colors.card })}
+    >
+      <Row gap={6}>
+        <Icon name={icon} size={15} color={color} />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, letterSpacing: 1, color: colors.muted }}>{label.toUpperCase()}</Text>
+      </Row>
+      <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, lineHeight: 26 }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.faint }} numberOfLines={1}>
+        {sub}
+      </Text>
+    </Pressable>
+  );
+  return (
+    <Row gap={10}>
+      {tile('Life', formatMoney(c.money), 'Spend it: shop, sponsors', 'wallet', colors.gold, '/career/life')}
+      {tile('Clubs', `${Math.floor(c.fame)} fame`, keen ? `${keen} club${keen === 1 ? '' : 's'} keen on you` : 'Fame opens bigger clubs', 'briefcase', colors.teal, '/career/clubs')}
+    </Row>
   );
 }
 

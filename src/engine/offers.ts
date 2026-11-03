@@ -9,7 +9,7 @@ import { autoLineup, squad } from './lineup';
 import { MIN_SQUAD, inTransferWindow, loanPlayer, movePlayer } from './transfers';
 import { nationalPool, pickNationalSquad } from './international';
 import { jobOffers, managerClub, nationJobOffer } from './manager';
-import { adjustRelation } from './relations';
+import { adjustRelation, clubInterest, fameNeeded } from './relations';
 import { answerMediaEvent, pickMediaEvent } from './mediaEvents';
 
 const ACCEPT: Choice = { id: 'accept', label: 'Accept' };
@@ -31,6 +31,26 @@ export function careerOffers(game: Game, rng: Rng): void {
   if (inTransferWindow(world.week) && p.age <= 23 && squadStatus(game) === 'Squad player' && !p.loan) loanOffer(game, rng);
   if (p.stats.apps >= 3 && rng.chance(0.08)) mediaRequest(game, rng);
   if (c.fame >= 30 && rng.chance(0.03)) nationSwitchOffer(game, rng);
+  if (rng.chance(0.07)) clubInTouch(game, rng);
+}
+
+// A club that likes him gets in touch between windows: talk to them and the
+// relationship grows, so their offer comes sooner.
+function clubInTouch(game: Game, rng: Rng) {
+  const p = careerPlayer(game);
+  if (hasOpen(game, 'club-interest') || hasOpen(game, 'club-offer')) return;
+  const keen = Object.values(game.world.clubs).filter((c) => c.id !== p.clubId && isCareerClub(game.world, c) && game.career!.fame >= fameNeeded(c) && clubInterest(game, c.id) >= 62);
+  if (!keen.length) return;
+  const club = rng.pick(keen);
+  addMessage(game, 'offer', `${club.name} are watching you`, `Their scouts have been at your last few games. Their sporting director would like a chat.`, {
+    type: 'club-interest',
+    clubId: club.id,
+    weeksLeft: 2,
+    choices: [
+      { id: 'talk', label: 'Take the call' },
+      { id: 'decline', label: 'Not now' },
+    ],
+  });
 }
 
 function sponsorOffer(game: Game, rng: Rng) {
@@ -358,6 +378,12 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
       adjustRelation(game, a.clubId!, 10);
       loanPlayer(game.world, p, a.clubId!, 1);
       return done('accepted', `You join ${game.world.clubs[a.clubId!].name} on loan.`);
+    }
+    case 'club-interest': {
+      const club = game.world.clubs[a.clubId ?? ''];
+      if (!club) return done('expired', 'They have moved on.');
+      adjustRelation(game, club.id, 12);
+      return done('accepted', `A good chat. ${club.name} like you more; expect them when the window opens.`);
     }
     case 'media':
       return done(choiceId, (a.event ? answerMediaEvent(game, a.event, choiceId, new Rng(game.world.week)) : null) ?? mediaEffects(game, choiceId));

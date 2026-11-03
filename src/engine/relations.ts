@@ -1,10 +1,10 @@
-import { Game } from './types';
+import { Club, Game, World } from './types';
 import { Rng, clamp } from './rng';
 import { fairWage, fullName, overall, roundMoney, formatMoney } from './player';
 import { isCareerClub, targetOverall } from './generator';
 import { addMessage, hasOpen } from './inbox';
 import { careerPlayer } from './careerBase';
-import { formAverage } from './lineup';
+import { formAverage, startingXI } from './lineup';
 import { inTransferWindow } from './transfers';
 
 // Career player's standing with clubs. The stored value is a modifier built
@@ -46,6 +46,35 @@ export function trustLabel(v: number): string {
   return 'Out of favour';
 }
 
+// A team's average rating: its best eleven, rounded.
+export function teamRating(world: World, club: Club): number {
+  const xi = startingXI(world, club).map((id) => world.players[id]).filter(Boolean);
+  return xi.length ? Math.round(xi.reduce((n, p) => n + overall(p), 0) / xi.length) : targetOverall(club.reputation);
+}
+
+// The fame a player needs before a club will hear his agent out. Small
+// clubs listen to anyone; the giants want a name.
+export function fameNeeded(club: Club): number {
+  return Math.round(clamp((club.reputation - 45) * 1.7, 0, 90));
+}
+
+// What the agent charges to pitch to a club: nothing for small clubs, real
+// money for the big ones.
+export function agentFee(club: Club): number {
+  return club.reputation < 50 ? 0 : roundMoney(500 + ((club.reputation - 45) / 10) ** 3 * 600);
+}
+
+// Every playable club whose name matches, best first, for the club search.
+export function searchClubs(game: Game, query: string, limit = 30): { clubId: string; interest: number }[] {
+  const p = careerPlayer(game);
+  const q = query.trim().toLowerCase();
+  return Object.values(game.world.clubs)
+    .filter((c) => isCareerClub(game.world, c) && c.id !== p.clubId && (!q || c.name.toLowerCase().includes(q)))
+    .sort((a, b) => b.reputation - a.reputation)
+    .slice(0, limit)
+    .map((c) => ({ clubId: c.id, interest: clubInterest(game, c.id) }));
+}
+
 // Clubs worth pitching to: playable leagues, roughly the player's level.
 export function interestedClubs(game: Game, limit = 25): { clubId: string; interest: number }[] {
   const p = careerPlayer(game);
@@ -73,6 +102,11 @@ export function offerSelf(game: Game, clubId: string): string {
   const c = game.career!;
   const p = careerPlayer(game);
   const club = game.world.clubs[clubId];
+  const need = fameNeeded(club);
+  if (c.fame < need) return `${club.name} only listen to players with ${need} fame. You have ${Math.floor(c.fame)}.`;
+  const fee = agentFee(club);
+  if (c.money < fee) return `Your agent wants ${formatMoney(fee)} to pitch you to ${club.name}.`;
+  c.money -= fee;
   c.pitchCooldown = 3;
   const interest = clubInterest(game, clubId);
   // Draw from the world's stream and store where it got to. Seeding from the

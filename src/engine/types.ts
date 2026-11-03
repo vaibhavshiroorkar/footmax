@@ -234,7 +234,8 @@ export type ActionType =
   | 'contract-demand'
   | 'transfer-request'
   | 'job'
-  | 'nation-job';
+  | 'nation-job'
+  | 'club-interest';
 
 export interface Choice {
   id: string;

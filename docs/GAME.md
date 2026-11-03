@@ -254,11 +254,22 @@ contracts, board and federation confidence, sackings and job offers.
 ## Screens
 
 - Bottom bar: More, Train, Play (the big middle button), Inbox, Me.
-- Play: player strip, next match with Play inside it, this week's chips,
-  then rewards to claim (last, so claiming one moves nothing).
+- Play: player strip, then two tiles: Life (money, where you spend it)
+  and Clubs (fame, and how many clubs are keen), then the next match with
+  Play inside it, this week's chips, then rewards to claim (last, so
+  claiming one moves nothing).
 - Train: every attribute first, then Training, Abilities and Moves tabs.
-- More: Life, Clubs, League, Internationals, Awards, Honours,
-  Leaderboards, Settings, and a locked legends store (names only).
+- More, in groups: Your career (Life, Clubs), Football (League,
+  Internationals, Awards, Honours), Other (Leaderboards, Settings), then
+  the locked legends store as one card (names only).
+- Clubs: your club first (team rating, table place, the coach's trust),
+  then Keen on you or All clubs with a search. Every club shows its team
+  rating (the average of its best eleven), the fame it needs before it
+  listens, the agent's fee to pitch you (none for small clubs, real money
+  for big ones) and its interest. Fame and money gate the Offer button,
+  which says why when it is locked. Clubs that like you also get in touch
+  through the inbox between windows; taking the call grows the
+  relationship, so their offer comes sooner.
 - Me: ladder, form and contract, season goals, milestones, growth,
   attributes, history.
 - Inbox: Important (what needs an answer) and News.

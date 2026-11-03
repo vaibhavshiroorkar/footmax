@@ -2,6 +2,15 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.2.0
+
+- Money and fame on the main screen: Life (money) and Clubs (fame) tiles.
+- Clubs reworked: your club with its team rating and table place, then a
+  search over every club with team rating, fame needed, agent fee and
+  interest. Pitching to big clubs needs fame and costs an agent fee.
+- Keen clubs get in touch through the inbox.
+- More is grouped and simpler.
+
 ## 1.1.0
 
 - Shooting: pick Driven, Curl or Low on every shot; a Pass button to
