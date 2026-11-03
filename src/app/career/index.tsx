@@ -6,8 +6,7 @@ import { Button, Card, IconButton, Screen } from '../../ui/kit';
 import { colors, fonts } from '../../ui/theme';
 import { CareerSummary } from '../../ui/careerSummary';
 import { FirstRunTips } from '../../ui/firstRunTips';
-import { SeasonReview } from '../../ui/progressCards';
-import { ClaimCard, LifeClubTiles, NextMatchCard, PlayerStrip, WeekChips } from '../../ui/playHub';
+import { NextMatchCard, PlayerStrip, Shortcuts } from '../../ui/playHub';
 
 export default function CareerHub() {
   const game = useGame();
@@ -32,18 +31,17 @@ export default function CareerHub() {
     );
   }
 
-  // One job: play this week's match. Everything else is a tap away.
+  // One job: play this week's match. Everything else is a tap away, and
+  // nothing pops in here: rewards and the season review live on Me.
   return (
     <Screen title="FootMax" back={false} right={menu} nav="career">
       <PlayerStrip game={game} />
-      <LifeClubTiles game={game} />
       {(p.suspendedWeeks ?? 0) > 0 && (
         <Card glow={colors.red}>
           <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.text }}>Banned: {p.suspendedWeeks} more week{p.suspendedWeeks === 1 ? '' : 's'}</Text>
         </Card>
       )}
       <FirstRunTips />
-      <SeasonReview game={game} />
       {!p.clubId && (
         <Card glow={colors.gold}>
           <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>No club right now</Text>
@@ -51,9 +49,7 @@ export default function CareerHub() {
         </Card>
       )}
       <NextMatchCard game={game} />
-      <WeekChips game={game} />
-      {/* Rewards come last, so claiming one never moves the match card. */}
-      <ClaimCard game={game} />
+      <Shortcuts />
     </Screen>
   );
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AccessibilityInfo } from 'react-native';
 
-export type MatchSpeed = '1' | '2' | '4' | '8';
+export type MatchSpeed = '1' | '2' | '4';
 
 export interface Settings {
   haptics: boolean;
@@ -16,7 +16,7 @@ export interface Settings {
 }
 
 const KEY = 'footmax-settings';
-const DEFAULTS: Settings = { haptics: true, sound: true, reduceMotion: false, matchSpeed: '2', autoMoments: false, seenTips: false };
+const DEFAULTS: Settings = { haptics: true, sound: true, reduceMotion: false, matchSpeed: '1', autoMoments: false, seenTips: false };
 
 interface SettingsStore extends Settings {
   osReduceMotion: boolean;
@@ -30,7 +30,14 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   load: async () => {
     try {
       const raw = await AsyncStorage.getItem(KEY);
-      if (raw) set({ ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) });
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<Settings>;
+        // 8x was dropped: settings saved with it play at 4x.
+        const speed = saved.matchSpeed as string | undefined;
+        if (speed === '8') saved.matchSpeed = '4';
+        else if (speed && !['1', '2', '4'].includes(speed)) delete saved.matchSpeed;
+        set({ ...DEFAULTS, ...saved });
+      }
     } catch {
       // Bad or missing settings fall back to the defaults.
     }

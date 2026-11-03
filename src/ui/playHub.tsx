@@ -8,9 +8,6 @@ import { userFixture } from '../engine/game';
 import { leagueOf, tablePosition } from '../engine/league';
 import { ordinal } from '../engine/manager';
 import { teamById } from '../engine/lineup';
-import { actionMessages, upgradeCount } from '../engine/alerts';
-import { drillsFor } from '../engine/career';
-import { coachTrust, interestedClubs } from '../engine/relations';
 import { Avatar } from './avatar';
 import { Badge, Button, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
 import { Claimable, claimReward, claimables } from '../engine/progress';
@@ -37,7 +34,8 @@ export function winStreak(game: Game): number {
   return n;
 }
 
-// Who you are, in one line: face, name, club, rating, level and streak.
+// Who you are: face, name, club and rating, then money (tap for Life) and
+// fame (tap for Clubs), then level and streak. One card, nothing else.
 export function PlayerStrip({ game }: { game: Game }) {
   const router = useRouter();
   const c = game.career!;
@@ -46,8 +44,8 @@ export function PlayerStrip({ game }: { game: Game }) {
   const streak = winStreak(game);
   const need = xpForLevel(c.level);
   return (
-    <Pressable onPress={() => router.navigate('/career/profile')} accessibilityRole="button" accessibilityLabel={`${fullName(p)}, rated ${overall(p)}. Open your profile.`}>
-      <Card style={{ borderLeftWidth: 4, borderLeftColor: club ? teamColor(club.colors) : colors.border }}>
+    <Card style={{ borderLeftWidth: 4, borderLeftColor: club ? teamColor(club.colors) : colors.border }}>
+      <Pressable onPress={() => router.navigate('/career/profile')} accessibilityRole="button" accessibilityLabel={`${fullName(p)}, rated ${overall(p)}. Open your profile.`}>
         <Row gap={12}>
           {c.look && <Avatar look={c.look} number={c.number} kit={club?.colors ?? ['#2f7bff', '#ffffff']} size={54} />}
           <View style={{ flex: 1, gap: 2 }}>
@@ -63,58 +61,79 @@ export function PlayerStrip({ game }: { game: Game }) {
           </View>
           <RatingRing value={overall(p)} size={54} />
         </Row>
-        {club && (
-          <Row gap={12}>
-            <Mood label="Coach" value={coachTrust(game)} icon="person" />
-            <Mood label="Dressing room" value={dressingRoom(game)} icon="people" />
+      </Pressable>
+      <Row gap={8}>
+        <Chip icon="wallet" color={colors.gold} value={formatMoney(c.money)} label="Money" onPress={() => router.navigate('/career/life')} />
+        <Chip icon="flame" color={colors.orange} value={String(Math.floor(c.fame))} label="Fame" onPress={() => router.navigate('/career/clubs')} />
+      </Row>
+      <Row gap={10}>
+        <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.gold }}>LV {c.level}</Text>
+        <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
+          <View style={{ width: `${Math.min(100, (100 * c.xp) / need)}%`, height: 8, backgroundColor: colors.gold }} />
+        </View>
+        {streak >= 2 && (
+          <Row gap={3} accessibilityLabel={`${streak} wins in a row`}>
+            <Icon name="flame" size={16} color={colors.orange} />
+            <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.orange }}>{streak}W</Text>
           </Row>
         )}
-        <Row gap={10}>
-          <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.gold }}>LV {c.level}</Text>
-          <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
-            <View style={{ width: `${Math.min(100, (100 * c.xp) / need)}%`, height: 8, backgroundColor: colors.gold }} />
-          </View>
-          {streak >= 2 && (
-            <Row gap={3} accessibilityLabel={`${streak} wins in a row`}>
-              <Icon name="flame" size={16} color={colors.orange} />
-              <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.orange }}>{streak}W</Text>
-            </Row>
-          )}
-        </Row>
-      </Card>
+      </Row>
+    </Card>
+  );
+}
+
+// A value in the player card that opens where it is used.
+function Chip({ icon, color, value, label, onPress }: { icon: IconName; color: string; value: string; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        haptic();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: alpha(color, 0.4), backgroundColor: pressed ? alpha(color, 0.16) : alpha(color, 0.07) })}
+    >
+      <Icon name={icon} size={16} color={color} />
+      <Text style={{ flex: 1, fontFamily: fonts.display, fontSize: 20, color: colors.text }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{label.toUpperCase()}</Text>
     </Pressable>
   );
 }
 
-// Money and fame, each with where to use it: Life spends money, Clubs is
-// where fame opens doors. Two fixed tiles, so nothing around them moves.
-export function LifeClubTiles({ game }: { game: Game }) {
+// Everything around the career that is not this week's match: four square
+// tiles, always the same, so the screen never changes shape.
+export function Shortcuts() {
   const router = useRouter();
-  const c = game.career!;
-  const keen = interestedClubs(game, 40).filter((x) => x.interest >= 70).length;
-  const tile = (label: string, value: string, sub: string, icon: IconName, color: string, href: string) => (
-    <Pressable
-      onPress={() => router.navigate(href as never)}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}. ${sub}`}
-      style={({ pressed }) => ({ flex: 1, minWidth: 0, height: 88, paddingHorizontal: 12, paddingVertical: 10, gap: 3, borderRadius: 16, borderWidth: 1.5, borderColor: alpha(color, 0.45), backgroundColor: pressed ? alpha(color, 0.16) : colors.card })}
-    >
-      <Row gap={6}>
-        <Icon name={icon} size={15} color={color} />
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 11.5, letterSpacing: 1, color: colors.muted }}>{label.toUpperCase()}</Text>
-      </Row>
-      <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, lineHeight: 26 }} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.faint }} numberOfLines={1}>
-        {sub}
-      </Text>
-    </Pressable>
-  );
+  const items: { label: string; icon: IconName; color: string; href: string }[] = [
+    { label: 'Club', icon: 'shield', color: colors.teal, href: '/career/clubs' },
+    { label: 'Tournaments', icon: 'earth', color: colors.orange, href: '/tournaments' },
+    { label: 'Awards', icon: 'medal', color: colors.gold, href: '/awards' },
+    { label: 'Leaderboard', icon: 'stats-chart', color: colors.blue, href: '/leaderboards' },
+  ];
   return (
-    <Row gap={10}>
-      {tile('Life', formatMoney(c.money), 'Spend it: shop, sponsors', 'wallet', colors.gold, '/career/life')}
-      {tile('Clubs', `${Math.floor(c.fame)} fame`, keen ? `${keen} club${keen === 1 ? '' : 's'} keen on you` : 'Fame opens bigger clubs', 'briefcase', colors.teal, '/career/clubs')}
+    <Row gap={8}>
+      {items.map((it) => (
+        <Pressable
+          key={it.href}
+          onPress={() => {
+            haptic();
+            router.navigate(it.href as never);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={it.label}
+          style={({ pressed }) => ({ flex: 1, minWidth: 0, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: pressed ? colors.cardAlt : colors.card, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(it.color, 0.15) }}>
+            <Icon name={it.icon} size={19} color={it.color} />
+          </View>
+          <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.text }} numberOfLines={1} adjustsFontSizeToFit>
+            {it.label}
+          </Text>
+        </Pressable>
+      ))}
     </Row>
   );
 }
@@ -127,26 +146,6 @@ export function dressingRoom(game: Game): number {
   if (!club) return 0;
   const mates = club.playerIds.filter((id) => id !== p.id).map((id) => game.world.players[id]).filter(Boolean);
   return mates.length ? Math.round(mates.reduce((s, m) => s + m.morale, 0) / mates.length) : 50;
-}
-
-// A small happiness bar with a face that changes with the mood.
-function Mood({ label, value, icon }: { label: string; value: number; icon: IconName }) {
-  const color = value >= 66 ? colors.green : value >= 40 ? colors.gold : colors.red;
-  const face: IconName = value >= 66 ? 'happy' : value >= 40 ? 'remove-circle' : 'sad';
-  return (
-    <View style={{ flex: 1, gap: 3 }} accessibilityLabel={`${label} ${value} out of 100`}>
-      <Row gap={5}>
-        <Icon name={icon} size={12} color={colors.muted} />
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
-          {label}
-        </Text>
-        <Icon name={face} size={14} color={color} />
-      </Row>
-      <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.bgElev, overflow: 'hidden' }}>
-        <View style={{ width: `${value}%`, height: 6, backgroundColor: color }} />
-      </View>
-    </View>
-  );
 }
 
 // This week's match: the two crests and the button to play it.
@@ -190,48 +189,6 @@ function Side({ club }: { club: Parameters<typeof Badge>[0]['club'] }) {
         {club.name}
       </Text>
     </View>
-  );
-}
-
-// The week's to-dos as tappable chips; only the ones that apply show.
-export function WeekChips({ game }: { game: Game }) {
-  const router = useRouter();
-  const c = game.career!;
-  const p = game.world.players[c.playerId];
-  const drill = drillsFor(p)[0]?.energy ?? 40;
-  const sessions = Math.floor(c.energy / drill);
-  const todo = actionMessages(game).length;
-  const upgrades = upgradeCount(game);
-  const chips: { icon: IconName; value: string; label: string; color: string; href: string }[] = [];
-  if (sessions > 0 && p.injuryWeeks === 0) chips.push({ icon: 'barbell', value: String(sessions), label: sessions === 1 ? 'session left' : 'sessions left', color: colors.blue, href: '/career/train' });
-  if (upgrades > 0) chips.push({ icon: 'sparkles', value: String(upgrades), label: upgrades === 1 ? 'upgrade' : 'upgrades', color: colors.gold, href: '/career/train?tab=abilities' });
-  if (todo > 0) chips.push({ icon: 'mail', value: String(todo), label: 'to answer', color: colors.accent, href: '/inbox' });
-  if (p.injuryWeeks > 0) chips.push({ icon: 'medkit', value: `${p.injuryWeeks}w`, label: 'injured', color: colors.red, href: '/career/life' });
-  else if (p.fitness < 60) chips.push({ icon: 'pulse', value: `${Math.round(p.fitness)}`, label: 'fitness', color: colors.red, href: '/career/life' });
-  if (!chips.length) return null;
-  return (
-    <Row gap={8}>
-      {chips.slice(0, 3).map((ch) => (
-        <Pressable
-          key={ch.label}
-          onPress={() => {
-            haptic();
-            router.navigate(ch.href as never);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`${ch.value} ${ch.label}`}
-          style={({ pressed }) => ({ flex: 1, padding: 10, gap: 2, borderRadius: 12, borderWidth: 1.5, borderColor: alpha(ch.color, 0.45), backgroundColor: pressed ? alpha(ch.color, 0.16) : alpha(ch.color, 0.08) })}
-        >
-          <Row gap={6}>
-            <Icon name={ch.icon} size={16} color={ch.color} />
-            <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text }}>{ch.value}</Text>
-          </Row>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
-            {ch.label}
-          </Text>
-        </Pressable>
-      ))}
-    </Row>
   );
 }
 

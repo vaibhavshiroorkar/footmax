@@ -9,6 +9,7 @@ import { ClubSeed, DataPack, PlayerSeed } from '../data/pack';
 import { MINOR_NATIONS, NATION_SEEDS } from '../data/nations';
 import { NAME_GROUPS } from '../data/names';
 
+// The current season (2026 is 2026/27). Packs from other eras set their own.
 export const START_YEAR = 2026;
 const SQUAD_TARGET = 23;
 const SQUAD_SHAPE: Record<Position, number> = { GK: 3, DEF: 8, MID: 7, FWD: 5 };
@@ -122,7 +123,8 @@ export function createPlayer(world: World, rng: Rng, spec: PlayerSpec): Player {
 
 function createSeedPlayer(world: World, rng: Rng, seed: PlayerSeed, clubId: string | null, fallbackNation: string): Player {
   const nationId = nationById(world, seed.nation) ? seed.nation : fallbackNation;
-  const age = clamp(START_YEAR - seed.born, 15, 45);
+  // world.season is still the start year while the world is being built.
+  const age = clamp(world.season - seed.born, 15, 45);
   const { firstName, lastName } = splitName(seed.name);
   const p = createPlayer(world, rng, { position: seed.pos, target: seed.ovr, age, nationId, clubId, firstName, lastName, real: true, role: seed.role });
   if (seed.pot) p.potential = Math.max(seed.pot, overall(p));
@@ -213,7 +215,7 @@ function nationalTeam(world: World, nation: Nation): Club {
 export function generateWorld(seed: number, pack: DataPack = BUILTIN_PACK): World {
   const rng = new Rng(seed);
   const world: World = {
-    season: START_YEAR,
+    season: pack.startYear ?? START_YEAR,
     week: 1,
     seasonWeeks: SEASON_WEEKS,
     phase: 'season',
@@ -230,7 +232,7 @@ export function generateWorld(seed: number, pack: DataPack = BUILTIN_PACK): Worl
   };
 
   for (const n of NATION_SEEDS) {
-    const nation: Nation = { id: n.code, name: n.name, conf: n.conf, strength: n.strength, colors: n.colors, names: n.names, leagueIds: [], teamId: `nt-${n.code}`, clubNames: n.clubs, leagueLevel: n.leagueLevel };
+    const nation: Nation = { id: n.code, name: n.name, conf: n.conf, strength: pack.nationStrength?.[n.code] ?? n.strength, colors: n.colors, names: n.names, leagueIds: [], teamId: `nt-${n.code}`, clubNames: n.clubs, leagueLevel: n.leagueLevel };
     world.nations.push(nation);
     nationalTeam(world, nation);
   }

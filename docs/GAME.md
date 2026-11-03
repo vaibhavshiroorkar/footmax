@@ -20,6 +20,10 @@ moments to play, not a wall of information.
   Championship, LaLiga, Serie A, Bundesliga, Ligue 1, Liga Portugal,
   Eredivisie) plus real clubs abroad. Other nations' leagues are built from
   their clubs when a career or manager game needs one.
+- **Start season:** a new career or manager game starts in the current
+  season (2026/27, today's squads) or, once its data is in, any season
+  back to 2006/07. A pack's `startYear` sets the first season and the
+  ages; its `nationStrength` sets national teams for that era.
 - Small leagues play each other two or three times so there is a game most
   weeks.
 - Real player names are used with an unofficial fan game notice. Faces of
@@ -244,7 +248,7 @@ moments to play, not a wall of information.
   - Defend: tackles, blocks and clearances, few shots.
   No zone moment, call pass or win-back happens at a restart or in the
   first two minutes, and no moment opens before kick-off.
-- **Screen:** one scoreboard row with speed (1x, 2x, 4x, 8x), pause, sound
+- **Screen:** one scoreboard row with speed (1x by default, 2x, 4x), pause, sound
   and skip (to half time or to full time), scorers under it, the pitch,
   the zone slider, the action buttons (on the bench: "Skip to when I come
   on", which stops when the coach brings him on, or plays to full time if
@@ -268,11 +272,12 @@ contracts, board and federation confidence, sackings and job offers.
 
 ## Screens
 
-- Bottom bar: More, Train, Play (the big middle button), Inbox, Me.
-- Play: player strip, then two tiles: Life (money, where you spend it)
-  and Clubs (fame, and how many clubs are keen), then the next match with
-  Play inside it, this week's chips, then rewards to claim (last, so
-  claiming one moves nothing).
+- Bottom bar: Life, Train, Play (the big middle button), Inbox, Me.
+- Play: the player card (face, club, rating; money, which opens Life, and
+  fame, which opens Club; level bar and win streak), the next match with
+  Play inside it, then four square shortcuts: Club, Tournaments, Awards,
+  Leaderboard. Nothing pops into Play: rewards and the season review are
+  on Me, and there are no week chips.
 - Train: every attribute first, then Training, Abilities and Moves tabs.
 - Abilities is a skill tree per position (`src/engine/skillTree.ts`):
   three branches, each a chain of nodes joined by a line; a node unlocks
@@ -290,10 +295,12 @@ contracts, board and federation confidence, sackings and job offers.
   Shooting. Defenders: Defending, Physical, Leadership. Keepers: Shot
   stopping, Distribution, Mind. A panel under the tree shows the chosen
   node, what it needs and Unlock; it keeps its size, so nothing moves.
-- More, in groups: Your career (Life, Clubs), Football (League,
-  Internationals, Awards, Honours), Other (Leaderboards, Settings), then
-  the locked legends store as one card (names only).
-- Life: money's home, in three tabs. This week (activities and
+- More is gone (`/career/more` redirects to Play). Honours is a tab in
+  Awards; Settings is the gear on Me; League is reached from Club.
+- Life: money's home, laid out as a store with four tabs. Each tab is a
+  details panel that keeps its size over a grid of square tiles (three a
+  row on a phone, four wider); tap a tile to see it in the panel and do,
+  buy, open, wear or sell it there. This week (activities and
   sponsors); Shop (perks from $3K: ice baths, a media coach for 20% more
   fame, nutritionist, physio, personal trainer, top agent, car, villa);
   Cases (`src/engine/equipment.ts`): Bronze $2K, Silver $8K, Gold $25K
@@ -302,16 +309,23 @@ contracts, board and federation confidence, sackings and job offers.
   pads (outfield), training top, headband, smart watch; one piece per
   slot. A better piece goes on by itself; spares can be worn or sold. The
   reveal panel keeps its size, so opening a case moves nothing.
-- Clubs: your club first (team rating, table place, the coach's trust),
-  then Keen on you or All clubs with a search. Every club shows its team
+- Club (`/career/clubs`): your club first (team rating, table place, the
+  coach's trust, the dressing room, a link to the league table), then Talk
+  to the club (ask for a raise, to leave or for a loan; one request every
+  6 weeks), then Keen on you or All clubs with a search. Every club shows its team
   rating (the average of its best eleven), the fame it needs before it
   listens, the agent's fee to pitch you (none for small clubs, real money
   for big ones) and its interest. Fame and money gate the Offer button,
   which says why when it is locked. Clubs that like you also get in touch
   through the inbox between windows; taking the call grows the
   relationship, so their offer comes sooner.
-- Me: ladder, form and contract, season goals, milestones, growth,
-  attributes, history.
+- Me: Settings gear in the header; ladder; fitness, morale, form and
+  contract; rewards to claim (the Me tab badge counts them); the season
+  review; the two season goals closest to done; Growth (rating now, the
+  change this season, the scouts' potential range, a small line by
+  season); a two-column grid of facts (value, scouts, nation, position,
+  body, caps); milestones; career history; awards. Attributes live on
+  Train.
 - Inbox: Important (what needs an answer) and News.
 - Life events with consequences (`src/engine/lifeEvents.ts`, in the same
   pool as media events, a little more often): dressing-room rows, meeting
@@ -352,12 +366,15 @@ Asked for and not built yet, in the order they will be done:
 
 1. World Cup qualifying for every nation, so even India can try to
    qualify.
-2. Start the game in 2010, just after the World Cup, with squads of that
-   time (prime Messi and Ronaldo). This needs 2010 squad data for every
-   league; today's data is 2025/26.
+2. Past seasons back to 2006/07 (prime Messi and Ronaldo): the season
+   picker is built (`src/ui/seasonPicker.tsx`, `src/data/seasons/`); each
+   season unlocks when its pack lands (format in `docs/SEASON_DATA.md`,
+   checked by `npm run check-seasons`).
+3. Legends as a paid option when starting a career: play a legend's
+   whole career or just his prime season.
 
-The store stays locked until payments and licensing are decided; real
-players appear by name only, never by face.
+The current work list is `docs/PLAN-2026-11-04.md`. Real players appear
+by name only, never by face.
 
 ## Working on the code
 

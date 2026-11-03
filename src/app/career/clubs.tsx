@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Text, TextInput, View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { Badge, Button, Card, Icon, Pill, Row, Screen, StatBar, T, Tabs, inputStyle } from '../../ui/kit';
+import { Badge, Button, Card, ConfirmButton, Icon, Pill, Row, Screen, StatBar, T, Tabs, inputStyle } from '../../ui/kit';
+import { dressingRoom } from '../../ui/playHub';
+import { careerRequest } from '../../engine/offers';
 import { colors, fonts } from '../../ui/theme';
 import { agentFee, canPitch, coachTrust, fameNeeded, interestedClubs, offerSelf, relationMod, searchClubs, teamRating, trustLabel } from '../../engine/relations';
 import { formAverage } from '../../engine/lineup';
@@ -27,6 +29,8 @@ export default function Clubs() {
   const rev = useStore((s) => s.rev);
   const [tab, setTab] = useState<Tab>('keen');
   const [q, setQ] = useState('');
+  const [reply, setReply] = useState<string | null>(null);
+  const router = useRouter();
   const list = useMemo(
     () => (game?.career ? (tab === 'keen' ? interestedClubs(game, 25) : searchClubs(game, q, 40)) : []),
     // rev: the game changes in place, so its identity alone does not.
@@ -43,7 +47,7 @@ export default function Clubs() {
   const pos = club ? tablePosition(game.world, club.id) : 0;
 
   return (
-    <Screen title="Clubs">
+    <Screen title="Club">
       {club && (
         <Card tint={club.colors[0] === '#ffffff' ? club.colors[1] : club.colors[0]}>
           <Row gap={12}>
@@ -62,9 +66,27 @@ export default function Clubs() {
             </View>
           </Row>
           <StatBar label={`Coach's trust: ${trustLabel(trust)}`} icon="person" value={trust} color={interestColor(trust)} />
+          <StatBar label="Dressing room" icon="people" value={dressingRoom(game)} color={interestColor(dressingRoom(game))} />
           <T muted style={{ fontSize: 12.5 }}>
             {form === null ? 'Play some games so the coach can judge you.' : `Form ${form.toFixed(1)} over your last ${p.form?.length} games. Under 6.2 risks the bench; over 7.3 and the team is built around you.`}
           </T>
+          <Button label="League table" icon="podium" small variant="secondary" onPress={() => router.push('/league')} />
+        </Card>
+      )}
+      {club && (
+        <Card>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Talk to the club</Text>
+            <T muted style={{ fontSize: 12 }}>
+              One request every 6 weeks
+            </T>
+          </Row>
+          <Row style={{ flexWrap: 'wrap' }}>
+            <Button label="Ask for a raise" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'raise')))} />
+            <ConfirmButton label="Ask to leave" confirmLabel="Sure? Tap again" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'move')))} />
+            <Button label="Ask for a loan" small variant="secondary" onPress={() => setReply(mutate((g) => careerRequest(g, 'loan')))} />
+          </Row>
+          {reply && <T style={{ color: colors.gold }}>{reply}</T>}
         </Card>
       )}
 

@@ -7,9 +7,11 @@ import { NationPicker } from '../ui/shared';
 import { alpha, colors } from '../ui/theme';
 import { generateWorld, newManagerGame, newSeed } from '../engine/game';
 import { formatMoney } from '../engine/player';
-import { ensureDomesticLeague, nationById, targetOverall } from '../engine/generator';
+import { ensureDomesticLeague, nationById, targetOverall , START_YEAR } from '../engine/generator';
 import { teamRating } from '../engine/international';
 import { World } from '../engine/types';
+
+import { SeasonPicker, useSeasonPack } from '../ui/seasonPicker';
 
 // Rating of every player a nation could pick. It scans the whole world, so
 // it is cached per world and nation instead of rerun on every keystroke.
@@ -30,8 +32,11 @@ export default function NewManager() {
   const customPack = useStore((s) => s.customPack);
   const [usePack, setUsePack] = useState(false);
   const [world, setWorld] = useState<World | null>(null);
-  const pack = usePack && customPack ? customPack : undefined;
+  const [year, setYear] = useState(START_YEAR);
+  const seasonPack = useSeasonPack(year);
+  const pack = usePack && customPack ? customPack : seasonPack;
   useEffect(() => {
+    if (!pack) return;
     let live = true;
     const t = setTimeout(() => live && setWorld(generateWorld(newSeed(), pack)), 30);
     return () => {
@@ -51,8 +56,13 @@ export default function NewManager() {
   }
   return (
     <ManagerSetup
-      key={pack ? 'pack' : 'builtin'}
+      key={usePack ? 'pack' : `season-${year}`}
       world={world}
+      year={year}
+      onYear={(y) => {
+        setYear(y);
+        setWorld(null);
+      }}
       usePack={usePack}
       onTogglePack={() => {
         setUsePack(!usePack);
@@ -62,7 +72,7 @@ export default function NewManager() {
   );
 }
 
-function ManagerSetup({ world, usePack, onTogglePack }: { world: World; usePack: boolean; onTogglePack: () => void }) {
+function ManagerSetup({ world, year, onYear, usePack, onTogglePack }: { world: World; year: number; onYear: (year: number) => void; usePack: boolean; onTogglePack: () => void }) {
   const router = useRouter();
   const setGame = useStore((s) => s.startGame);
   const customPack = useStore((s) => s.customPack);
@@ -81,6 +91,7 @@ function ManagerSetup({ world, usePack, onTogglePack }: { world: World; usePack:
 
   return (
     <Screen title="New manager game">
+      {!usePack && <SeasonPicker value={year} onChange={onYear} />}
       <Card>
         <T bold>Your name</T>
         <TextInput keyboardAppearance="dark" selectionColor={colors.accent} style={inputStyle} placeholder="Manager name" placeholderTextColor={colors.faint} value={name} onChangeText={setName} maxLength={24} />

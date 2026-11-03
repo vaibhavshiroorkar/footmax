@@ -34,7 +34,6 @@ const SPEEDS = [
   { key: '1', label: '1x', ms: 650, mult: 1 },
   { key: '2', label: '2x', ms: 380, mult: 2 },
   { key: '4', label: '4x', ms: 120, mult: 4 },
-  { key: '8', label: '8x', ms: 50, mult: 8 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
 

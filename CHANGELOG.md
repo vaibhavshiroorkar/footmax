@@ -2,6 +2,24 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.9.0
+
+- Life replaces More on the bottom bar, laid out as a store: This week,
+  Shop, Cases and Kit tabs, items as square tiles, and a details panel
+  that keeps its size.
+- Play is calmer: money and fame sit in the player card, the week chips,
+  rewards and season review are gone from it, and four shortcuts (Club,
+  Tournaments, Awards, Leaderboard) sit under the match.
+- Me is shorter: Settings is the gear at the top, rewards and the season
+  review live here, attributes and This season are gone, and Growth is a
+  compact card with a grid of facts under it.
+- Talk to the club (raise, leave, loan), the league table and the
+  dressing-room mood are on Club.
+- Honours is a tab in Awards.
+- Matches play at 1x by default; 2x and 4x are the faster speeds.
+- New games have a season picker. Past seasons back to 2006/07 unlock as
+  their squads are added.
+
 ## 1.8.0
 
 - Life events with consequences: dressing-room rows, romance, nights out

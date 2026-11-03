@@ -8,12 +8,15 @@ import { NationPicker } from '../ui/shared';
 import { Avatar, BOOT_COLORS, HAIR_COLORS, HAIR_STYLES, SKINS } from '../ui/avatar';
 import { alpha, colors, fonts, ratingColor } from '../ui/theme';
 import { generateWorld, newCareerGame, newSeed, starterNations } from '../engine/game';
-import { nationById } from '../engine/generator';
+import { nationById , START_YEAR } from '../engine/generator';
 import { ROLES, Role, rolesFor } from '../engine/roles';
 import { ATTR_LABELS, overall } from '../engine/player';
 import { Allocation, CELEBRATIONS, MAX_PER_ATTR, STAT_POINTS, STYLE_PRESETS, allocatable, applyAllocation, autoAllocate, bodyEffects, pointsSpent, weakFootCost } from '../engine/creation';
 import { ATTR_KEYS, AttrKey, Build, Look, Position, World } from '../engine/types';
 import { AttributeGrid, attrOrder } from '../ui/attributes';
+import { SeasonPicker, useSeasonPack } from '../ui/seasonPicker';
+
+import { seasonLabel } from '../data/seasons';
 
 const STEPS = ['Identity', 'Nation', 'Position', 'Body', 'Stats', 'Look', 'Sign'];
 const BUILDS: { key: Build; label: string; hint: string }[] = [
@@ -78,8 +81,11 @@ export default function NewCareer() {
   // The world takes a moment to build, so it is made after the first paint
   // instead of freezing the screen on open.
   const [world, setWorld] = useState<World | null>(null);
-  const pack = usePack && customPack ? customPack : undefined;
+  const [year, setYear] = useState(START_YEAR);
+  const seasonPack = useSeasonPack(year);
+  const pack = usePack && customPack ? customPack : seasonPack;
   useEffect(() => {
+    if (!pack) return;
     let live = true;
     const t = setTimeout(() => live && setWorld(generateWorld(newSeed(), pack)), 30);
     return () => {
@@ -220,6 +226,14 @@ export default function NewCareer() {
         </Row>
       </View>
 
+      {step === 0 && !(usePack && customPack) && <SeasonPicker
+          value={year}
+          onChange={(y) => {
+            // A different season means a different world.
+            setYear(y);
+            setWorld(null);
+          }}
+        />}
       {step === 0 && (
         <Card>
           <H2>Who are you?</H2>
@@ -440,7 +454,7 @@ export default function NewCareer() {
           </Card>
           {customPack && (
             <Card>
-              <Choice active={usePack} label={`Use imported data pack: ${customPack.name}`} sub="Otherwise the built-in 2025/26 database is used." onPress={() => {
+              <Choice active={usePack} label={`Use imported data pack: ${customPack.name}`} sub={`Otherwise the ${seasonLabel(year)} database is used.`} onPress={() => {
                 // A different database means a different world.
                 setUsePack(!usePack);
                 setWorld(null);

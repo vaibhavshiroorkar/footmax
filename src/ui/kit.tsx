@@ -87,10 +87,10 @@ export function AnimatedNumber({ value, style, format = (n: number) => String(Ma
   return <Text style={style}>{format(shown)}</Text>;
 }
 
-// Play sits in the middle as the big button; everything else that is not
-// daily lives under More on the left.
+// Play sits in the middle as the big button. Life (money, the store) is on
+// the left; League, Tournaments, Awards and Leaderboards are shortcuts on Play.
 const CAREER_TABS: { href: string; icon: IconName; label: string; color: string; center?: boolean; also?: string[] }[] = [
-  { href: '/career/more', icon: 'grid', label: 'More', color: colors.accent },
+  { href: '/career/life', icon: 'wallet', label: 'Life', color: colors.accent },
   { href: '/career/train', icon: 'barbell', label: 'Train', color: colors.accent, also: ['/career/skills'] },
   { href: '/career', icon: 'football', label: 'Play', color: colors.accent, center: true },
   { href: '/inbox', icon: 'mail', label: 'Inbox', color: colors.accent },

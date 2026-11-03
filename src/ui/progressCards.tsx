@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Svg, { Circle, Polyline, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 import { MILESTONES, progressOf } from '../engine/progress';
 import { ATTR_LABELS, overall } from '../engine/player';
 import { AttrKey, Game } from '../engine/types';
@@ -138,38 +138,47 @@ export function SeasonReview({ game }: { game: Game }) {
   );
 }
 
-// Overall rating season by season, with the current value as the last point.
+// Growth in one glance: the rating now, what this season added, where the
+// scouts think it ends, and a small line of the rating at each season start.
 export function GrowthChart({ game }: { game: Game }) {
   const pr = progressOf(game);
   const p = game.world.players[game.career!.playerId];
-  const pts = [...pr.ovrHistory.map((h) => h.ovr), overall(p)];
+  const now = overall(p);
+  const pts = [...pr.ovrHistory.map((h) => h.ovr), now];
+  const start = pr.ovrHistory[pr.ovrHistory.length - 1]?.ovr ?? now;
+  const delta = now - start;
   const W = 300;
-  const H = 130;
-  const min = Math.max(20, Math.min(...pts) - 5);
-  const max = Math.min(99, Math.max(...pts) + 5);
-  const x = (i: number) => 20 + (i * (W - 40)) / Math.max(1, pts.length - 1);
-  const y = (v: number) => H - 20 - ((v - min) / Math.max(1, max - min)) * (H - 40);
+  const H = 70;
+  const min = Math.max(1, Math.min(...pts) - 3);
+  const max = Math.min(99, Math.max(...pts) + 3);
+  const x = (i: number) => 8 + (i * (W - 16)) / Math.max(1, pts.length - 1);
+  const y = (v: number) => H - 8 - ((v - min) / Math.max(1, max - min)) * (H - 16);
+  const stat = (label: string, value: string, color: string) => (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <Text style={{ fontFamily: fonts.display, fontSize: 26, color }}>{value}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{label}</Text>
+    </View>
+  );
   return (
     <Card>
       <Row gap={8}>
-        <Sticker icon="stats-chart" color={colors.teal} size={34} />
-        <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Growth</Text>
+        <Sticker icon="trending-up" color={colors.teal} size={30} />
+        <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text, flex: 1 }}>Growth</Text>
       </Row>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Line x1={20} y1={H - 20} x2={W - 20} y2={H - 20} stroke={colors.border} strokeWidth={2} />
-        <Polyline points={pts.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={colors.teal} strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
-        {pts.map((v, i) => (
-          <React.Fragment key={i}>
-            <Circle cx={x(i)} cy={y(v)} r={6} fill="#fff" stroke={colors.teal} strokeWidth={3} />
-            <SvgText x={x(i)} y={y(v) - 10} fontSize={12} fontFamily={fonts.display} fill={colors.text} textAnchor="middle">
-              {v}
-            </SvgText>
-          </React.Fragment>
-        ))}
-      </Svg>
-      <T muted style={{ fontSize: 12 }}>
-        One point per season start, plus today.
-      </T>
+      <Row>
+        {stat('NOW', String(now), ratingColor(now))}
+        {stat('THIS SEASON', `${delta >= 0 ? '+' : ''}${delta}`, delta > 0 ? colors.green : delta < 0 ? colors.red : colors.muted)}
+        {/* Scouts give a range, not the exact ceiling. */}
+        {stat('POTENTIAL', p.age >= 29 || p.potential - now <= 1 ? String(now) : `${Math.max(now, p.potential - 3)}-${Math.min(99, p.potential + 3)}`, colors.gold)}
+      </Row>
+      {pts.length > 1 && (
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} accessibilityLabel={`Rating by season: ${pts.join(', ')}`}>
+          <Polyline points={pts.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={colors.teal} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+          {pts.map((v, i) => (
+            <Circle key={i} cx={x(i)} cy={y(v)} r={i === pts.length - 1 ? 5 : 3.5} fill={i === pts.length - 1 ? colors.teal : colors.card} stroke={colors.teal} strokeWidth={2} />
+          ))}
+        </Svg>
+      )}
     </Card>
   );
 }

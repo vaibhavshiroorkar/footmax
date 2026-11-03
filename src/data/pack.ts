@@ -44,6 +44,12 @@ export interface DataPack {
   format: 'footmax-pack';
   version: 1;
   name: string;
+  // The season the world starts in (2006 is 2006/07). Ages are worked out
+  // from it. Missing means the current season (START_YEAR).
+  startYear?: number;
+  // National team strengths for that era, by nation code (Spain in 2010,
+  // Germany in 2014). Missing nations keep today's strength.
+  nationStrength?: Record<string, number>;
   leagues: LeagueSeed[];
   otherClubs: OtherClubsSeed[];
 }
@@ -109,6 +115,7 @@ export function validatePack(raw: unknown): { pack?: DataPack; error?: string } 
       }
     }
   }
+  if (p.startYear !== undefined && !(Number.isInteger(p.startYear) && p.startYear >= 1950 && p.startYear <= 2100)) return { error: '"startYear" must be a year such as 2006.' };
   if (!Array.isArray(p.otherClubs)) p.otherClubs = [];
   for (const o of p.otherClubs) (Array.isArray(o.clubs) ? o.clubs : []).forEach(fixColours);
   return { pack: p };

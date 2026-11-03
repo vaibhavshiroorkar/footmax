@@ -7,13 +7,16 @@ import { Card, H2, Icon, IconName, Row, Screen, T, Tabs } from '../ui/kit';
 import { alpha, colors, fonts, gradients } from '../ui/theme';
 import { AWARD_NAMES, computeAwards } from '../engine/awards';
 import { AwardEntry, SeasonAwards } from '../engine/types';
+import { HonoursList } from './honours';
 
 type Key = keyof typeof AWARD_NAMES;
+type TabKey = Key | 'honours';
 const ICONS: Record<Key, IconName> = { ballonDor: 'trophy', goldenBoy: 'star', yashin: 'hand-left', goldenBoot: 'football' };
 
 export default function Awards() {
   const game = useGame();
-  const [key, setKey] = useState<Key>('ballonDor');
+  const [tab, setTab] = useState<TabKey>('ballonDor');
+  const key: Key = tab === 'honours' ? 'ballonDor' : tab;
   const [seasonIdx, setSeasonIdx] = useState(0);
   const rev = useStore((s) => s.rev);
   // Before the first ceremony, show the live race for this season.
@@ -35,7 +38,15 @@ export default function Awards() {
 
   return (
     <Screen title="Awards">
-      <Tabs<Key> tabs={(Object.keys(AWARD_NAMES) as Key[]).map((k) => ({ key: k, label: AWARD_NAMES[k].replace('European ', '').replace(' Trophy', '') }))} value={key} onChange={setKey} />
+      <Tabs<TabKey>
+        tabs={[...(Object.keys(AWARD_NAMES) as Key[]).map((k) => ({ key: k as TabKey, label: AWARD_NAMES[k].replace('European ', '').replace(' Trophy', '') })), { key: 'honours', label: 'Honours' }]}
+        value={tab}
+        onChange={setTab}
+      />
+      {tab === 'honours' ? (
+        <HonoursList game={game} />
+      ) : (
+        <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {options.map((o, i) => (
           <Text key={o.label} onPress={() => setSeasonIdx(i)} accessibilityRole="button" accessibilityState={{ selected: i === seasonIdx }} style={{ paddingHorizontal: 12, paddingVertical: 11, borderRadius: 999, borderWidth: 1, overflow: 'hidden', borderColor: i === seasonIdx ? colors.gold : colors.border, color: i === seasonIdx ? colors.ink : colors.muted, backgroundColor: i === seasonIdx ? colors.gold : colors.card, fontFamily: fonts.semibold, fontSize: 12 }}>
@@ -77,6 +88,8 @@ export default function Awards() {
           })}
           {list.length === 0 && <T muted>No eligible players yet.</T>}
         </Card>
+      )}
+        </>
       )}
     </Screen>
   );

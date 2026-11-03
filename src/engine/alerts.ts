@@ -45,5 +45,5 @@ export function upgradeCount(game: Game): number {
 
 export function navBadges(game: Game): Record<string, number> {
   return {
-    '/career': claimables(game).length, '/inbox': actionMessages(game).length, '/career/train': upgradeCount(game) };
+    '/career/profile': claimables(game).length, '/inbox': actionMessages(game).length, '/career/train': upgradeCount(game) };
 }

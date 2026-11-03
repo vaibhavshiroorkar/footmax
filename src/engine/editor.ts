@@ -5,7 +5,6 @@ import { autoSkills } from './skills';
 import { ROLES, Role, isRole } from './roles';
 import { movePlayer } from './transfers';
 import { ClubSeed, DataPack, PlayerSeed, validatePack } from '../data/pack';
-import { START_YEAR } from './generator';
 
 export interface PlayerEdit {
   firstName?: string;
@@ -75,8 +74,8 @@ export function editClub(world: World, id: string, e: ClubEdit): void {
   if (e.colors && HEX.test(e.colors[0]) && HEX.test(e.colors[1])) c.colors = e.colors;
 }
 
-// Birth year is written relative to START_YEAR so a re-import rebuilds
-// the same ages.
+// Birth year is written relative to the current season, and the pack gets
+// that season as its start year, so a re-import rebuilds the same ages.
 function toSeed(p: Player, season: number): PlayerSeed {
   const name = p.firstName ? `${p.firstName} ${p.lastName}` : `!${p.lastName}`;
   return { name, pos: p.position, nation: p.nationId, born: season - p.age, ovr: overall(p), pot: p.potential };
@@ -86,7 +85,7 @@ function clubSeed(world: World, c: Club, onlyReal: boolean): ClubSeed {
   const players = c.playerIds
     .map((id) => world.players[id])
     .filter((p) => p && (!onlyReal || p.real))
-    .map((p) => toSeed(p, START_YEAR));
+    .map((p) => toSeed(p, world.season));
   return { name: c.name, short: c.short, rep: c.reputation, colors: c.colors, players };
 }
 
@@ -115,6 +114,7 @@ export function exportPack(world: World, name: string, onlyReal = true): DataPac
     format: 'footmax-pack',
     version: 1,
     name,
+    startYear: world.season,
     leagues,
     otherClubs: [...byNation.entries()].map(([nation, clubs]) => ({ nation, clubs })),
   };

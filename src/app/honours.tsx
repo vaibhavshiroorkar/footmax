@@ -3,15 +3,25 @@ import { Redirect } from 'expo-router';
 import { useGame } from '../state/store';
 import { Card, H2, Screen, T } from '../ui/kit';
 import { colors } from '../ui/theme';
+import { Game } from '../engine/types';
 
 export default function Honours() {
   const game = useGame();
   if (!game) return <Redirect href="/" />;
+  return (
+    <Screen title="Honours">
+      <HonoursList game={game} />
+    </Screen>
+  );
+}
+
+// Every trophy and award by season, yours in gold. Also a tab in Awards.
+export function HonoursList({ game }: { game: Game }) {
   const seasons = [...new Set(game.world.honours.map((h) => h.season))].sort((a, b) => b - a);
   const mine = new Set([game.career?.playerId, game.manager?.clubId].filter(Boolean) as string[]);
 
   return (
-    <Screen title="Honours">
+    <>
       {seasons.length === 0 && <T muted>Awards are handed out at the end of each season.</T>}
       {game.manager && game.manager.trophies.length > 0 && (
         <Card>
@@ -36,6 +46,6 @@ export default function Honours() {
             })}
         </Card>
       ))}
-    </Screen>
+    </>
   );
 }
