@@ -155,7 +155,10 @@ moments to play, not a wall of information.
   - assists pay more: a bigger rating boost, more XP and more fame than
     before, so a good pass can be worth as much as a shot;
   - dribbles, which use one of four games (read and go, skill combo,
-    nutmeg timing, sprint) depending on the skill move picked;
+    nutmeg timing, sprint) depending on the skill move picked. Beat your
+    man and you choose what comes next: shoot (one on one), pass, or take
+    on the next man. The second man is harder to beat but pays more: a
+    bigger rating boost and a clearer chance, then shoot or pass;
   - tackles and saves;
   - defending duels: read the pass (pick the lane from the passer's body
     shape; win it and you pick the counter pass), block a shot (slide as
@@ -316,20 +319,18 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. Dribbles and sprints: beat your man, then choose what comes next
-   (shoot, pass, take on the next man), with a reward that feels big.
-2. Faster stat growth, and a bigger gap between strong and weak players
+1. Faster stat growth, and a bigger gap between strong and weak players
    so a 95 can dominate a team of 75s; play no longer slows on the ball
    at 4x.
-3. VAR: the referee reviews a goal or a penalty, with an animation of
+2. VAR: the referee reviews a goal or a penalty, with an animation of
    him at the monitor, before the decision.
-4. Money buys many useful things; Clash Royale style cases with
+3. Money buys many useful things; Clash Royale style cases with
    equipment that makes the player better.
-5. Life events with consequences: dressing room, romance, crime and
+4. Life events with consequences: dressing room, romance, crime and
    jail, corruption, career-ending injuries, and good events that help.
-6. World Cup qualifying for every nation, so even India can try to
+5. World Cup qualifying for every nation, so even India can try to
    qualify.
-7. Start the game in 2010, just after the World Cup, with squads of that
+6. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
 

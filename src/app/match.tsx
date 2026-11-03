@@ -951,7 +951,7 @@ function Touchline({ live, side, onChanges }: { live: MatchState; side: SideKey;
 
 const CHOICES: Record<string, { label: string; hint: string; icon: IconName }> = {
   shot: { label: 'Shoot', hint: 'Go for goal now', icon: 'football' },
-  dribble: { label: 'Take him on', hint: 'Beat your man, then shoot', icon: 'flash' },
+  dribble: { label: 'Take him on', hint: 'Beat your man, then choose', icon: 'flash' },
   pass: { label: 'Pass', hint: 'Find a team-mate', icon: 'git-branch' },
   freekick: { label: 'Shoot it', hint: 'Over or round the wall', icon: 'football' },
 };
@@ -1002,7 +1002,9 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
           ? { title: 'Corner!', icon: 'flag' as IconName }
           : moment.setPiece && moment.kind === 'choice'
             ? { title: 'Free kick', icon: 'navigate' as IconName }
-            : base;
+            : moment.kind === 'choice' && moment.beaten
+              ? { title: moment.beaten > 1 ? 'Two men down!' : 'Past him!', icon: 'flash' as IconName }
+              : base;
   useEffect(() => haptic('medium'), []);
 
   return (
@@ -1052,7 +1054,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.choiceLabel}>{c.label}</Text>
-                  <Text style={[styles.shoutHint, { textAlign: 'left' }]}>{k === 'shot' && moment.weakFoot ? 'On your weaker foot' : c.hint}</Text>
+                  <Text style={[styles.shoutHint, { textAlign: 'left' }]}>{k === 'shot' && moment.weakFoot ? 'On your weaker foot' : k === 'dribble' && moment.beaten ? 'The next man: harder, bigger reward' : k === 'shot' && moment.beaten ? 'One on one with the keeper' : c.hint}</Text>
                 </View>
                 <Icon name="chevron-forward" size={18} color={colors.muted} />
               </Pressable>

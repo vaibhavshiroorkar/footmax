@@ -89,6 +89,8 @@ export interface KeyMoment {
   choices?: MomentKind[];
   // One-twos played so far in this move.
   chain?: number;
+  // Men the user has beaten on this run (dribbles in a row).
+  beaten?: number;
   // Where a shot or header comes from, for how the moment looks.
   view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
   // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
@@ -970,12 +972,17 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       // A learned skill move adds to the chance: more for the harder ones.
       const move = moveId && hasMove(actor, moveId) ? SKILL_MOVES.find((x) => x.id === moveId) : undefined;
       const flair = move ? 0.02 + 0.02 * move.stars : 0.006 * (actor.moves?.length ?? 0);
-      const ok = rng.chance(clamp(0.2 + 0.7 * q * skill(actor.attrs.dribbling) + 0.04 * (lvl('speedster') + lvl('dribbler')) + flair, 0.05, 0.94));
+      // The next man is harder to beat than the first.
+      const beaten = m.beaten ?? 0;
+      const ok = rng.chance(clamp(0.2 + 0.7 * q * skill(actor.attrs.dribbling) + 0.04 * (lvl('speedster') + lvl('dribbler')) + flair - 0.12 * beaten, 0.05, 0.94));
       if (ok) {
-        bump(s, actor.id, 0.2 + (move ? 0.05 * move.stars : 0));
-        push(s, s.minute, m.side, 'info', move ? `${shortName(actor)} beats his man with a ${move.label.toLowerCase()} and is through!` : `${shortName(actor)} skips past the defender and is through!`, actor.id, played);
-        // A beaten defender leaves a clear shot, which the user also plays.
-        s.pending = { ...m, kind: 'shot', bonus: 0.06, view: 'oneonone' };
+        const now = beaten + 1;
+        bump(s, actor.id, (0.2 + (move ? 0.05 * move.stars : 0)) * (now > 1 ? 1.5 : 1));
+        const how = move ? `with a ${move.label.toLowerCase()}` : 'and skips away';
+        push(s, s.minute, m.side, 'info', now > 1 ? `${shortName(actor)} beats a second man ${how}! The box opens up.` : `${shortName(actor)} beats his man ${how}!`, actor.id, played);
+        // Past him: the user picks what comes next. After two men he is
+        // clean through, and the chance is bigger for it.
+        s.pending = { ...m, kind: 'choice', choices: now >= 2 ? ['shot', 'pass'] : ['shot', 'pass', 'dribble'], beaten: now, bonus: m.bonus + (now >= 2 ? 0.12 : 0.06), view: 'oneonone', options: undefined };
         s.rngState = rng.state;
       } else {
         bump(s, actor.id, -0.1);

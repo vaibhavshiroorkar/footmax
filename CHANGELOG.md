@@ -2,6 +2,11 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.4.0
+
+- Beat your man and choose what comes next: shoot one on one, pass, or
+  take on the next man. A second man is harder but pays more.
+
 ## 1.3.0
 
 - Abilities is a skill tree per position: three branches of linked
