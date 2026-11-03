@@ -2,6 +2,13 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.8.0
+
+- Life events with consequences: dressing-room rows, romance, nights out
+  that end in arrests and bans (a third is prison), match-fixing offers
+  that can come out later, charity galas, and rare career-ending
+  injuries. A ban shows on the main screen.
+
 ## 1.7.0
 
 - Life has This week, Shop and Cases tabs.

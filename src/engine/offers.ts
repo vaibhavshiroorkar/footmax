@@ -29,7 +29,7 @@ export function careerOffers(game: Game, rng: Rng): void {
   sponsorOffer(game, rng);
   if (inTransferWindow(world.week) || !p.clubId) clubOffer(game, rng);
   if (inTransferWindow(world.week) && p.age <= 23 && squadStatus(game) === 'Squad player' && !p.loan) loanOffer(game, rng);
-  if (p.stats.apps >= 3 && rng.chance(0.08)) mediaRequest(game, rng);
+  if (p.stats.apps >= 3 && rng.chance(0.12)) mediaRequest(game, rng);
   if (c.fame >= 30 && rng.chance(0.03)) nationSwitchOffer(game, rng);
   if (rng.chance(0.07)) clubInTouch(game, rng);
 }

@@ -313,6 +313,16 @@ contracts, board and federation confidence, sackings and job offers.
 - Me: ladder, form and contract, season goals, milestones, growth,
   attributes, history.
 - Inbox: Important (what needs an answer) and News.
+- Life events with consequences (`src/engine/lifeEvents.ts`, in the same
+  pool as media events, a little more often): dressing-room rows, meeting
+  someone (a partner who later wants your time, or a split), nights out
+  that can end in an arrest (a fine, a ban that keeps you out of the
+  side, lost fame; a third arrest is prison and the end of the career),
+  a fixer offering cash for a booking (each bribe taken can come out
+  later: a 12-week ban, or a life ban once three are found), charity
+  galas. Careers can also end with an injury, rarely, and more likely
+  from 31 and 34. Fame brings the odd good surprise. A ban shows on the
+  main screen; the career-over screen says why it ended.
 - Media events: a pool of different situations, each with its own
   answers and effects (morale, fame, energy, money, club relations, board
   confidence). Ones tied to what just happened come first: a brace, a
@@ -340,11 +350,9 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. Life events with consequences: dressing room, romance, crime and
-   jail, corruption, career-ending injuries, and good events that help.
-2. World Cup qualifying for every nation, so even India can try to
+1. World Cup qualifying for every nation, so even India can try to
    qualify.
-3. Start the game in 2010, just after the World Cup, with squads of that
+2. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
 

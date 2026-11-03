@@ -21,6 +21,11 @@ export default function CareerHub() {
   if (c.retired) {
     return (
       <Screen title="Career over" back={false} right={menu}>
+        {c.endReason && (
+          <Card glow={colors.red}>
+            <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>{c.endReason}</Text>
+          </Card>
+        )}
         <CareerSummary game={game} />
         <Button label="Back to menu" icon="home" onPress={() => router.replace('/')} />
       </Screen>
@@ -32,6 +37,11 @@ export default function CareerHub() {
     <Screen title="FootMax" back={false} right={menu} nav="career">
       <PlayerStrip game={game} />
       <LifeClubTiles game={game} />
+      {(p.suspendedWeeks ?? 0) > 0 && (
+        <Card glow={colors.red}>
+          <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.text }}>Banned: {p.suspendedWeeks} more week{p.suspendedWeeks === 1 ? '' : 's'}</Text>
+        </Card>
+      )}
       <FirstRunTips />
       <SeasonReview game={game} />
       {!p.clubId && (

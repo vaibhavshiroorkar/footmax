@@ -15,6 +15,7 @@ import { callUpMessage, careerOffers, managerOffers, ownClubRenewal } from './of
 import { autoSkills } from './skills';
 import { presentAwards } from './awards';
 import { seasonRollover } from './progress';
+import { lifeWeekly } from './lifeEvents';
 
 const rep = (v: number) => Math.round(clamp(v, 10, 95));
 
@@ -99,6 +100,7 @@ export function advanceWeek(game: Game): WeekResult {
 function weeklyRecovery(game: Game) {
   for (const p of Object.values(game.world.players)) {
     if (p.injuryWeeks > 0) p.injuryWeeks--;
+    if ((p.suspendedWeeks ?? 0) > 0) p.suspendedWeeks = p.suspendedWeeks! - 1;
     p.fitness = clamp(p.fitness + 20, 0, 100);
   }
 }
@@ -124,6 +126,7 @@ function careerUpkeep(game: Game) {
 function careerWeekly(game: Game, rng: Rng) {
   careerUpkeep(game);
   careerOffers(game, rng);
+  lifeWeekly(game, rng);
 }
 
 // End of the league season: awards, prize money, promotion and relegation.

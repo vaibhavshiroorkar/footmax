@@ -53,6 +53,8 @@ export interface Player {
   morale: number;
   fitness: number;
   injuryWeeks: number;
+  // Weeks out banned (a red card, an arrest, a corruption case).
+  suspendedWeeks?: number;
   retired: boolean;
   stats: SeasonStats;
   // This season's numbers at clubs the player has already left (transfer or
@@ -309,6 +311,11 @@ export interface CareerState {
   flags?: Record<string, boolean>;
   // What the last match earned, for the full-time screen.
   lastMatch?: MatchReward;
+  // What life off the pitch has left behind: arrests, bribes taken (each
+  // one can come out later), a partner.
+  life?: { arrests: number; bribes: number; partner?: string };
+  // Why the career ended, when it did not end by choice.
+  endReason?: string;
   // Equipment from cases, and which piece is on in each slot.
   equipment?: { id: string; slot: 'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch'; name: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; attr: AttrKey; bonus: number }[];
   equipped?: Partial<Record<'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch', string>>;

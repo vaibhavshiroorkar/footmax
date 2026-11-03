@@ -5,7 +5,8 @@ import { leagueOf, tablePosition } from './league';
 import { squad } from './lineup';
 import { managerClub } from './manager';
 import { adjustRelation } from './relations';
-import { fullName, marketValue } from './player';
+import { formatMoney, fullName, marketValue } from './player';
+import { arrest, lifeOf } from './lifeEvents';
 
 // Media and off-pitch events. Each one is its own situation with its own
 // answers, picked from what is going on (a big game, a bad one, a rumour,
@@ -160,6 +161,112 @@ const EVENTS: MediaEvent[] = [
       { id: 'humble', label: 'Talk about the grind', effect: (c) => (morale(c.me, 3), fame(c, 1), 'Honest and real. Listeners love it.') },
       { id: 'bold', label: '"I will be better than him"', effect: (c) => (fame(c, 4), morale(c.me, -2), 'Big words. The clip is everywhere.') },
       { id: 'skip', label: 'Skip it', effect: () => 'You keep your head down.' },
+    ],
+  },
+
+  // --- Life off the pitch ----------------------------------------------
+  {
+    id: 'row',
+    mode: 'career',
+    when: (c) => !!c.club,
+    title: () => 'Row in the dressing room',
+    body: () => 'A senior player says you hog the ball. Voices are raised in front of everyone.',
+    answers: [
+      { id: 'sorry', label: 'Apologise', effect: (c) => (squadMorale(c, 2), morale(c.me, -2), 'Handled like a pro. The squad respect it.') },
+      { id: 'firm', label: 'Stand your ground', effect: (c) => (morale(c.me, 3), squadMorale(c, -3), c.club && adjustRelation(c.game, c.club.id, -4), 'You do not back down. The coach is not happy about the noise.') },
+      { id: 'coach', label: 'Take it to the coach', effect: (c) => (c.club && adjustRelation(c.game, c.club.id, 3), 'The coach sorts it out behind closed doors.') },
+    ],
+  },
+  {
+    id: 'romance',
+    mode: 'career',
+    when: (c) => !lifeOf(c.game).partner,
+    title: () => 'Someone special',
+    body: () => 'You meet someone at a friend\'s birthday. They have no idea who you are, and you like that.',
+    answers: [
+      {
+        id: 'date',
+        label: 'Ask them out',
+        effect: (c) => {
+          const name = c.rng.pick(['Sam', 'Alex', 'Jordan', 'Robin', 'Taylor', 'Charlie', 'Jamie', 'Morgan']);
+          lifeOf(c.game).partner = name;
+          morale(c.me, 8);
+          energy(c, -5);
+          return `You and ${name} hit it off. Morale up.`;
+        },
+      },
+      { id: 'focus', label: 'Focus on football', effect: (c) => (morale(c.me, -1), 'Football first. Maybe another time.') },
+    ],
+  },
+  {
+    id: 'partner',
+    mode: 'career',
+    when: (c) => !!lifeOf(c.game).partner,
+    title: (c) => `${lifeOf(c.game).partner} wants more of your time`,
+    body: (c) => `${lifeOf(c.game).partner} says you only ever talk about football.`,
+    answers: [
+      { id: 'trip', label: 'Take a weekend away', effect: (c) => (morale(c.me, 8), money(c, -3000), energy(c, -10), 'A great weekend. You come back happy.') },
+      { id: 'later', label: 'After the season', effect: (c) => (morale(c.me, -4), 'They are not impressed.') },
+      {
+        id: 'split',
+        label: 'Call it off',
+        effect: (c) => {
+          const name = lifeOf(c.game).partner;
+          lifeOf(c.game).partner = undefined;
+          morale(c.me, -8);
+          return `You and ${name} split up. It hurts.`;
+        },
+      },
+    ],
+  },
+  {
+    id: 'nightout',
+    mode: 'career',
+    when: () => true,
+    title: () => 'The night gets out of hand',
+    body: () => 'Team-mates drag you to a club after the game. Things get loud, then someone throws a punch.',
+    answers: [
+      { id: 'leave', label: 'Leave now', effect: (c) => (morale(c.me, -1), 'You slip out. Smart.') },
+      {
+        id: 'stay',
+        label: 'Stay and calm it down',
+        effect: (c) => {
+          if (!c.rng.chance(0.3)) return (morale(c.me, 4), 'It blows over. A good night after all.');
+          return arrest(c);
+        },
+      },
+    ],
+  },
+  {
+    id: 'fixer',
+    mode: 'career',
+    when: (c) => (c.game.career?.fame ?? 0) >= 10,
+    title: () => 'A stranger with an offer',
+    body: () => 'A man in a hotel lobby offers cash if you pick up a yellow card before half time on Saturday.',
+    answers: [
+      { id: 'report', label: 'Report him', effect: (c) => (fame(c, 3), c.club && adjustRelation(c.game, c.club.id, 5), 'The league thanks you. Your name is clean.') },
+      {
+        id: 'take',
+        label: 'Take the money',
+        effect: (c) => {
+          const cash = 20000 + c.rng.int(0, 30000);
+          money(c, cash);
+          lifeOf(c.game).bribes++;
+          return `${formatMoney(cash)} in an envelope. Nobody will ever know. Probably.`;
+        },
+      },
+      { id: 'walk', label: 'Walk away', effect: () => 'You pretend you never heard it.' },
+    ],
+  },
+  {
+    id: 'gala',
+    mode: 'career',
+    when: (c) => (c.game.career?.fame ?? 0) >= 15,
+    title: () => 'Charity gala',
+    body: () => 'A children\'s charity asks you to host their gala and auction your boots.',
+    answers: [
+      { id: 'host', label: 'Host it', effect: (c) => (fame(c, 4), morale(c.me, 5), energy(c, -10), 'A brilliant night. You raise a fortune.') },
+      { id: 'donate', label: 'Donate $5K', effect: (c) => (money(c, -5000), fame(c, 2), 'A kind gift. The charity is grateful.') },
     ],
   },
 

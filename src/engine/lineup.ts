@@ -21,7 +21,7 @@ export function squad(world: World, club: Club): Player[] {
 }
 
 export function available(p: Player): boolean {
-  return p.injuryWeeks === 0 && !p.retired;
+  return p.injuryWeeks === 0 && !(p.suspendedWeeks ?? 0) && !p.retired;
 }
 
 // Best XI for the formation. Gaps in a position are filled by the best
