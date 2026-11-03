@@ -2,6 +2,15 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.5.0
+
+- Stars dominate: team strength weighs great players more, and great
+  shooters take and finish far more chances. A 95 side beats a 75 side
+  almost every time; league scoring stays realistic.
+- Stats grow about 50% faster from training and matches.
+- At 4x and 8x, play no longer drops to slow motion when you have the
+  ball.
+
 ## 1.4.0
 
 - Beat your man and choose what comes next: shoot one on one, pass, or

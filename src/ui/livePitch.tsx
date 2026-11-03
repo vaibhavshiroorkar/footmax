@@ -297,7 +297,9 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       sim.focus = p.focusId && p.zone ? { id: p.focusId, zone: p.zone, shout: p.shout ?? null } : null;
       // A key moment plays in slow motion while the user decides.
       // On the ball, play eases to slow motion so the choice is his.
-      const scale = p.paused ? 0 : sim.holding ? 0.25 : lastOnBall ? Math.min(1, p.speed) * 0.6 : p.speed;
+      // On the ball play eases off so the choice is his, but at 4x and 8x
+      // it stays at full 1x instead of dropping to slow motion.
+      const scale = p.paused ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.6) : p.speed;
       sim.update(dt * scale);
       const c = sim.celebrate;
       for (const [id, body] of sim.bodies) {

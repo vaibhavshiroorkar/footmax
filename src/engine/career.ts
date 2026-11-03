@@ -77,7 +77,7 @@ export function trainingGain(p: Player, hasTrainer: boolean): number {
   // tapers so the peak arrives in the mid-to-late twenties, not at 21.
   const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 0.9 : p.age <= 21 ? 0.6 : p.age <= 23 ? 0.45 : p.age <= 27 ? 0.35 : p.age <= 30 ? 0.2 : 0.1;
   const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
-  return 0.17 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+  return 0.26 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
 }
 
 // score is the training mini-game result, 0..1. Quick training uses 0.35.
@@ -241,7 +241,7 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const best = Math.max(...Object.values(s.ratings));
   const w = weightsFor(p);
   const young = p.age <= 19 ? 1 : p.age <= 23 ? 0.5 : 0.2;
-  for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.04 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
+  for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.06 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
   const xp = Math.round(20 + goals * 15 + assists * 14 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
   const levelBefore = c.level;
   const xpBefore = c.xp;

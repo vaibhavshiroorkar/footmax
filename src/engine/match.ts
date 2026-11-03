@@ -308,13 +308,15 @@ export function sideStrength(world: World, side: MatchSide) {
   const calc = (kind: keyof typeof LINE_WEIGHTS) => {
     let sum = 0;
     let w = 0;
+    // A cubed mean, so one great player lifts a side more than his share:
+    // a 95 among 75s is felt.
     for (const p of ps) {
       const weight = LINE_WEIGHTS[kind][p.position];
-      sum += weight * matchRating(p);
+      sum += weight * matchRating(p) ** 3;
       w += weight;
     }
     // Fewer than 11 players (red card or injury with no subs left) hurts.
-    return (w ? sum / w : 30) * (0.6 + 0.4 * (ps.length / 11));
+    return (w ? Math.cbrt(sum / w) : 30) * (0.6 + 0.4 * (ps.length / 11));
   };
   return { attack: calc('attack'), mid: calc('mid'), defense: calc('defense') };
 }
@@ -362,7 +364,8 @@ function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Pl
   // moments come along steadily.
   const zone = zoneOf(world, s);
   const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 1.8 : shoutActive(s, 'call') ? 1.5 : 1));
-  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
+  // Great shooters take far more of the chances.
+  return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 3.5 * boost(p)));
 }
 
 function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, shooter: Player): Player | undefined {
@@ -457,7 +460,7 @@ function autoShot(rng: Rng, world: World, s: MatchState, sideKey: SideKey, shoot
   const keeper = keeperOf(world, s[other(sideKey)]);
   side.shots++;
   const finishing = (shooter.attrs.shooting + shooter.attrs.composure) / 2;
-  const onTargetP = clamp(0.28 + 0.25 * (shooter.attrs.shooting / 99) + bonus, 0.1, 0.9);
+  const onTargetP = clamp(0.18 + 0.4 * (shooter.attrs.shooting / 99) + bonus, 0.1, 0.9);
   const vars = { p: shortName(shooter), k: shortName(keeper), a: assister && how.pattern !== 'solo' && how.pattern !== 'longshot' ? shortName(assister) : undefined };
   if (!rng.chance(onTargetP)) {
     bump(s, shooter.id, -0.05);
@@ -467,7 +470,7 @@ function autoShot(rng: Rng, world: World, s: MatchState, sideKey: SideKey, shoot
     return;
   }
   const skills = 0.03 * skillLevel(shooter, 'finisher') + 0.01 * skillLevel(shooter, 'finesse');
-  const goalP = clamp(0.27 + (0.3 * (finishing - keeper.attrs.goalkeeping)) / 99 + bonus + skills + STYLE_MOD[side.style].finish, 0.05, 0.85);
+  const goalP = clamp(0.27 + (0.55 * (finishing - keeper.attrs.goalkeeping)) / 99 + bonus + skills + STYLE_MOD[side.style].finish, 0.05, 0.85);
   if (rng.chance(goalP)) {
     const f = decideShot(rng, 'goal', how);
     s.rngState = rng.state;

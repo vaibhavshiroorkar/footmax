@@ -62,7 +62,12 @@ moments to play, not a wall of information.
 ## Matches
 
 - **Engine** (`src/engine/match.ts`): minute by minute, team strength
-  decides chances; the user's player gets key moments (at most 12 a
+  decides chances. Strength is a cubed mean of the players' ratings, so a
+  star lifts his side more than his share, and great shooters take far
+  more of the chances and finish them far better. A 95 side beats a 75
+  side about 97% of the time; a league season still averages about 2.6
+  goals a match with about 22% draws (`npx tsx scripts/gapCheck.ts`,
+  `npm run balance`); the user's player gets key moments (at most 12 a
   match). Results never depend on watching: anything the pitch needs is
   drawn from its own random stream (`playSeed`).
 - **Live pitch** (`src/ui/pitchSim.ts`, `src/ui/livePitch.tsx`): a
@@ -319,18 +324,15 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. Faster stat growth, and a bigger gap between strong and weak players
-   so a 95 can dominate a team of 75s; play no longer slows on the ball
-   at 4x.
-2. VAR: the referee reviews a goal or a penalty, with an animation of
+1. VAR: the referee reviews a goal or a penalty, with an animation of
    him at the monitor, before the decision.
-3. Money buys many useful things; Clash Royale style cases with
+2. Money buys many useful things; Clash Royale style cases with
    equipment that makes the player better.
-4. Life events with consequences: dressing room, romance, crime and
+3. Life events with consequences: dressing room, romance, crime and
    jail, corruption, career-ending injuries, and good events that help.
-5. World Cup qualifying for every nation, so even India can try to
+4. World Cup qualifying for every nation, so even India can try to
    qualify.
-6. Start the game in 2010, just after the World Cup, with squads of that
+5. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
 
