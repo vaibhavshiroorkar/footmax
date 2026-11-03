@@ -150,12 +150,13 @@ moments to play, not a wall of information.
   the buttons become Shoot, Pass and Take him on, usable anywhere. Play
   slows to slow motion (at any speed) and waits about two seconds while
   he carries it, so there is time to choose.
-- **Calls** (off the ball, 8 minutes each, no cooldown, switch any time):
-  - Make a run: he runs into the box (held onside by the line) and balls
-    are played in behind to him there;
-  - Call for it: he comes short and a team-mate usually passes to him;
+- **Calls** (off the ball, 8 minutes each, no cooldown, switch any time),
+  left to right:
   - Track back: he drops goal-side and presses, and gets tackle moments
-    to win the ball.
+    to win the ball;
+  - Call for it: he comes short and a team-mate usually passes to him;
+  - Make a run: he runs into the box (held onside by the line) and balls
+    are played in behind to him there.
   A tag (RUN, CALL, BACK) shows over him while a call lasts.
 - **Zone slider (Defend, Middle, Attack):** above the action buttons,
   starting at the role's zone (strikers, wingers and CAMs attack; CMs,

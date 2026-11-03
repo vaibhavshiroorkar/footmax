@@ -780,10 +780,11 @@ function BallBar({ onAct }: { onAct: (kind: 'shot' | 'pass' | 'dribble') => void
   );
 }
 
+// Back to front, left to right, like the zone slider.
 const SHOUTS: { kind: ShoutKind; label: string; hint: string; icon: IconName }[] = [
+  { kind: 'track', label: 'Track back', hint: 'Help defend', icon: 'shield' },
   { kind: 'call', label: 'Call for it', hint: 'More of the ball', icon: 'megaphone' },
   { kind: 'run', label: 'Make a run', hint: 'More shots', icon: 'flash' },
-  { kind: 'track', label: 'Track back', hint: 'Help defend', icon: 'shield' },
 ];
 
 // Career: calls the user makes from the pitch, each lasting ten minutes.
