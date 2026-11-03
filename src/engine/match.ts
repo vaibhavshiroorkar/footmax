@@ -198,6 +198,8 @@ export interface MatchState {
   // arrived. The pitch draws exactly that pass: a cross as a cross, and an
   // offside flag when the pass scene called it.
   lastPass?: { to: string; ok: boolean; kind?: PassKind; offside?: boolean; cutBy?: string };
+  // The Last-ditch technique was used this match (it saves one mistake).
+  lastDitchUsed?: boolean;
   // The career player's current call, and when the next one is allowed.
   shout?: { kind: ShoutKind; until: number };
   // Career: the zone the user picked. Unset means the default for his role.
@@ -821,6 +823,12 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
   // still end in a shot.
   const blunder = played && q < 0.22;
   const punish = (attSide: SideKey, shooter: Player, assister: Player | undefined, bonus: number, text: string) => {
+    // Last-ditch: the first mistake of the match, he gets back in time.
+    if (lvl('lastditch') && !s.lastDitchUsed) {
+      s.lastDitchUsed = true;
+      push(s, s.minute, m.side, 'info', `${shortName(actor)} is beaten, but gets back in time to smother it.`, actor.id, played);
+      return;
+    }
     bump(s, actor.id, -0.15);
     push(s, s.minute, attSide, 'info', text, shooter.id, played);
     const goals = s[attSide].goals;

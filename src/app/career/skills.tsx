@@ -1,10 +1,11 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
-import { AnimatedNumber, Button, Card, FadeIn, Icon, IconName, Pill, Row, SectionLabel, StatBar, T, haptic } from '../../ui/kit';
-import { SkillDef, canUpgrade, skillLevel, skillsFor, xpForLevel } from '../../engine/skills';
-import { learnSecondary, upgradeSkill } from '../../engine/career';
+import { AnimatedNumber, Button, Card, Icon, IconName, Pill, Row, SectionLabel, StatBar, T, haptic } from '../../ui/kit';
+import { SKILLS, xpForLevel } from '../../engine/skills';
+import { learnSecondary, unlockNode } from '../../engine/career';
+import { TreeNode, canUnlock, nodeCost, nodeLabel, nodeNeeds, nodeOwned, nodeState, readyNodes, techniqueById, treeFor } from '../../engine/skillTree';
 import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from '../../engine/roles';
 import { ATTR_LABELS } from '../../engine/player';
 import { canLearnSecondary } from '../../engine/alerts';
@@ -25,70 +26,110 @@ const SKILL_ICONS: Record<string, IconName> = {
   clutch: 'flame',
 };
 
-type State = 'ready' | 'points' | 'attr' | 'maxed';
+const TECH_ICONS: Record<string, IconName> = { fakeshot: 'swap-horizontal', curler: 'color-wand', splitter: 'git-network', lastditch: 'shield-half', sweeper: 'hand-right' };
 
-function stateOf(p: Player, s: SkillDef, points: number): State {
-  const lvl = skillLevel(p, s.id);
-  if (lvl >= 3) return 'maxed';
-  if (canUpgrade(p, s.id, points).ok) return 'ready';
-  return p.attrs[s.attr] >= s.needs[lvl] ? 'points' : 'attr';
+const nodeIcon = (n: TreeNode): IconName => (n.kind === 'tech' ? TECH_ICONS[n.tech] ?? 'star' : SKILL_ICONS[n.skill] ?? 'star');
+
+function describe(n: TreeNode): string {
+  if (n.kind === 'tech') return techniqueById(n.tech)?.description ?? '';
+  return SKILLS.find((d) => d.id === n.skill)?.description ?? '';
 }
 
-function SkillCard({ p, s, points, index }: { p: Player; s: SkillDef; points: number; index: number }) {
+// The tree: three branches side by side, each a chain of nodes joined by a
+// line. Tapping a node shows it in the panel underneath, which keeps its
+// size, so nothing moves.
+function SkillTree({ p, points }: { p: Player; points: number }) {
   const mutate = useStore((st) => st.mutate);
   const showToast = useStore((st) => st.showToast);
   const celebrate = useStore((st) => st.celebrate);
-  const lvl = skillLevel(p, s.id);
-  const state = stateOf(p, s, points);
-  const cost = lvl + 1;
-  const have = Math.round(p.attrs[s.attr]);
-  const need = s.needs[Math.min(lvl, 2)];
-  const tone = state === 'ready' ? colors.accent : state === 'maxed' ? colors.gold : colors.muted;
+  const branches = treeFor(p);
+  const [sel, setSel] = useState<{ b: string; i: number }>(() => {
+    const first = readyNodes(p, points)[0];
+    return first ? { b: first.branch.id, i: first.index } : { b: branches[0].id, i: 0 };
+  });
+  const branch = branches.find((b) => b.id === sel.b) ?? branches[0];
+  const index = Math.min(sel.i, branch.nodes.length - 1);
+  const node = branch.nodes[index];
+  const state = nodeState(p, branch, index, points);
+  const needs = nodeNeeds(node);
+  const check = canUnlock(p, node, points);
   return (
-    <FadeIn index={index}>
-      <View style={{ backgroundColor: colors.card, borderRadius: 20, borderWidth: 1, borderColor: state === 'ready' ? alpha(colors.accent, 0.5) : colors.border, padding: 14, gap: 10, overflow: 'hidden' }}>
+    <>
+      <Card>
+        <Row style={{ alignItems: 'flex-start' }} gap={6}>
+          {branches.map((b) => (
+            <View key={b.id} style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.display, fontSize: 15, letterSpacing: 0.6, color: colors.text, textTransform: 'uppercase', marginBottom: 6 }} numberOfLines={1}>
+                {b.label}
+              </Text>
+              {b.nodes.map((n, i) => {
+                const st = nodeState(p, b, i, points);
+                const on = branch.id === b.id && index === i;
+                const tone = st === 'owned' ? colors.gold : st === 'ready' ? colors.accent : st === 'next' ? colors.muted : colors.faint;
+                return (
+                  <View key={i} style={{ alignItems: 'center', width: '100%' }}>
+                    {i > 0 && <View style={{ width: 3, height: 12, backgroundColor: nodeOwned(p, b.nodes[i - 1]) ? colors.gold : colors.border }} />}
+                    <Pressable
+                      onPress={() => {
+                        haptic();
+                        setSel({ b: b.id, i });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${nodeLabel(n)}, ${st}`}
+                      style={{ alignItems: 'center', width: '100%' }}
+                    >
+                      <View style={{ width: 44, height: 44, borderRadius: n.kind === 'tech' ? 12 : 22, alignItems: 'center', justifyContent: 'center', backgroundColor: st === 'owned' ? alpha(colors.gold, 0.22) : st === 'ready' ? alpha(colors.accent, 0.16) : colors.bgElev, borderWidth: on ? 3 : 2, borderColor: on ? colors.text : tone }}>
+                        <Icon name={st === 'locked' ? 'lock-closed' : nodeIcon(n)} size={19} color={tone} />
+                      </View>
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 10, lineHeight: 12, height: 24, marginTop: 3, color: st === 'locked' ? colors.faint : colors.text, textAlign: 'center' }} numberOfLines={2}>
+                        {nodeLabel(n)}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </Row>
+      </Card>
+      {/* The chosen node: a fixed-size panel, so picking one moves nothing. */}
+      <Card glow={state === 'ready' ? colors.accent : undefined} style={{ minHeight: 172 }}>
         <Row gap={12}>
-          <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: alpha(lvl ? colors.gold : tone, 0.14), borderWidth: 1, borderColor: alpha(lvl ? colors.gold : tone, 0.3), alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={SKILL_ICONS[s.id] ?? 'star'} size={21} color={lvl ? colors.gold : tone} />
+          <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: alpha(state === 'owned' ? colors.gold : colors.accent, 0.14), alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={nodeIcon(node)} size={21} color={state === 'owned' ? colors.gold : colors.accent} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text, letterSpacing: 0.3 }}>{s.label}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, lineHeight: 17 }}>{s.description}</Text>
+            <Text style={{ fontFamily: fonts.display, fontSize: 19, color: colors.text, letterSpacing: 0.3 }} numberOfLines={1}>
+              {nodeLabel(node)}
+              {node.kind === 'tech' ? '  (technique)' : ''}
+            </Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.muted, lineHeight: 17, height: 51 }} numberOfLines={3}>
+              {describe(node)}
+            </Text>
           </View>
         </Row>
-        {/* Three level pips, each with the attribute it needs. */}
-        <Row gap={6}>
-          {[0, 1, 2].map((i) => {
-            const got = i < lvl;
-            const next = i === lvl;
-            return (
-              <View key={i} style={{ flex: 1, gap: 4 }}>
-                <View style={{ height: 6, borderRadius: 3, backgroundColor: got ? colors.gold : next && state === 'ready' ? alpha(colors.accent, 0.6) : colors.bgElev }} />
-                <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: got ? colors.gold : colors.faint }}>
-                  Lv {i + 1}  |  {ATTR_LABELS[s.attr]} {s.needs[i]}
-                </Text>
-              </View>
-            );
-          })}
+        <Row gap={8}>
+          <Pill label={`${ATTR_LABELS[needs.attr]} ${needs.value}`} icon="barbell" color={p.attrs[needs.attr] >= needs.value ? colors.green : colors.red} />
+          <Pill label={`${nodeCost(node)} pt${nodeCost(node) > 1 ? 's' : ''}`} icon="sparkles" color={points >= nodeCost(node) ? colors.accent : colors.muted} />
         </Row>
-        {state === 'ready' && (
+        {state === 'owned' ? (
+          <Pill label="Yours" icon="checkmark-circle" color={colors.gold} />
+        ) : (
           <Button
-            label={`Upgrade to level ${cost}  |  1 pt`}
-            icon="arrow-up-circle"
+            label={state === 'locked' ? 'Unlock the one above first' : check.ok ? 'Unlock' : check.reason ?? 'Locked'}
+            icon={check.ok && state !== 'locked' ? 'arrow-up-circle' : 'lock-closed'}
             small
+            disabled={!check.ok || state === 'locked'}
             onPress={() => {
-              const r = mutate((g) => upgradeSkill(g, s.id));
+              const r = mutate((g) => unlockNode(g, branch.id, index));
               if (!r.ok) return showToast(r.text);
               haptic('success');
-              celebrate({ title: `${s.label} ${'I'.repeat(cost)}`, sub: `Level ${cost} unlocked. ${s.description}`, icon: SKILL_ICONS[s.id] ?? 'star', duration: 2200 });
+              celebrate({ title: nodeLabel(node), sub: describe(node), icon: nodeIcon(node), duration: 2200 });
             }}
           />
         )}
-        {state === 'points' && <Pill label="Needs 1 skill point" icon="lock-closed" color={colors.muted} />}
-        {state === 'attr' && <StatBar label={`${ATTR_LABELS[s.attr]} for level ${cost}`} value={have} max={need} color={colors.blue} right={`${have} / ${need}`} />}
-        {state === 'maxed' && <Pill label="Maxed" icon="checkmark-circle" color={colors.gold} />}
-      </View>
-    </FadeIn>
+      </Card>
+    </>
   );
 }
 
@@ -100,9 +141,7 @@ export function SkillsBody() {
   if (!game?.career) return <Redirect href="/" />;
   const c = game.career;
   const p = game.world.players[c.playerId];
-  // Skills keep one fixed order, so upgrading one never moves the others.
-  const list = skillsFor(p).map((s) => ({ s, state: stateOf(p, s, c.skillPoints) }));
-  const ready = list.filter((x) => x.state === 'ready');
+  const ready = readyNodes(p, c.skillPoints);
   const secondaryReady = canLearnSecondary(game);
   const unlocked = c.level >= SECONDARY_ROLE_LEVEL;
 
@@ -155,10 +194,8 @@ export function SkillsBody() {
         )}
       </Card>
 
-      <SectionLabel icon="sparkles-outline">{ready.length ? `Skills  |  ${ready.length} ready to upgrade` : 'Skills'}</SectionLabel>
-      {list.map(({ s }, i) => (
-        <SkillCard key={s.id} p={p} s={s} points={c.skillPoints} index={i} />
-      ))}
+      <SectionLabel icon="git-network-outline">{ready.length ? `Skill tree  |  ${ready.length} ready` : 'Skill tree'}</SectionLabel>
+      <SkillTree p={p} points={c.skillPoints} />
     </>
   );
 }

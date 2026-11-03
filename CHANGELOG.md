@@ -2,6 +2,13 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.3.0
+
+- Abilities is a skill tree per position: three branches of linked
+  nodes, unlocked in order, with techniques at the end: Fake shot,
+  Curler, Defence splitter, Last-ditch and Sweeper keeper, each changing
+  a moment.
+
 ## 1.2.0
 
 - Money and fame on the main screen: Life (money) and Clubs (fame) tiles.

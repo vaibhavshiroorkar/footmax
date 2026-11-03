@@ -13,6 +13,7 @@ import { useResultFeedback } from '../ui/shared';
 import { formatMoney, fullName, shortName } from '../engine/player';
 import { Club, Game, MatchReward, Player, Style } from '../engine/types';
 import { SKILL_MOVES, skillLevel, xpForLevel } from '../engine/skills';
+import { hasTechnique } from '../engine/skillTree';
 import { ShotGame } from '../ui/moments/ShotGame';
 import { PASS_LABEL, PassPanel } from '../ui/moments/PassGame';
 import { DribbleGame } from '../ui/moments/DribbleGame';
@@ -332,6 +333,7 @@ export default function MatchScreen() {
             names={Object.fromEntries((live.pending.options ?? []).map((o) => [o.playerId, world.players[o.playerId].lastName]))}
             playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
             passing={world.players[live.pending.actorId].attrs.passing}
+            splitter={hasTechnique(world.players[live.pending.actorId], 'splitter')}
             vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
             onShoot={() => {
@@ -1060,7 +1062,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
-        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
@@ -1068,7 +1070,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       {moment.kind === 'intercept' && <InterceptGame vision={actor.attrs.vision} onDone={(q) => resolve(q)} />}
       {moment.kind === 'block' && <BlockGame defending={actor.attrs.defending} onDone={(q) => resolve(q)} />}
       {moment.kind === 'clear' && <ClearGame air={(actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
-      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper')} keeping={actor.attrs.goalkeeping} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper') + (hasTechnique(actor, 'sweeper') ? 2 : 0)} keeping={actor.attrs.goalkeeping} onDone={(q) => resolve(q)} />}
       <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
     </Card>
   );

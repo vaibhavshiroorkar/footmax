@@ -1,5 +1,6 @@
 import { Game, Message } from './types';
-import { SkillDef, canUpgrade, skillsFor, SKILL_MOVES, SkillMove, canLearnMove } from './skills';
+import { SKILL_MOVES, SkillMove, canLearnMove } from './skills';
+import { nodeLabel, readyNodes } from './skillTree';
 import { claimables } from './progress';
 import { ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
 
@@ -11,12 +12,12 @@ export function actionMessages(game: Game): Message[] {
   return game.inbox.filter((m) => m.action && !m.action.resolved).sort((a, b) => (a.action!.weeksLeft ?? 99) - (b.action!.weeksLeft ?? 99));
 }
 
-// Skills the career player can upgrade with the points they have now.
-export function readyUpgrades(game: Game): SkillDef[] {
+// Tree nodes the career player can unlock with the points they have now.
+export function readyUpgrades(game: Game): { id: string; label: string }[] {
   const c = game.career;
   if (!c || c.retired) return [];
   const p = game.world.players[c.playerId];
-  return skillsFor(p).filter((s) => canUpgrade(p, s.id, c.skillPoints).ok);
+  return readyNodes(p, c.skillPoints).map(({ node }) => ({ id: node.kind === 'skill' ? node.skill : node.tech, label: nodeLabel(node) }));
 }
 
 // A second position counts as an upgrade only until one is learned, so

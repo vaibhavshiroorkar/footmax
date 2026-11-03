@@ -7,6 +7,7 @@ import { ABILITY_COST, SKILL_MOVES, canLearnMove, canUpgrade, moveCost, skillLev
 import { movePlayer } from './transfers';
 import { recordTraining } from './progress';
 import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
+import { canUnlock, nodeCost, nodeLabel, nodeOwned, treeFor } from './skillTree';
 
 export { addXp, careerPlayer, squadStatus };
 
@@ -126,6 +127,22 @@ export function upgradeSkill(game: Game, skillId: string): ActionResult {
   p.skills = { ...(p.skills ?? {}), [skillId]: lvl };
   const def = SKILLS.find((s) => s.id === skillId)!;
   return { ok: true, text: `${def.label} is now level ${lvl}.` };
+}
+
+// Unlocks the next node of a skill tree branch (see skillTree.ts).
+export function unlockNode(game: Game, branchId: string, index: number): ActionResult {
+  const c = game.career!;
+  const p = careerPlayer(game);
+  const branch = treeFor(p).find((b) => b.id === branchId);
+  const node = branch?.nodes[index];
+  if (!branch || !node) return { ok: false, text: 'Not in your tree.' };
+  if (!branch.nodes.slice(0, index).every((n) => nodeOwned(p, n))) return { ok: false, text: 'Unlock the one above it first.' };
+  const check = canUnlock(p, node, c.skillPoints);
+  if (!check.ok) return { ok: false, text: check.reason! };
+  if (node.kind === 'skill') return upgradeSkill(game, node.skill);
+  c.skillPoints -= nodeCost(node);
+  p.skills = { ...(p.skills ?? {}), [node.tech]: 1 };
+  return { ok: true, text: `${nodeLabel(node)} unlocked.` };
 }
 
 export function learnMove(game: Game, moveId: string): ActionResult {

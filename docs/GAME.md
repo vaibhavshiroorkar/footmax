@@ -259,6 +259,22 @@ contracts, board and federation confidence, sackings and job offers.
   Play inside it, this week's chips, then rewards to claim (last, so
   claiming one moves nothing).
 - Train: every attribute first, then Training, Abilities and Moves tabs.
+- Abilities is a skill tree per position (`src/engine/skillTree.ts`):
+  three branches, each a chain of nodes joined by a line; a node unlocks
+  only after the one above it. Nodes are levels of the abilities (1 point
+  each, with an attribute needed) and, at the end of some branches, a
+  technique (2 points) that changes a moment:
+  - Fake shot: a Fake button in shot moments sends the keeper the wrong
+    way once and leaves him off balance (less reach);
+  - Curler: curled shots bend further, round defenders and away from the
+    keeper;
+  - Defence splitter: a much wider through-ball window;
+  - Last-ditch: the first defensive mistake each match is not punished;
+  - Sweeper keeper: more time to react in save moments.
+  Forwards: Finishing, Flair, Big games. Midfielders: Playmaking, Engine,
+  Shooting. Defenders: Defending, Physical, Leadership. Keepers: Shot
+  stopping, Distribution, Mind. A panel under the tree shows the chosen
+  node, what it needs and Unlock; it keeps its size, so nothing moves.
 - More, in groups: Your career (Life, Clubs), Football (League,
   Internationals, Awards, Honours), Other (Leaderboards, Settings), then
   the locked legends store as one card (names only).
@@ -302,27 +318,20 @@ Asked for and not built yet, in the order they will be done:
 
 1. Dribbles and sprints: beat your man, then choose what comes next
    (shoot, pass, take on the next man), with a reward that feels big.
-2. VAR: the referee reviews a goal or a penalty, with an animation of
+2. Faster stat growth, and a bigger gap between strong and weak players
+   so a 95 can dominate a team of 75s; play no longer slows on the ball
+   at 4x.
+3. VAR: the referee reviews a goal or a penalty, with an animation of
    him at the monitor, before the decision.
-3. Attributes and abilities as a skill tree per role, unlocking
-   techniques that change moments (curling shots, fake shots, and more).
 4. Money buys many useful things; Clash Royale style cases with
    equipment that makes the player better.
-5. Faster stat growth, and a bigger gap between strong and weak players
-   so a 95 can dominate a team of 75s.
-6. Life events with consequences: dressing room, interviews with choices,
-   romance, real-life events, crime and jail, corruption, career-ending
-   injuries (some end the career), and good events that help.
-7. A mega search for clubs: browse any club, see its profile, squad,
-   lineup and details, see who has made an offer, and offer yourself to a
-   club.
-8. World Cup qualifying for every nation, so even India can try to
+5. Life events with consequences: dressing room, romance, crime and
+   jail, corruption, career-ending injuries, and good events that help.
+6. World Cup qualifying for every nation, so even India can try to
    qualify.
-9. Start the game in 2010, just after the World Cup, with squads of that
+7. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
-10. An alignment pass: nothing wraps or overflows, one screen where
-    possible.
 
 The store stays locked until payments and licensing are decided; real
 players appear by name only, never by face.

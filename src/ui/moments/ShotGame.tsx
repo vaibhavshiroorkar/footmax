@@ -49,7 +49,8 @@ const EASE = 1.7;
 // angle: where he stands across the goal (-1 out to his left, 1 to his
 // right, see PitchSim.shotAngle); the ball starts from there.
 // onPass: give it to a team-mate instead, before the aim is set.
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
+// fake and curler: techniques from the skill tree (see skillTree.ts).
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -58,6 +59,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
   const [shape, setShape] = useState<ShotShape>('driven');
+  // Fake shot: the keeper bites toward where you seemed to aim, once, and is
+  // off balance for the rest of the shot.
+  const [faked, setFaked] = useState<number | null>(null);
   const shapes = kind === 'penalty' ? [] : SHAPES;
   // x is where the ball actually goes: the aim plus any stray.
   // stop: the ball never reaches the goal because a defender or the wall
@@ -89,7 +93,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const [rushAt, setRushAt] = useState<number | null>(null);
   const rushing = kind === 'shot' && !outside;
   const rush = rushing ? Math.min(1, (rushAt ?? (phase === 'aim' ? t : 0)) / (oneOnOne ? 1.8 : 2.8)) : 0;
-  const reach = (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.25 : 1) * (1 + range * 0.15) * (1 + rush * 0.35);
+  const kpos = faked === null ? setup.keeper : clamp(setup.keeper + Math.sign(faked - setup.keeper || 1) * 0.22);
+  const reach = (faked === null ? 1 : 0.82) * (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.25 : 1) * (1 + range * 0.15) * (1 + rush * 0.35);
   const flight = outside ? 0.85 : FLIGHT;
   // 0 for a top shooter, near 1 for a poor one, and only from distance.
   const longWeak = kind === 'shot' && (outside || range > 0) ? (1 - shooting / 99) * (0.6 + range * 0.6) : 0;
@@ -101,7 +106,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     if (kind === 'penalty') return reach;
     const band = p < bands.low ? 1.6 : p <= bands.mid ? 1 : shape === 'curl' ? 0.95 : 0.85;
     const time = 1 + range * (p > bands.mid ? 0.25 : 0.9);
-    const struck = shape === 'curl' ? (Math.abs(x - 0.5) > 0.28 ? 0.88 : 1.08) : shape === 'low' ? 0.9 : 1;
+    const struck = shape === 'curl' ? (Math.abs(x - 0.5) > 0.28 ? (curler ? 0.8 : 0.88) : 1.08) : shape === 'low' ? 0.9 : 1;
     // From distance a weak shooter cannot put enough on it: the keeper
     // gets across.
     const weak = 1 + longWeak * 0.45;
@@ -149,14 +154,14 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       if (dragged) power = bands.high;
       // Into a defender's body: blocked. A curler passes him wide of where it
       // ends up, so it can bend round him; a low one is easier to block.
-      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - (shape === 'curl' ? x + curlSide(x) * 0.14 * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
+      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - (shape === 'curl' ? x + curlSide(x) * (curler ? 0.22 : 0.14) * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
       const blocked = hit >= 0;
       const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
       const r = blocked
-        ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: setup.keeper }
+        ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: kpos }
         : lob
-          ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: setup.keeper }
-          : judge(kind, x, power, setup, bands, reachAt(power, x), wallSpan(shape, power, bands), kind === 'penalty' ? 0 : 0.03 + (keeper / 99) * 0.07);
+          ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: kpos }
+          : judge(kind, x, power, { ...setup, keeper: kpos }, bands, reachAt(power, x), wallSpan(shape, power, bands), kind === 'penalty' ? 0 : 0.03 + (keeper / 99) * 0.07);
       if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
       const span = wallSpan(shape, power, bands);
       const wall = kind === 'freekick' && !!span && x >= setup.wall + span[0] && x <= setup.wall + span[1];
@@ -168,7 +173,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // Out of time: tackled while aiming, or the power maxes out and he shoots.
   const timedOut = useRef(false);
   const tackled = () => {
-    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: setup.keeper });
+    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: kpos });
     setPhase('flight');
   };
   useEffect(() => {
@@ -210,7 +215,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // skims the grass.
   const fromX = 150 + angle * 105;
   const pathAt = (kk: number) => {
-    const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
+    const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend * (curler ? 1.3 : 1) : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
     const x = (1 - kk) * (1 - kk) * fromX + 2 * (1 - kk) * kk * ((fromX + endX) / 2 + bendX) + kk * kk * endX;
     const y = H - 12 + (targetY - (H - 12)) * (low ? 1 - (1 - kk) * (1 - kk) : kk) - Math.sin(Math.PI * kk) * (low ? 2 : shape === 'curl' ? 14 : 9) * setup.arc;
     return { x, y, r: 8 - 3.5 * kk };
@@ -243,8 +248,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     }
   }
   // The keeper dives as the ball comes; on a save he gets to it.
-  const keeperAt = shot ? setup.keeper + (shot.diveTo - setup.keeper) * Math.min(1, k * 1.4) : setup.keeper;
-  const diveSide = shot ? Math.sign(shot.diveTo - setup.keeper) || setup.dive : 0;
+  const keeperAt = shot ? kpos + (shot.diveTo - kpos) * Math.min(1, k * 1.4) : kpos;
+  const diveSide = shot ? Math.sign(shot.diveTo - kpos) || setup.dive : 0;
   const diveAmount = shot ? Math.min(1, k * 1.6) * 0.9 * diveSide : 0;
 
   return (
@@ -271,6 +276,20 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               </Pressable>
             );
           })}
+          {fake && kind === 'shot' && (
+            <Pressable
+              disabled={phase !== 'aim' || faked !== null}
+              onPress={() => setFaked(aimX)}
+              accessibilityRole="button"
+              accessibilityLabel="Fake shot"
+              style={({ pressed }) => ({ flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.purple, backgroundColor: pressed ? alpha(colors.purple, 0.2) : alpha(colors.purple, 0.08), opacity: phase === 'aim' && faked === null ? 1 : 0.35 })}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.8, color: colors.purple }}>FAKE</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 9.5, color: colors.faint }} numberOfLines={1}>
+                Sell him
+              </Text>
+            </Pressable>
+          )}
           {onPass && kind === 'shot' && (
             <Pressable
               disabled={phase !== 'aim'}
@@ -300,7 +319,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
             <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
             {/* The keeper's reach before you shoot, so the gap is readable. */}
-            {phase !== 'flight' && <Rect x={px(Math.max(0, setup.keeper - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
+            {phase !== 'flight' && <Rect x={px(Math.max(0, kpos - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
             {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
             {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
               const m = manAt(b, GOAL);
