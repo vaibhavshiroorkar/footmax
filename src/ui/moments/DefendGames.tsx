@@ -4,6 +4,7 @@ import Svg, { Circle, Ellipse, G, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
+import { Football } from '../football';
 
 // Three defending games, all on a top-down pitch with the user in gold and
 // the opponents in red. Each reports a quality from 0 to 1.
@@ -55,7 +56,7 @@ const laneX = (l: Lane) => W / 2 + l * 95;
 // a longer look at his body shape.
 export function InterceptGame({ vision, onDone }: { vision: number; onDone: (q: number, text: string) => void }) {
   const [setup] = useState(() => ({ look: 0.7 + Math.random() * 0.8, lane: LANES[Math.floor(Math.random() * 3)] }));
-  const lead = 0.3 + (vision / 99) * 0.35;
+  const lead = 0.15 + (vision / 99) * 0.6;
   const FLIGHT = 0.55;
   const { done, finish } = useFinish(onDone);
   const [picked, setPicked] = useState<Lane | null>(null);
@@ -102,7 +103,7 @@ export function InterceptGame({ vision, onDone }: { vision: number; onDone: (q: 
         {looking && <Line x1={passer.x} y1={passer.y} x2={passer.x + (target.x - passer.x) * 0.22} y2={passer.y + (target.y - passer.y) * 0.22} stroke={RED} strokeWidth={4} strokeLinecap="round" />}
         <Man x={passer.x} y={passer.y} kit={RED} r={10} />
         <Man x={userX} y={userY} kit={colors.gold} r={10} />
-        <Circle cx={flying ? ballX : passer.x} cy={flying ? ballY : passer.y - 14} r={5} fill="#ffffff" />
+        <Football cx={flying ? ballX : passer.x} cy={flying ? ballY : passer.y - 14} r={5.5} rot={flying ? (ballX + ballY) * 9 : 0} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (flying ? 'He plays it!' : looking ? 'Watch his body shape...' : 'He looks up...')}
@@ -121,7 +122,7 @@ export function InterceptGame({ vision, onDone }: { vision: number; onDone: (q: 
 // ball is past. Defending widens the window.
 export function BlockGame({ defending, onDone }: { defending: number; onDone: (q: number, text: string) => void }) {
   const [setup] = useState(() => ({ strike: 1.1 + Math.random() * 0.8, side: Math.random() < 0.5 ? -1 : 1 }));
-  const WINDOW = 0.16 + (defending / 99) * 0.14;
+  const WINDOW = 0.08 + (defending / 99) * 0.26;
   const { done, finish } = useFinish(onDone);
   const [slid, setSlid] = useState<number | null>(null);
   const t = useTicker(true);
@@ -167,7 +168,7 @@ export function BlockGame({ defending, onDone }: { defending: number; onDone: (q
         {!struck && <Circle cx={shooter.x} cy={shooter.y} r={ring} fill="none" stroke={ring < 16 ? colors.gold : '#ffffff80'} strokeWidth={3} />}
         <Man x={shooter.x} y={shooter.y} kit={RED} r={10} />
         {sliding ? <Ellipse cx={user.x} cy={user.y} rx={20} ry={8} fill={colors.gold} stroke="#ffffff" strokeWidth={1.5} /> : <Man x={user.x} y={user.y} kit={colors.gold} r={10} />}
-        <Circle cx={ballX} cy={ballY} r={5} fill="#ffffff" />
+        <Football cx={ballX} cy={ballY} r={5.5} rot={(ballX + ballY) * 9} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (struck ? 'He shoots!' : 'Slide as the ring closes!')}
@@ -182,7 +183,7 @@ export function BlockGame({ defending, onDone }: { defending: number; onDone: (q
 // longer window, and a big attacker shortens it.
 export function ClearGame({ air, onDone }: { air: number; onDone: (q: number, text: string) => void }) {
   const [setup] = useState(() => ({ flight: 1.3 + Math.random() * 0.5, from: Math.random() < 0.5 ? -1 : 1 }));
-  const WINDOW = 0.13 + Math.max(0, Math.min(1, air / 99)) * 0.13;
+  const WINDOW = 0.07 + Math.max(0, Math.min(1, air / 99)) * 0.23;
   const { done, finish } = useFinish(onDone);
   const [jumped, setJumped] = useState<number | null>(null);
   const t = useTicker(true);
@@ -228,7 +229,7 @@ export function ClearGame({ air, onDone }: { air: number; onDone: (q: number, te
         <Man x={spot.x + 14} y={spot.y - 6} kit={RED} r={10} />
         <Man x={spot.x} y={spot.y - up} kit={colors.gold} r={10 + up / 4} />
         <Ellipse cx={groundX} cy={groundY + 4} rx={5} ry={2.5} fill="#00000055" />
-        <Circle cx={bx} cy={by} r={5 + z / 14} fill="#ffffff" />
+        <Football cx={bx} cy={by} r={5.5 + z / 14} rot={(bx + by) * 9} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? 'Jump as the ball drops onto the ring!'}

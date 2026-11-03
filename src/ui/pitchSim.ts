@@ -91,8 +91,12 @@ const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax -
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const M = (p: { x: number; y: number }) => ({ x: p.x * PW, y: p.y * PL });
 
-// Real time runs a little fast on a phone screen; this keeps 1x readable.
-const TIME = 1.8;
+// Real time runs a little fast on a phone screen; this keeps 1x readable
+// while a match still goes by quickly.
+const TIME = 2.6;
+// Goals keep their moment: the celebration lasts as long in real time as
+// it did when play ran at 1.8.
+const HOLD = TIME / 1.8;
 
 export class PitchSim {
   bodies = new Map<string, Body>();
@@ -585,7 +589,7 @@ export class PitchSim {
     if (this.celebrate) {
       const c = this.celebrate;
       // Once he is away, the caption says what he does.
-      if (!c.told && this.clock > c.at + 1.1) {
+      if (!c.told && this.clock > c.at + 1.1 * HOLD) {
         c.told = true;
         this.caption = `${this.name(c.scorer).replace(/^#\d* /, '')} ${celebrationText(c.style)}`;
       }
@@ -734,7 +738,7 @@ export class PitchSim {
           a.stage = 1;
           const shooter = this.name(a.from);
           if (step.act === 'goal') {
-            this.callout = { text: 'GOAL!', sub: shooter, tone: 'goal', side: step.side, until: this.clock + 3 };
+            this.callout = { text: 'GOAL!', sub: shooter, tone: 'goal', side: step.side, until: this.clock + 3 * HOLD };
             this.caption = `GOAL! ${shooter}`;
             this.hooks.onGoal?.();
             this.hooks.onSound?.('goal', 1);
@@ -742,7 +746,7 @@ export class PitchSim {
             const cy = step.side === 'home' ? PL - 6 : 6;
             const cx = (scorer?.x ?? PW / 2) < PW / 2 ? 4 : PW - 4;
             const style = (a.from && this.celebrations[a.from]) || CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)].id;
-            this.celebrate = { at: this.clock, until: this.clock + 4.2, scorer: a.from, side: step.side, cx, cy, style };
+            this.celebrate = { at: this.clock, until: this.clock + 4.2 * HOLD, scorer: a.from, side: step.side, cx, cy, style };
             this.ball.owner = null;
             this.ball.vx = 0;
             this.ball.vy = 0;
@@ -885,7 +889,7 @@ export class PitchSim {
       if (b.id === c.scorer) return { x: c.cx, y: c.cy };
       // Team-mates chase him, then crowd round him; the keeper claps from
       // his box.
-      const near = this.clock > c.at + 1.4 ? 1.6 : 4;
+      const near = this.clock > c.at + 1.4 * HOLD ? 1.6 : 4;
       if (b.side === c.side && b.pos !== 'GK') return { x: c.cx + Math.sin(b.phase) * near, y: c.cy + Math.cos(b.phase) * near + (c.side === 'home' ? -1.5 : 1.5) };
       return this.shapeSpot(b, 0.35, false);
     }

@@ -10,6 +10,7 @@ import { BodyInfo, Callout, PL, PW, PitchSim } from './pitchSim';
 import { alpha, colors, fonts, luminance } from './theme';
 import { motionReduced } from '../state/settings';
 import { colourGap, keeperKit } from './moments/Keeper';
+import { FootballIcon } from './football';
 import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
@@ -22,20 +23,10 @@ const VH = PW + 3;
 const kitFill = (c: Club) => c.colors[0];
 const kitRing = (c: Club) => (c.colors[1] && c.colors[1].toLowerCase() !== c.colors[0].toLowerCase() ? c.colors[1] : luminance(c.colors[0]) > 0.55 ? '#111111' : '#ffffff');
 
-// What each drawn player needs every frame: where he is, which way he
-// faces (degrees, 0 is up the screen), his stride (-1..1, legs and arms
-// swing), arms (0 at his sides, 1 up and out: a diving keeper, a celebration),
-// stretch (0 upright, 1 flat out: on the floor or sliding) and pop (size: a
-// jump).
-type BodyAnim = { pos: Animated.ValueXY; rot: Animated.Value; stride: Animated.Value; arms: Animated.Value; stretch: Animated.Value; pop: Animated.Value };
+// What each drawn player needs every frame: where he is, and pop (his
+// size: a celebration jump).
+type BodyAnim = { pos: Animated.ValueXY; pop: Animated.Value };
 type Registry = Map<string, BodyAnim>;
-
-const HAIR = ['#2a1d14', '#141414', '#5b3a1e', '#a7773f', '#7a4a26', '#3b2a20'];
-const hashOf = (id: string) => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h;
-};
 
 export interface PitchTarget {
   label: string;
@@ -57,92 +48,55 @@ function TargetRing({ v, size, target, onPress }: { v: Animated.ValueXY; size: n
   );
 }
 
-// A player seen from above: shoulders in the shirt, the head on top, arms
-// and legs that swing as he runs, all turned the way he faces. The shirt
-// number stays upright on his back.
-function Body({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget, tag }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void; tag?: string }) {
-  const a = useState<BodyAnim>(() => ({ pos: new Animated.ValueXY({ x: -100, y: -100 }), rot: new Animated.Value(0), stride: new Animated.Value(0), arms: new Animated.Value(0), stretch: new Animated.Value(0), pop: new Animated.Value(1) }))[0];
+function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget, tag }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void; tag?: string }) {
+  const a = useState<BodyAnim>(() => ({ pos: new Animated.ValueXY({ x: -100, y: -100 }), pop: new Animated.Value(1) }))[0];
+  const v = a.pos;
   useEffect(() => {
     registry.set(id, a);
     return () => {
       registry.delete(id);
     };
   }, [id, registry, a]);
-  const S = size * 1.3;
-  const hair = HAIR[hashOf(id) % HAIR.length];
-  const rotate = a.rot.interpolate({ inputRange: [-720, 720], outputRange: ['-720deg', '720deg'] });
-  const upright = a.rot.interpolate({ inputRange: [-720, 720], outputRange: ['720deg', '-720deg'] });
-  const legW = S * 0.17;
-  const limb = keeper ? '#f8fafc' : fill;
-  const leg = (sign: 1 | -1) => (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: S / 2 + sign * S * 0.13 - legW / 2,
-        top: S * 0.34,
-        width: legW,
-        height: S * 0.34,
-        borderRadius: legW,
-        backgroundColor: '#1f2937',
-        transform: [{ translateY: Animated.multiply(a.stride, sign * S * 0.2) }],
-      }}
-    />
-  );
-  const arm = (sign: 1 | -1) => (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        left: S / 2 + sign * S * 0.4 - S * 0.09,
-        top: S * 0.38,
-        width: S * 0.18,
-        height: S * 0.26,
-        borderRadius: S * 0.1,
-        backgroundColor: limb,
-        borderWidth: keeper ? 1 : 0,
-        borderColor: '#111827',
-        transform: [
-          { translateY: Animated.add(Animated.multiply(a.stride, -sign * S * 0.12), Animated.multiply(a.arms, -S * 0.3)) },
-          { translateX: Animated.multiply(a.arms, sign * S * 0.14) },
-        ],
-      }}
-    />
-  );
   return (
     <>
-      {target && onTarget && <TargetRing v={a.pos} size={size} target={target} onPress={() => onTarget(id)} />}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: a.pos.x,
-          top: a.pos.y,
-          width: S,
-          height: S,
-          marginLeft: -S / 2,
-          marginTop: -S / 2,
-          transform: [{ rotate }, { scale: a.pop }, { scaleY: a.stretch.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }],
-        }}
-      >
-        {glow && <View style={{ position: 'absolute', left: -2, top: S * 0.18, width: S + 4, height: S * 0.64, borderRadius: S, backgroundColor: alpha(ring, 0.45) }} />}
-        {leg(-1)}
-        {leg(1)}
-        {arm(-1)}
-        {arm(1)}
-        {/* Shoulders in the shirt. */}
-        <View style={{ position: 'absolute', left: S * 0.06, top: S * 0.3, width: S * 0.88, height: S * 0.4, borderRadius: S * 0.2, backgroundColor: fill, borderWidth: glow ? 2 : 1.2, borderColor: ring }} />
-        {/* The head, a little forward of the shoulders. */}
-        <View style={{ position: 'absolute', left: S * 0.32, top: S * 0.24, width: S * 0.36, height: S * 0.36, borderRadius: S, backgroundColor: hair, borderWidth: 1, borderColor: 'rgba(0,0,0,0.35)' }} />
-        {!!text && (
-          <Animated.View style={{ position: 'absolute', left: 0, right: 0, top: S * 0.47, alignItems: 'center', transform: [{ rotate: upright }] }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: S * 0.27, lineHeight: S * 0.32, color: textColor }}>{text}</Text>
-          </Animated.View>
-        )}
-      </Animated.View>
+    {target && onTarget && <TargetRing v={v} size={size} target={target} onPress={() => onTarget(id)} />}
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: v.x,
+        top: v.y,
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        // Keepers: a squarer shape in their own colours, with gloves.
+        borderRadius: keeper ? size * 0.32 : size / 2,
+        backgroundColor: fill,
+        borderWidth: glow ? 2.5 : 1.5,
+        borderColor: ring,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: glow ? ring : '#000',
+        shadowOpacity: glow ? 0.9 : 0.4,
+        shadowRadius: glow ? 6 : 2,
+        shadowOffset: { width: 0, height: 1 },
+        transform: [{ scale: a.pop }],
+      }}
+    >
+      <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text>
       {tag && (
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', left: a.pos.x, top: a.pos.y, width: 40, marginLeft: -20, marginTop: -S * 0.9, alignItems: 'center' }}>
+        <View style={{ position: 'absolute', bottom: size + 1, left: -16, right: -16, alignItems: 'center' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: colors.ink, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 4, overflow: 'hidden' }}>{tag}</Text>
-        </Animated.View>
+        </View>
       )}
+      {keeper && (
+        <>
+          <View style={{ position: 'absolute', left: -size * 0.32, top: size * 0.12, width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#111827' }} />
+          <View style={{ position: 'absolute', right: -size * 0.32, top: size * 0.12, width: size * 0.36, height: size * 0.36, borderRadius: size, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#111827' }} />
+        </>
+      )}
+    </Animated.View>
     </>
   );
 }
@@ -250,9 +204,8 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // z is the ball's height: it lifts the ball off its shadow and grows it,
   // and the shadow shrinks and fades, so a lob reads clearly against a pass
   // along the ground.
-  // rot spins the ball as it rolls; trail is three ghosts behind it, shown
-  // only when it is moving fast.
-  const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10), z: new Animated.Value(0), rot: new Animated.Value(0), trail: [0, 1, 2].map(() => new Animated.ValueXY({ x: -50, y: -50 })), trailOn: new Animated.Value(0) }))[0];
+  // rot spins the ball as it rolls.
+  const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10), z: new Animated.Value(0), rot: new Animated.Value(0) }))[0];
   const [confetti, setConfetti] = useState<{ key: number; x: number; y: number; palette: string[] } | null>(null);
   const [caption, setCaption] = useState(sim.caption);
   const [callout, setCallout] = useState<Callout | null>(null);
@@ -333,8 +286,6 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let onBallAt = 0;
     let lastGone = '';
     let lastCelebrate = -1;
-    const poses = new Map<string, { ang: number; phase: number }>();
-    const history: { x: number; y: number }[] = [];
     const toScreen = (x: number, y: number) => {
       const { width: w, h: hh } = props.current;
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
@@ -348,51 +299,17 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       // On the ball, play eases to slow motion so the choice is his.
       const scale = p.paused ? 0 : sim.holding ? 0.25 : lastOnBall ? Math.min(1, p.speed) * 0.6 : p.speed;
       sim.update(dt * scale);
-      const simDt = dt * scale;
       const c = sim.celebrate;
-      const act = sim.act;
-      const diving = !!act && (act.step.act === 'goal' || act.step.act === 'save' || act.step.act === 'miss') && !!sim.ball.flight ? act.keeperId : undefined;
       for (const [id, body] of sim.bodies) {
         const v = registry.get(id);
         if (!v) continue;
         v.pos.setValue(toScreen(body.x, body.y));
-        // Screen x runs along the pitch's length, screen y across it.
-        const st = poses.get(id) ?? { ang: 0, phase: Math.random() * 6 };
-        const sp = Math.hypot(body.vx, body.vy);
-        const dx = sp > 0.6 ? body.vy : sim.ball.y - body.y;
-        const dy = sp > 0.6 ? body.vx : sim.ball.x - body.x;
-        let want = (Math.atan2(dx, -dy) * 180) / Math.PI;
-        let arms = id === diving ? 1 : 0;
-        let stretch = body.down > 0 ? 1 : id === diving ? 0.35 : 0;
+        // The scorer jumps for joy at the corner flag (a backflip leaps).
         let pop = 1;
-        if (c && id === c.scorer) {
-          const ct = sim.clock - c.at;
-          const there = Math.hypot(body.x - c.cx, body.y - c.cy) < 2.5;
-          if (c.style === 'knee-slide' && ct > 0.7 && ct < 2.6) stretch = 0.55;
-          if (there && c.style === 'backflip') {
-            const f = ((ct * 1.2) % 1);
-            pop = 1 + Math.sin(f * Math.PI) * 0.45;
-            want += f * 360;
-          }
-          if (there && c.style === 'robot') want = Math.round(ct * 3) % 2 ? want + 90 : want - 90;
-          if (there && (c.style === 'heart' || c.style === 'shush' || c.style === 'calm')) {
-            // Facing the crowd behind the corner flag.
-            want = (Math.atan2(c.cy - PL / 2, -(c.cx - PW / 2)) * 180) / Math.PI;
-            arms = c.style === 'calm' ? 0.3 : 0.7;
-          }
-          if (!there || c.style === 'knee-slide') arms = Math.max(arms, 0.8);
-        } else if (c && body.side === c.side && sim.clock - c.at > 1.4 && body.pos !== 'GK') {
-          // Team-mates arrive with arms up.
-          arms = 0.6;
+        if (c && id === c.scorer && Math.hypot(body.x - c.cx, body.y - c.cy) < 2.5) {
+          const f = ((sim.clock - c.at) * (c.style === 'backflip' ? 1.2 : 2)) % 1;
+          pop = 1 + Math.sin(f * Math.PI) * (c.style === 'backflip' ? 0.5 : 0.25);
         }
-        const turn = ((want - st.ang + 540) % 360) - 180;
-        st.ang += turn * Math.min(1, dt * 10);
-        st.phase += sp * simDt * 2.4;
-        poses.set(id, st);
-        v.rot.setValue(st.ang);
-        v.stride.setValue(body.down > 0 ? 0 : Math.sin(st.phase) * Math.min(1, sp / 4));
-        v.arms.setValue(arms);
-        v.stretch.setValue(stretch);
         v.pop.setValue(pop);
       }
       const b = toScreen(sim.ball.x, sim.ball.y);
@@ -402,12 +319,6 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       ball.size.setValue(10 + sim.ball.z * 2.2);
       ball.z.setValue(Math.min(1, sim.ball.z / 4));
       ball.rot.setValue(sim.ball.rot);
-      // The trail follows a few frames behind, and fades in with speed.
-      history.unshift(bp);
-      if (history.length > 10) history.pop();
-      ball.trail.forEach((g, i) => g.setValue(history[Math.min(history.length - 1, (i + 1) * 3)]));
-      const moved = history.length > 3 ? Math.hypot(history[0].x - history[3].x, history[0].y - history[3].y) : 0;
-      ball.trailOn.setValue(sim.ball.flight ? Math.min(1, moved / 14) : 0);
       // A goal: confetti once, where the scorer celebrates.
       if (c && c.at !== lastCelebrate) {
         lastCelebrate = c.at;
@@ -467,7 +378,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       const keeper = world.players[id]?.position === 'GK';
       const fill = keeper ? (side === 'home' ? homeKeeper : awayKeeper) : side === 'away' ? awayShirt : kitFill(team);
       return (
-        <Body
+        <Dot
           key={id}
           id={id}
           registry={registry}
@@ -531,13 +442,6 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           pointerEvents="none"
           style={{ position: 'absolute', left: refPos.x, top: refPos.y, width: size * 0.78, height: size * 0.78, marginLeft: (-size * 0.78) / 2, marginTop: (-size * 0.78) / 2, borderRadius: size, backgroundColor: '#111111', borderWidth: 2, borderColor: '#e8f53b' }}
         />
-        {ball.trail.map((g, i) => (
-          <Animated.View
-            key={i}
-            pointerEvents="none"
-            style={{ position: 'absolute', left: g.x, top: g.y, width: 8 - i * 1.5, height: 8 - i * 1.5, marginLeft: -4 + i * 0.75, marginTop: -4 + i * 0.75, borderRadius: 6, backgroundColor: '#ffffff', opacity: Animated.multiply(ball.trailOn, 0.35 - i * 0.1) }}
-          />
-        ))}
         <Animated.View
           pointerEvents="none"
           style={{
@@ -548,17 +452,10 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
             height: ball.size,
             marginLeft: -5,
             marginTop: -5,
-            borderRadius: 8,
-            backgroundColor: '#ffffff',
-            borderWidth: 1.5,
-            borderColor: '#111111',
-            overflow: 'hidden',
             transform: [{ rotate: ball.rot.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) }],
           }}
         >
-          {/* Two panels, so the spin shows. */}
-          <View style={{ position: 'absolute', left: '28%', top: '8%', width: '44%', height: '34%', borderRadius: 2, backgroundColor: '#111111' }} />
-          <View style={{ position: 'absolute', left: '22%', top: '64%', width: '56%', height: '22%', borderRadius: 2, backgroundColor: '#111111', opacity: 0.8 }} />
+          <FootballIcon />
         </Animated.View>
         {confetti && <Confetti key={confetti.key} x={confetti.x} y={confetti.y} palette={confetti.palette} />}
         {callout && <CalloutView key={`${callout.text}-${callout.until}`} c={callout} home={home} away={away} />}

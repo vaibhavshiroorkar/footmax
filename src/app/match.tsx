@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
@@ -27,11 +27,10 @@ import { BlockGame, ClearGame, InterceptGame } from '../ui/moments/DefendGames';
 import { motionReduced, useSettings } from '../state/settings';
 
 const NATIVE = Platform.OS !== 'web';
-const NEWLINE = String.fromCharCode(10);
 // ms: a minute without the live pitch. mult: how fast the pitch plays.
 // At 1x a pass takes about a second, close to real football.
 const SPEEDS = [
-  { key: '1', label: '1x', ms: 900, mult: 1 },
+  { key: '1', label: '1x', ms: 650, mult: 1 },
   { key: '2', label: '2x', ms: 380, mult: 2 },
   { key: '4', label: '4x', ms: 120, mult: 4 },
   { key: '8', label: '8x', ms: 50, mult: 8 },
@@ -97,6 +96,8 @@ export default function MatchScreen() {
   // Manager mode: the touchline panel for changes holds the clock.
   const [changing, setChanging] = useState(false);
   const [skipArmed, setSkipArmed] = useState(false);
+  // The pitch's height on screen, so panels over the buttons start below it.
+  const [pitchH, setPitchH] = useState(0);
   // League place before the match, so full time can show the move.
   const [posBefore] = useState(() => {
     const m = useStore.getState().live;
@@ -241,7 +242,7 @@ export default function MatchScreen() {
         shown={boardGoals}
         controls={
           kicked && !live.finished ? (
-            <Row gap={6}>
+            <Row gap={4}>
               <Pressable
                 onPress={() => {
                   haptic();
@@ -267,83 +268,65 @@ export default function MatchScreen() {
           ) : null
         }
       />
-      {skipArmed && kicked && !live.finished && (
-        <Row gap={8}>
-          <Button label="Keep watching" small variant="secondary" style={{ flex: 1 }} onPress={() => setSkipArmed(false)} />
-          {live.half === 1 && (
-            <Button
-              label="To half time"
-              icon="play-forward"
-              small
-              variant="secondary"
-              style={{ flex: 1 }}
-              onPress={() => {
-                setSkipArmed(false);
-                mutateLive((m, g) => simToHalf(g.world, m));
-                // The pitch did not show these goals; the board shows them now.
-                setShownGoals(useStore.getState().live?.scorers.length ?? 0);
-                commitIfDone();
-              }}
-            />
-          )}
-          <Button
-            label="Sim to full time"
-            icon="play-skip-forward"
-            small
-            variant="gold"
-            style={{ flex: 1 }}
-            onPress={() => {
-              setSkipArmed(false);
-              mutateLive((m, g) => simToEnd(g.world, m));
-              commitIfDone();
-            }}
+      {/* The stage: the pitch and the action buttons, in one block whose
+          size never changes. A key moment's game covers the pitch here, and
+          the pass picker, skip choices or leave check cover the buttons
+          under it, so nothing pops up and nothing pushes the page. */}
+      <View style={{ position: 'relative', gap: 10, zIndex: 10 }}>
+        {!live.finished && (
+          <View onLayout={(e) => setPitchH(e.nativeEvent.layout.height)}>
+          <LivePitch
+            world={world}
+            live={live}
+            focusId={game.career?.playerId}
+            speed={pace.mult}
+            width={pitchWidth}
+            running={running}
+            paused={paused}
+            onNeedMinute={tick}
+            onGoal={onGoalShown}
+            onMomentReady={onMomentReady}
+            targets={passing ? passTargets(game, live.pending!) : undefined}
+            onTarget={passing ? setPassPick : undefined}
+            onBall={setOnBall}
+            onSim={(sim) => (simRef.current = sim)}
+            zone={game.mode === 'career' ? zoneOf(game.world, live) : undefined}
+            shout={live.shout && live.minute <= live.shout.until ? live.shout.kind : null}
+            celebration={game.career?.celebration}
           />
-        </Row>
-      )}
-
-      {leaving && (
-        <Card glow={colors.gold}>
-          <H2>Leave the match?</H2>
-          <T muted>The rest of the match will be simmed and the result counts.</T>
-          <Row>
-            <Button label="Stay" variant="secondary" style={{ flex: 1 }} onPress={() => setLeaving(null)} />
-            <Button label="Sim and leave" icon="play-forward" style={{ flex: 1 }} onPress={simAndLeave} />
-          </Row>
-        </Card>
-      )}
-
-      {/* At full time the result takes the pitch's place, so it all fits on one screen. */}
-      {!live.finished && (
-      <LivePitch
-        world={world}
-        live={live}
-        focusId={game.career?.playerId}
-        speed={pace.mult}
-        width={pitchWidth}
-        running={running}
-        paused={paused}
-        onNeedMinute={tick}
-        onGoal={onGoalShown}
-        onMomentReady={onMomentReady}
-        targets={passing ? passTargets(game, live.pending!) : undefined}
-        onTarget={passing ? setPassPick : undefined}
-        onBall={setOnBall}
-        onSim={(sim) => (simRef.current = sim)}
-        zone={game.mode === 'career' ? zoneOf(game.world, live) : undefined}
-        shout={live.shout && live.minute <= live.shout.until ? live.shout.kind : null}
-        celebration={game.career?.celebration}
-      />
-      )}
-      {/* Passing happens on the pitch: the options light up above, the cards sit here. */}
-      {passing && live.pending && (
-        <Card glow={colors.gold}>
-          <Row gap={8}>
+          </View>
+        )}
+        <View style={{ gap: 10 }}>
+          {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && <ZoneSlider game={game} live={live} />}
+          {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && (onBall && !live.pending ? <BallBar onAct={act} /> : <ShoutBar
+                game={game}
+                live={live}
+                onSkip={() => {
+                  mutateLive((m, g) => simUntilOn(g.world, m));
+                  // The pitch did not show these goals; the board shows them now.
+                  setShownGoals(useStore.getState().live?.scorers.length ?? 0);
+                  commitIfDone();
+                }}
+              />)}
+          {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
+            <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
+          )}
+        </View>
+        {momentOpen && !autoMoments && !passing && live.pending && (
+          <View style={[styles.overlay, { top: 0 }]}>
+            <MomentPanel key={pendingKey} game={game} moment={live.pending} getSim={() => simRef.current} />
+          </View>
+        )}
+        {passing && live.pending && (
+          <View style={[styles.overlay, { top: pitchH + 10 }]}>
+            <Card glow={colors.gold}>
+              <Row gap={8}>
             <View style={styles.momentIcon}>
               <Icon name="git-branch" size={18} color="#1a1200" />
             </View>
             <Text style={styles.momentTitle}>Pick the pass</Text>
-          </Row>
-          <PassPanel
+              </Row>
+              <PassPanel
             key={pendingKey}
             options={live.pending.options ?? []}
             names={Object.fromEntries((live.pending.options ?? []).map((o) => [o.playerId, world.players[o.playerId].lastName]))}
@@ -359,24 +342,57 @@ export default function MatchScreen() {
               setPassPick(null);
               mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, { passed: outcome }));
             }}
-          />
-        </Card>
-      )}
-
-      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && <ZoneSlider game={game} live={live} />}
-      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && (onBall && !live.pending ? <BallBar onAct={act} /> : <ShoutBar
-            game={game}
-            live={live}
-            onSkip={() => {
-              mutateLive((m, g) => simUntilOn(g.world, m));
-              // The pitch did not show these goals; the board shows them now.
-              setShownGoals(useStore.getState().live?.scorers.length ?? 0);
-              commitIfDone();
-            }}
-          />)}
-      {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
-        <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
-      )}
+              />
+            </Card>
+          </View>
+        )}
+        {skipArmed && kicked && !live.finished && (
+          <View style={[styles.overlay, { top: pitchH + 10 }]}>
+              <Card glow={colors.gold} style={{ maxWidth: 420, width: '100%', alignSelf: 'center', gap: 8 }}>
+            <H2>Skip ahead?</H2>
+            <Button label="Keep watching" small variant="secondary" onPress={() => setSkipArmed(false)} />
+            {live.half === 1 && (
+              <Button
+                label="To half time"
+                icon="play-forward"
+                small
+                variant="secondary"
+                onPress={() => {
+                  setSkipArmed(false);
+                  mutateLive((m, g) => simToHalf(g.world, m));
+                  // The pitch did not show these goals; the board shows them now.
+                  setShownGoals(useStore.getState().live?.scorers.length ?? 0);
+                  commitIfDone();
+                }}
+              />
+            )}
+            <Button
+              label="Sim to full time"
+              icon="play-skip-forward"
+              small
+              variant="gold"
+              onPress={() => {
+                setSkipArmed(false);
+                mutateLive((m, g) => simToEnd(g.world, m));
+                commitIfDone();
+              }}
+            />
+              </Card>
+          </View>
+        )}
+        {!!leaving && (
+          <View style={[styles.overlay, { top: pitchH + 10 }]}>
+              <Card glow={colors.gold} style={{ maxWidth: 420, width: '100%', alignSelf: 'center' }}>
+            <H2>Leave the match?</H2>
+            <T muted>The rest of the match will be simmed and the result counts.</T>
+            <Row>
+              <Button label="Stay" variant="secondary" style={{ flex: 1 }} onPress={() => setLeaving(null)} />
+              <Button label="Sim and leave" icon="play-forward" style={{ flex: 1 }} onPress={simAndLeave} />
+            </Row>
+              </Card>
+          </View>
+        )}
+      </View>
 
       {!kicked && (
         <>
@@ -391,15 +407,6 @@ export default function MatchScreen() {
           <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
         </>
       )}
-
-      {/* Key moments open over the match, with the pitch in slow motion behind. */}
-      <Modal visible={momentOpen && !autoMoments && !passing} transparent animationType="fade" onRequestClose={() => undefined}>
-        <View style={styles.momentBackdrop}>
-          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 14 }}>
-            <View style={{ maxWidth: 560, width: '100%', alignSelf: 'center' }}>{momentOpen && live.pending && <MomentPanel key={pendingKey} game={game} moment={live.pending} getSim={() => simRef.current} />}</View>
-          </ScrollView>
-        </View>
-      </Modal>
 
       {live.pausedAtHalf && <HalfTimePanel game={game} live={live} side={mySide} />}
       {changing && !live.finished && <HalfTimePanel game={game} live={live} side={mySide} title="Touchline changes" doneLabel="Back to the game" onDone={() => setChanging(false)} />}
@@ -638,52 +645,62 @@ function Scoreboard({ game, live, home, away, flash, flashBad, shown, controls }
   const scorers = (clubId: string) => {
     const byPlayer = new Map<string, number[]>();
     for (const g of seen) if (g.clubId === clubId) byPlayer.set(g.playerId, [...(byPlayer.get(g.playerId) ?? []), g.minute]);
-    return [...byPlayer].map(([id, mins]) => `${game.world.players[id]?.lastName ?? ''} ${mins.map((m) => `${m}'`).join(', ')}`).join(NEWLINE);
+    return [...byPlayer].map(([id, mins]) => `${game.world.players[id]?.lastName ?? ''} ${mins.map((m) => `${m}'`).join(', ')}`);
   };
-  const team = (club: Club, right?: boolean) => (
-    <Row gap={8} style={{ flex: 1, justifyContent: right ? 'flex-end' : 'flex-start' }}>
-      {!right && <Badge club={club} size={34} />}
-      <Text style={[styles.teamName, { textAlign: right ? 'right' : 'left' }]} numberOfLines={1}>
-        {club.short}
-      </Text>
-      {right && <Badge club={club} size={34} />}
-    </Row>
-  );
+  // A side: crest and name, then its scorers underneath. The scorer area has
+  // a fixed height, so a goal never makes the board grow and shift the page.
+  const side = (club: Club, clubId: string, right?: boolean) => {
+    const lines = scorers(clubId);
+    const shownLines = lines.length > SCORER_LINES ? [...lines.slice(0, SCORER_LINES - 1), `+${lines.length - SCORER_LINES + 1} more`] : lines;
+    return (
+      <View style={{ flex: 1, minWidth: 0, gap: 4, alignItems: right ? 'flex-end' : 'flex-start' }}>
+        <Row gap={6} style={{ maxWidth: '100%', flexDirection: right ? 'row-reverse' : 'row' }}>
+          <Badge club={club} size={30} />
+          <Text style={[styles.teamName, { textAlign: right ? 'right' : 'left' }]} numberOfLines={1}>
+            {club.short}
+          </Text>
+        </Row>
+        <View style={{ height: SCORER_LINES * 15, alignSelf: 'stretch' }}>
+          {shownLines.map((l) => (
+            <Text key={l} style={[styles.scorerLine, { textAlign: right ? 'right' : 'left' }]} numberOfLines={1}>
+              {l}
+            </Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
   return (
     <View style={styles.board}>
       <View style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: 3, backgroundColor: teamColor(home.colors) }} />
       <View style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: 3, backgroundColor: teamColor(away.colors) }} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.accent, opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.3] }) }]} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.red, opacity: flashBad.interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }]} />
-      <View style={{ paddingHorizontal: 12, paddingVertical: 10, gap: 6 }}>
-        <Row gap={6}>
-          {team(home)}
-          <Row style={{ alignItems: 'center' }}>
+      {/* Three columns: home and its scorers, then the score, the clock and
+          the controls in the middle, then away and its scorers. */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 10, paddingVertical: 10, gap: 6 }}>
+        {side(home, live.home.clubId)}
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <Row gap={0} style={{ alignItems: 'center' }}>
             <Score value={hg} />
             <Text style={[styles.score, { color: colors.faint, minWidth: 0 }]}>:</Text>
             <Score value={ag} />
           </Row>
-          {team(away, true)}
-        </Row>
-        {seen.length > 0 && (
-          <Row style={{ alignItems: 'flex-start' }} gap={12}>
-            <Text style={[styles.scorerLine, { textAlign: 'left' }]}>{scorers(live.home.clubId)}</Text>
-            <Icon name="football" size={11} color={colors.faint} />
-            <Text style={[styles.scorerLine, { textAlign: 'right' }]}>{scorers(live.away.clubId)}</Text>
-          </Row>
-        )}
-        <Row style={{ justifyContent: 'space-between' }}>
           <Row gap={6}>
             {ticking && live.minute > 0 && <Animated.View style={[styles.liveDot, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }) }]} />}
             <Text style={styles.clock}>{clock}</Text>
           </Row>
           {controls}
-        </Row>
+        </View>
+        {side(away, live.away.clubId, true)}
       </View>
     </View>
   );
 }
 
+
+// Scorer lines under each side; more than this folds into "+N more".
+const SCORER_LINES = 3;
 
 // One side's goals. When the number changes, it pops.
 function Score({ value }: { value: number }) {
@@ -713,11 +730,11 @@ function DribbleFor({ actor, move, seed, onDone }: { actor: Player; move: string
   const control = skillLevel(actor, 'dribbler');
   if (m && ['stepover', 'elastico', 'roulette', 'heelflick', 'rainbow'].includes(m.id)) return <ComboDribble move={m.label} length={Math.min(6, m.stars + 1)} speed={control} onDone={onDone} />;
   if (m && (m.id === 'nutmeg' || m.id === 'ballroll')) return <GapDribble speed={control} onDone={onDone} />;
-  if (m) return <DribbleGame speed={speed} onDone={onDone} />;
+  if (m) return <DribbleGame speed={speed} stat={actor.attrs.dribbling} onDone={onDone} />;
   const pick = seed % 3;
   if (pick === 1) return <RaceDribble pace={actor.attrs.pace} onDone={onDone} />;
   if (pick === 2) return <GapDribble speed={control} onDone={onDone} />;
-  return <DribbleGame speed={speed} onDone={onDone} />;
+  return <DribbleGame speed={speed} stat={actor.attrs.dribbling} onDone={onDone} />;
 }
 
 // The skill moves the player has learned, to pick one before taking his man on.
@@ -1047,11 +1064,11 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
-      {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} stat={actor.attrs.defending} onDone={(q) => resolve(q)} />}
       {moment.kind === 'intercept' && <InterceptGame vision={actor.attrs.vision} onDone={(q) => resolve(q)} />}
       {moment.kind === 'block' && <BlockGame defending={actor.attrs.defending} onDone={(q) => resolve(q)} />}
       {moment.kind === 'clear' && <ClearGame air={(actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
-      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper')} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper')} keeping={actor.attrs.goalkeeping} onDone={(q) => resolve(q)} />}
       <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
     </Card>
   );
@@ -1221,9 +1238,9 @@ const styles = StyleSheet.create({
   tblRow: { paddingVertical: 5, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
   tblCell: { fontFamily: fonts.medium, fontSize: 13, color: colors.text },
   tblNum: { width: 30, textAlign: 'right' },
-  scorerLine: { flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.muted, lineHeight: 17 },
-  ctl: { minWidth: 40, height: 34, paddingHorizontal: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev, borderWidth: 1.5, borderColor: colors.borderStrong },
-  ctlText: { fontFamily: fonts.display, fontSize: 17, color: colors.text },
+  scorerLine: { fontFamily: fonts.medium, fontSize: 11, color: colors.muted, lineHeight: 15 },
+  ctl: { minWidth: 32, height: 30, paddingHorizontal: 6, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev, borderWidth: 1.5, borderColor: colors.borderStrong },
+  ctlText: { fontFamily: fonts.display, fontSize: 15, color: colors.text },
   board: { borderRadius: 12, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.red },
   clock: { fontFamily: fonts.display, fontSize: 20, color: colors.text, letterSpacing: 1 },
@@ -1231,6 +1248,7 @@ const styles = StyleSheet.create({
   teamName: { fontFamily: fonts.display, fontSize: 22, color: colors.text, letterSpacing: 0.6, textTransform: 'uppercase', flexShrink: 1 },
   score: { fontFamily: fonts.display, fontSize: 46, color: colors.text, lineHeight: 50, minWidth: 30, textAlign: 'center' },
   momentBackdrop: { flex: 1, backgroundColor: 'rgba(4,6,12,0.55)' },
+  overlay: { position: 'absolute', left: 0, right: 0, zIndex: 20 },
   segment: { backgroundColor: colors.bgElev, borderRadius: 12, padding: 3, borderWidth: 1, borderColor: colors.border },
   segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
   segText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },

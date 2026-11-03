@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Redirect } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
 import { Button, Card, H2, Pill, Row, Screen, StatBar, T } from '../../ui/kit';
@@ -9,7 +9,8 @@ import { formatMoney } from '../../engine/player';
 export default function Life() {
   const game = useGame();
   const mutate = useStore((s) => s.mutate);
-  const [msg, setMsg] = useState<string | null>(null);
+  // Results show as a toast at the top, so the cards never move.
+  const setMsg = useStore((s) => s.showToast);
   if (!game?.career) return <Redirect href="/" />;
   const c = game.career;
 
@@ -21,7 +22,6 @@ export default function Life() {
           <T muted>Bank</T>
           <T bold>{formatMoney(c.money)}</T>
         </Row>
-        {msg ? <T style={{ color: colors.accent }}>{msg}</T> : null}
       </Card>
 
       <H2>This week</H2>

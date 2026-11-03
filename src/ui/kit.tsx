@@ -373,11 +373,15 @@ export function StatBar({ label, value, max = 100, color = colors.accent, right,
   return (
     <View style={{ marginVertical: 3 }}>
       <Row style={{ justifyContent: 'space-between' }}>
-        <Row gap={6}>
+        <Row gap={6} style={{ flexShrink: 1, minWidth: 0 }}>
           {icon && <Icon name={icon} size={14} color={light ? '#ffffff' : color} />}
-          <Text style={[styles.barLabel, { color: light ? 'rgba(255,255,255,0.9)' : colors.muted }]}>{label}</Text>
+          <Text style={[styles.barLabel, { color: light ? 'rgba(255,255,255,0.9)' : colors.muted, flexShrink: 1 }]} numberOfLines={1}>
+            {label}
+          </Text>
         </Row>
-        <Text style={[styles.barValue, { color: textColor }]}>{right ?? Math.round(value)}</Text>
+        <Text style={[styles.barValue, { color: textColor, marginLeft: 6 }]} numberOfLines={1}>
+          {right ?? Math.round(value)}
+        </Text>
       </Row>
       <View style={[styles.barTrack, light && { backgroundColor: 'rgba(255,255,255,0.14)' }]}>
         <Animated.View style={{ width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), height: '100%', borderRadius: 3, backgroundColor: color }} />
@@ -480,7 +484,7 @@ export function Tabs<K extends string>({ tabs, value, onChange }: { tabs: { key:
             accessibilityState={{ selected: active }}
             style={[styles.tab, active && { borderBottomColor: colors.accent }]}
           >
-            <Text style={[styles.tabText, active && { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.tabText, tabs.length >= 4 && { fontSize: 14, letterSpacing: 0.3 }, active && { color: colors.text }]} numberOfLines={1}>
               {t.label}
             </Text>
           </Pressable>
@@ -523,6 +527,9 @@ export const inputStyle: TextStyle = {
   paddingVertical: 12,
   fontSize: 16,
   fontFamily: fonts.medium,
+  // The web draws its own focus box inside the rounded field; the border
+  // is enough.
+  ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle) : {}),
 };
 
 export function Divider() {
@@ -540,17 +547,23 @@ function toastIcon(text: string): { icon: IconName; color: string } {
 // A tappable toast. With href it is a call to action and tapping opens it.
 export function Toast({ text, href, onClose }: { text: string | null; href?: string; onClose: () => void }) {
   const router = useRouter();
-  // Sits above the tab bar and the home indicator on notched phones.
+  // A short note at the top of the screen, below the notch. It floats over
+  // the page, so nothing on the page moves, and it hides itself.
   const insets = useSafeAreaInsets();
-  const y = useState(() => new Animated.Value(140))[0];
+  const y = useState(() => new Animated.Value(-140))[0];
   useEffect(() => {
-    if (text) Animated.spring(y, { toValue: 0, useNativeDriver: NATIVE, friction: 8, tension: 90 }).start();
-    else y.setValue(140);
-  }, [text, y]);
+    if (!text) {
+      y.setValue(-140);
+      return;
+    }
+    Animated.spring(y, { toValue: 0, useNativeDriver: NATIVE, friction: 8, tension: 90 }).start();
+    const t = setTimeout(onClose, href ? 5000 : 2800);
+    return () => clearTimeout(t);
+  }, [text, href, y, onClose]);
   if (!text) return null;
   const { icon, color } = href ? { icon: 'alert-circle' as IconName, color: colors.accent } : toastIcon(text);
   return (
-    <Animated.View style={[styles.toastWrap, { bottom: 92 + insets.bottom, transform: [{ translateY: y }] }]}>
+    <Animated.View style={[styles.toastWrap, { top: 8 + insets.top, transform: [{ translateY: y }] }]}>
       <Pressable
         onPress={() => {
           onClose();
@@ -559,8 +572,10 @@ export function Toast({ text, href, onClose }: { text: string | null; href?: str
         style={styles.toast}
       >
         <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: color }} />
-        <Sticker icon={icon} color={color} size={34} />
-        <Text style={{ color: colors.text, fontSize: 13.5, flex: 1, fontFamily: fonts.body, lineHeight: 19 }}>{text}</Text>
+        <Sticker icon={icon} color={color} size={28} />
+        <Text style={{ color: colors.text, fontSize: 13, flex: 1, fontFamily: fonts.medium, lineHeight: 17 }} numberOfLines={2}>
+          {text}
+        </Text>
         {href ? <Text style={{ color: colors.accent, fontFamily: fonts.semibold, fontSize: 12.5 }}>Open</Text> : <Icon name="close" size={16} color={colors.faint} />}
       </Pressable>
     </Animated.View>
@@ -590,7 +605,7 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 4, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
   pillText: { fontSize: 11.5, fontFamily: fonts.semibold },
   tabs: { borderBottomWidth: 1.5, borderColor: colors.border },
-  tab: { flex: 1, paddingVertical: 8, minHeight: 42, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent', marginBottom: -1.5 },
+  tab: { flex: 1, minWidth: 0, paddingHorizontal: 2, paddingVertical: 8, minHeight: 42, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent', marginBottom: -1.5 },
   tabText: { color: colors.muted, fontFamily: fonts.display, fontSize: 18, letterSpacing: 0.6, textTransform: 'uppercase' },
   choice: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, padding: 12, backgroundColor: colors.bgElev },
   choiceActive: { borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.08) },
@@ -598,6 +613,6 @@ const styles = StyleSheet.create({
   tileValue: { color: colors.text, fontFamily: fonts.display, fontSize: 28 },
   tileLabel: { color: colors.muted, fontFamily: fonts.medium, fontSize: 11.5 },
   nav: { flexDirection: 'row', backgroundColor: '#121a28', borderTopWidth: 1.5, borderColor: colors.border, paddingHorizontal: 6, width: '100%', maxWidth: 600, alignSelf: 'center' },
-  toastWrap: { position: 'absolute', left: space.lg, right: space.lg, bottom: 92, alignItems: 'center' },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%', maxWidth: 560, backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, padding: 12, paddingLeft: 15, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 0, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  toastWrap: { position: 'absolute', left: space.lg, right: space.lg, top: 8, alignItems: 'center', zIndex: 50 },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', maxWidth: 560, backgroundColor: colors.cardAlt, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 10, paddingLeft: 13, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 0, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
 });

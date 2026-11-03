@@ -72,19 +72,23 @@ moments to play, not a wall of information.
   (`src/engine/play.ts`) is played out: passes, crosses and throw-ins
   (lobbed balls rise off their shadow), tackles, fouls, offsides,
   throw-ins, corners, goal kicks, shots, cards and injuries.
-  - Players are drawn from above: shoulders in the shirt, the head, arms
-    and legs that swing as they run, turned the way they face, with the
-    shirt number upright on the back. A diving keeper stretches out with
-    his arms up; a player on the floor lies flat.
-  - The ball spins as it rolls and leaves a short trail when it flies.
-    Crosses are whipped and bend, long balls drift, curlers start outside
-    the post and bend in, low shots skim the grass, driven ones swerve a
-    little. Height, bend and pace vary every time.
+  - Players are shirt-coloured dots with their numbers (keepers squarer,
+    with gloves). Human figures are only in the moment games.
+  - The ball is a football (white with black panels) in every view, and
+    spins as it rolls. Crosses are whipped and bend, long balls drift,
+    curlers start outside the post and bend in, low shots skim the grass,
+    driven ones swerve a little. Height, bend and pace vary every time.
+    Play runs at 2.6 times real time at 1x, so a match goes by quickly.
   - Goal celebrations: the scorer runs to the corner flag and does his
     celebration (knee slide, backflip, robot, shush, heart hands, ice
-    cold; the career player does the one he picked), team-mates chase him
-    and crowd round with arms up, and confetti bursts in his colours. The
-    caption then says what he did.
+    cold; the career player does the one he picked) with a jump for joy,
+    team-mates chase him and crowd round, and confetti bursts in his
+    colours. The caption then says what he did. It lasts as long in real
+    time as before the speed-up.
+  - In the moment games (shot, passes, saves, blocks, headers, dribbles)
+    the players are drawn as people: keeper in a ready crouch who dives
+    full stretch, defenders who spread their arms to cover the goal they
+    hide, a four-man wall that jumps.
 - **The laws on the pitch** (checked frame by frame in
   `__tests__/ui/rules.test.ts`):
   - kick-off: each side in its own half, the other side outside the
@@ -121,8 +125,11 @@ moments to play, not a wall of information.
     goes past his dive;
   - an aimed shot goes to the same side on the pitch as in the shot game;
   - a picked pass goes to the team-mate picked.
-- **Key moments** pop up over the match while the pitch plays on in slow
-  motion:
+- **Key moments** open on the main screen, never in a pop-up: the pitch
+  and the action buttons form one block whose size never changes; a
+  moment's game covers the pitch there, and the pass picker, the skip
+  choices and the leave check cover the buttons under it. Nothing pushes
+  the page. Moments:
   - a choice: shoot, pass or take him on;
   - shots from the box or from distance, with the defenders the pitch
     has in the way drawn in front of goal (up to three, nearest first), or
@@ -153,6 +160,12 @@ moments to play, not a wall of information.
   - defending duels: read the pass (pick the lane from the passer's body
     shape; win it and you pick the counter pass), block a shot (slide as
     the ring closes) and head a cross clear (jump as the ball drops).
+  - stats set the time you get in every game: vision (reading a pass),
+    defending (blocks and tackles), height and strength (clearances),
+    goalkeeping (saves), dribbling (dribbles), passing and vision (through
+    balls and crosses). A weak player gets about a third of the window a
+    top one gets. Even a well-timed through ball or cross can be cut out
+    by a stretching defender.
   - a defending mistake (failing the timing and losing the duel) is
     punished: the man you lost gets a much better chance (clean through,
     a clear sight of goal, free in the box), and the user's rating drops
@@ -170,18 +183,23 @@ moments to play, not a wall of information.
   1. Aim: a marker slides across the goal. In open play a defender closes
      in (a timer under the goal), and the keeper comes off his line the
      longer you wait, so his reach grows.
-  2. Power: a fast bar with four bands, LOW, MID, HIGH and TOO HIGH. Where
-     you tap sets the power; at the top it shoots itself, over the bar.
-     The bar speeds up as it fills, so it crawls through LOW and whips
-     through the narrow HIGH band. Better shooting gives a slightly slower
-     bar.
+  2. Power: a fast bar with four bands, LOW (38%), MID (22%), HIGH (16%)
+     and TOO HIGH: each good band is narrower than the one before, so they
+     are easy to miss. Where you tap sets the power; at the top it shoots
+     itself, over the bar. The bar speeds up as it fills. Shooting sets
+     how fast it fills (much slower for a good shooter); composure sets
+     how fast the aim marker moves and how long you have to aim.
      LOW is an easy save. MID is placed (less stray). HIGH is hard to save
      but strays more. TOO HIGH flies over (just into it chips the keeper
      in a one on one with the chip move). From distance a LOW or MID shot
      gives the keeper time to get across (his reach band under him widens
      as you watch); only HIGH beats him from far.
   The shot strays from the aim by composure, shooting, weak foot and
-  distance. Into a defender's body it is blocked; inside the keeper's
+  distance. From outside the box a poor shooter strays far more and the
+  keeper gets across more easily; it takes high shooting to score from
+  there (the same holds when the sim plays the shot). No shot is certain:
+  now and then the keeper gets a fingertip to one at full stretch, a good
+  keeper more often, less often in the corners. Into a defender's body it is blocked; inside the keeper's
   reach it is saved; out of reach and on target it is a goal; wide misses.
   Each defender is drawn as wide as the part of the goal he hides, so a
   man close to the shooter looks bigger and blocks more. A blocked shot
@@ -195,6 +213,8 @@ moments to play, not a wall of information.
   - Track back: he drops goal-side and presses, and gets tackle moments
     to win the ball;
   - Call for it: he comes short and a team-mate usually passes to him;
+    he is also picked as the passer for chances about three times as
+    often, and the team makes a few more chances with his support;
   - Make a run: he runs into the box (held onside by the line) and balls
     are played in behind to him there.
   A tag (RUN, CALL, BACK) shows over him while a call lasts.
@@ -234,8 +254,8 @@ contracts, board and federation confidence, sackings and job offers.
 ## Screens
 
 - Bottom bar: More, Train, Play (the big middle button), Inbox, Me.
-- Play: player strip, rewards, next match with Play inside it, this
-  week's chips.
+- Play: player strip, next match with Play inside it, this week's chips,
+  then rewards to claim (last, so claiming one moves nothing).
 - Train: every attribute first, then Training, Abilities and Moves tabs.
 - More: Life, Clubs, League, Internationals, Awards, Honours,
   Leaderboards, Settings, and a locked legends store (names only).
@@ -250,6 +270,13 @@ contracts, board and federation confidence, sackings and job offers.
   title talk, the sack question, a star's rumoured exit, the academy. The
   last six are not repeated.
 - Notifications only appear when the player must act or can upgrade.
+  Results (training, life, offers) show as a short toast at the top that
+  hides itself, so nothing on the page moves.
+- Match scoreboard: three columns; the score, clock and controls in the
+  middle, each team with its scorers in a fixed space under it (three
+  lines, then "+N more"), so a goal never grows the board.
+- Version: shown in Settings; every release is tagged in git and listed
+  in `CHANGELOG.md`.
 
 ## Accounts and hosting
 

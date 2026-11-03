@@ -4,15 +4,18 @@ import Svg, { Circle, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
+import { Football } from '../football';
 
 const BASE_WINDOW = 0.9;
 
 // Dribble: wait for the defender to commit, then go the other way.
 // Tackle: wait for the attacker to cut, then go the same way to block him.
 // Going early, or the wrong way, loses the duel.
-export function DribbleGame({ speed = 0, mode = 'dribble', onDone }: { speed?: number; mode?: 'dribble' | 'tackle'; onDone: (q: number, text: string) => void }) {
+// stat: dribbling for a dribble, defending for a tackle; it sets most of
+// the reaction time.
+export function DribbleGame({ speed = 0, stat = 60, mode = 'dribble', onDone }: { speed?: number; stat?: number; mode?: 'dribble' | 'tackle'; onDone: (q: number, text: string) => void }) {
   // Speed Burst (dribble) or Rock at the Back (tackle) gives a longer window.
-  const WINDOW = BASE_WINDOW + 0.15 * speed;
+  const WINDOW = BASE_WINDOW * (0.55 + (stat / 99) * 0.7) + 0.12 * speed;
   const tackle = mode === 'tackle';
   const [setup] = useState(() => ({ delay: 0.7 + Math.random() * 1.1, dir: Math.random() < 0.5 ? -1 : 1 }));
   const [done, setDone] = useState<string | null>(null);
@@ -57,14 +60,14 @@ export function DribbleGame({ speed = 0, mode = 'dribble', onDone }: { speed?: n
           <>
             {/* The attacker with the ball comes at you. */}
             <Circle cx={150 + move} cy={60} r={16} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
-            <Circle cx={150 + move} cy={84} r={6} fill="#ffffff" />
+            <Football cx={150 + move} cy={84} r={6.5} rot={move * 6} />
             <Circle cx={150} cy={140} r={14} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
           </>
         ) : (
           <>
             <Circle cx={150 + move} cy={70} r={16} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
             <Circle cx={150} cy={140} r={14} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
-            <Circle cx={150} cy={118} r={6} fill="#ffffff" />
+            <Football cx={150} cy={118} r={6.5} />
           </>
         )}
       </Svg>

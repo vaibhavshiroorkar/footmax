@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Game, Nation, World } from '../engine/types';
 import { FinishResult, interruptedMatch, userFixture, startUserMatch, skipSummer, skipWeek } from '../engine/game';
@@ -255,7 +255,7 @@ export function NationPicker({ world, value, onChange, includeMinor = false, all
         <TextInput
           keyboardAppearance="dark"
           selectionColor={colors.accent}
-          style={{ flex: 1, paddingVertical: 12, color: colors.text, fontFamily: fonts.medium, fontSize: 15 }}
+          style={{ flex: 1, minWidth: 0, paddingVertical: 12, color: colors.text, fontFamily: fonts.medium, fontSize: 15, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as object) : {}) }}
           placeholder={`Search ${world.nations.filter((n) => includeMinor || !n.minor).length} nations`}
           placeholderTextColor={colors.faint}
           value={q}

@@ -8,12 +8,13 @@ import { alpha, colors, fonts } from './theme';
 
 // The climb from the smallest leagues to the biggest, by how strong the
 // player's current league is (average club reputation).
-export const RUNGS: { label: string; min: number; icon: IconName; color: string }[] = [
-  { label: 'Grassroots', min: 0, icon: 'leaf', color: '#8fa3b8' },
-  { label: 'Semi-pro', min: 35, icon: 'football', color: colors.teal },
-  { label: 'Professional', min: 50, icon: 'shield-checkmark', color: colors.blue },
-  { label: 'Top flight', min: 63, icon: 'star', color: colors.purple },
-  { label: 'Elite', min: 76, icon: 'trophy', color: colors.gold },
+// short: the name under the ladder's bar, where five must fit a phone.
+export const RUNGS: { label: string; short: string; min: number; icon: IconName; color: string }[] = [
+  { label: 'Grassroots', short: 'Local', min: 0, icon: 'leaf', color: '#8fa3b8' },
+  { label: 'Semi-pro', short: 'Semi-pro', min: 35, icon: 'football', color: colors.teal },
+  { label: 'Professional', short: 'Pro', min: 50, icon: 'shield-checkmark', color: colors.blue },
+  { label: 'Top flight', short: 'Top', min: 63, icon: 'star', color: colors.purple },
+  { label: 'Elite', short: 'Elite', min: 76, icon: 'trophy', color: colors.gold },
 ];
 
 export function rungOf(strength: number): number {
@@ -55,7 +56,7 @@ export function LadderCard({ game }: { game: Game }) {
           <View key={r.label} style={{ flex: 1, gap: 4, alignItems: 'center' }}>
             <View style={{ alignSelf: 'stretch', height: 8, borderRadius: 4, backgroundColor: i <= at ? r.color : colors.bgElev, borderWidth: i === at ? 1.5 : 0, borderColor: '#ffffff' }} />
             <Text style={{ fontFamily: i === at ? fonts.bold : fonts.medium, fontSize: 10.5, color: i <= at ? colors.text : colors.faint }} numberOfLines={1}>
-              {r.label}
+              {r.short}
             </Text>
           </View>
         ))}

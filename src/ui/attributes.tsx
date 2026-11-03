@@ -60,9 +60,6 @@ export function AttrRow({ k, value, keyAttr, note, noteColor }: { k: AttrKey; va
         <Text style={{ width: 58, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 11, color: noteColor ?? colors.faint }} numberOfLines={1}>
           {note ?? ''}
         </Text>
-        <View style={{ width: 34, height: 5, borderRadius: 3, backgroundColor: colors.bgElev, overflow: 'hidden' }} accessibilityLabel={`${Math.round(next * 100)}% to the next point`}>
-          <Animated.View style={{ height: '100%', backgroundColor: colors.gold, width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
-        </View>
         <Animated.Text style={{ width: 30, textAlign: 'right', fontFamily: fonts.display, fontSize: 19, color, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }] }}>{whole}</Animated.Text>
         <Animated.View style={{ width: 30, alignItems: 'center', opacity: pop, transform: [{ translateY: pop.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.ink, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 5, overflow: 'hidden' }}>{gain ? `+${gain}` : ' '}</Text>

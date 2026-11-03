@@ -4,6 +4,7 @@ import Svg, { Circle, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Icon, IconName, Row, T, haptic } from '../kit';
 import { alpha, colors, fonts } from '../theme';
+import { Football } from '../football';
 
 type Done = (q: number, text: string) => void;
 
@@ -107,7 +108,7 @@ export function GapDribble({ speed = 0, onDone }: { speed?: number; onDone: Done
         <Line x1={150 + spread} y1={110} x2={150} y2={60} stroke="#d94b4b" strokeWidth={9} strokeLinecap="round" />
         <Circle cx={150} cy={44} r={14} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
         <Rect x={150 - spread + 6} y={104} width={Math.max(0, spread * 2 - 12)} height={8} rx={4} fill={gap > 0.6 ? colors.accent : '#ffffff22'} />
-        <Circle cx={150} cy={138} r={7} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />
+        <Football cx={150} cy={138} r={7} />
       </Field>
     </Pressable>
   );

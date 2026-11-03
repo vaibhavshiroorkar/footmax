@@ -4,6 +4,7 @@ import Svg, { Circle, Ellipse, Line, Path, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { T } from '../kit';
 import { colors } from '../theme';
+import { Football } from '../football';
 
 const W = 300;
 const H = 160;
@@ -65,7 +66,7 @@ export function HeaderGame({ air, from = 'cross', onDone }: { air: number; from?
             <Ellipse cx={W * HEAD_X} cy={H - 14} rx={14} ry={4} fill="#00000044" />
             <Rect x={W * HEAD_X - 8} y={H * 0.62 + 10 - leap} width={16} height={34} rx={6} fill={colors.gold} />
             <Circle cx={W * HEAD_X} cy={H * 0.62 - leap} r={10} fill="#f0c8a0" stroke={colors.gold} strokeWidth={2} />
-            <Circle cx={Math.min(W + 10, bx)} cy={Math.min(H - 6, by)} r={7} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />
+            <Football cx={Math.min(W + 10, bx)} cy={Math.min(H - 6, by)} r={7} rot={(bx + by) * 7} />
           </Svg>
         </View>
       </Pressable>

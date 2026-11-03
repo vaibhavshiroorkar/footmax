@@ -357,7 +357,7 @@ function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Pl
   // The user's player is on the end of a few more chances anyway, so key
   // moments come along steadily.
   const zone = zoneOf(world, s);
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 1.8 : shoutActive(s, 'call') ? 1.4 : 1));
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 1.8 : shoutActive(s, 'call') ? 1.5 : 1));
   return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 2 * boost(p)));
 }
 
@@ -366,7 +366,7 @@ function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, sh
   const ps = players(world, side.onPitch).filter((p) => p.id !== shooter.id);
   if (!ps.length) return undefined;
   const zone = zoneOf(world, s);
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_ASSIST[zone] * (shoutActive(s, 'call') ? 1.8 : 1));
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_ASSIST[zone] * (shoutActive(s, 'call') ? 3 : 1));
   return rng.weighted(ps, ps.map((p) => ASSIST_WEIGHT[p.position] * (p.attrs.passing / 50) ** 2 * boost(p)));
 }
 
@@ -943,7 +943,8 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     // Tuned so a skipped moment converts about as often as an AI shot from
     // a player of the same quality; playing the mini-game well beats that.
     case 'shot':
-      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher'), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
+      // From distance it takes a real shooter.
+      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher') - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
     case 'header': {
       // Height and strength win the ball in the air.
@@ -1315,7 +1316,7 @@ export function stepMinute(world: World, s: MatchState): void {
   // A run or a call adds a little threat; tracking back takes a little away
   // from the other side.
   const focusSide = s.focus.playerId ? (s.home.onPitch.includes(s.focus.playerId) ? 'home' : s.away.onPitch.includes(s.focus.playerId) ? 'away' : null) : null;
-  const shoutMod = !focusSide ? 1 : attKey === focusSide ? (shoutActive(s, 'run') || shoutActive(s, 'call') ? 1.08 : 1) : shoutActive(s, 'track') ? 0.93 : 1;
+  const shoutMod = !focusSide ? 1 : attKey === focusSide ? (shoutActive(s, 'call') ? 1.12 : shoutActive(s, 'run') ? 1.08 : 1) : shoutActive(s, 'track') ? 0.93 : 1;
   const chanceP =
     (1 - 0.02 * walls) *
     shoutMod *

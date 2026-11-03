@@ -1,0 +1,31 @@
+# Changelog
+
+The version shows in Settings. Each release is a git tag (`v1.1.0`).
+
+## 1.1.0
+
+- Shooting: pick Driven, Curl or Low on every shot; a Pass button to
+  play it to a mate instead; the shot starts from where you stand. The
+  power bar is faster, MID and HIGH are narrower, and long shots need
+  real shooting. Defenders the pitch has in the way are drawn in front of
+  goal and block for real; the occasional full-stretch save.
+- Passing: through balls and crosses open a short scene; a ball played
+  well makes a bigger chance; assists pay more.
+- Defending: a mistimed duel is punished with a better chance for them.
+- Stats set the time you get in every moment game.
+- The feed says exactly what the pitch shows: where each shot went, over
+  or wide, blocked, tipped, and who cut out a pass.
+- Moments open on the main screen in the pitch's place; the pass picker,
+  skip choices and leave check sit under the pitch. Toasts at the top.
+  Scoreboard with the clock and controls in the middle.
+- Footballs everywhere, people in the moment games, goal celebrations
+  with confetti; play at 1x is faster.
+- Bench: skip to when you come on. Calls ordered Track back, Call for
+  it, Make a run; Call for it gets you on the ball far more.
+- Inbox: Important tab and varied media events. Rewards sit below the
+  week's chips. Fixed: league table names, award tabs, search box focus
+  outline, stray separators, wrapping labels.
+
+## 1.0.0
+
+- The game as it stood on 3 November 2026.

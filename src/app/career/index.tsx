@@ -31,7 +31,6 @@ export default function CareerHub() {
   return (
     <Screen title="FootMax" back={false} right={menu} nav="career">
       <PlayerStrip game={game} />
-      <ClaimCard game={game} />
       <FirstRunTips />
       <SeasonReview game={game} />
       {!p.clubId && (
@@ -42,6 +41,8 @@ export default function CareerHub() {
       )}
       <NextMatchCard game={game} />
       <WeekChips game={game} />
+      {/* Rewards come last, so claiming one never moves the match card. */}
+      <ClaimCard game={game} />
     </Screen>
   );
 }

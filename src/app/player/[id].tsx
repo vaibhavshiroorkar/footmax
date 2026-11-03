@@ -31,7 +31,9 @@ export default function PlayerDetail() {
   const [wage, setWage] = useState('');
   const [years, setYears] = useState(0);
   const [swapId, setSwapId] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  // Results show as a toast at the top, so the buttons never move.
+  const showToast = useStore((s) => s.showToast);
+  const setResult = (t: string | null) => t && showToast(t);
   const [confirmRelease, setConfirmRelease] = useState(false);
   if (!game) return <Redirect href="/" />;
   const p = game.world.players[id ?? ''];
@@ -182,7 +184,6 @@ export default function PlayerDetail() {
             </View>
           )}
           {n && <Button label="End talks" small variant="ghost" onPress={() => mutate((g) => delete g.negotiations[p.id])} />}
-          {result && <T style={{ color: colors.gold }}>{result}</T>}
         </Card>
       )}
 

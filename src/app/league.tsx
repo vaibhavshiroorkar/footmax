@@ -51,7 +51,7 @@ export default function LeagueScreen() {
       />
       {tab === 'table' && (
         <Card style={{ paddingHorizontal: 10 }}>
-          <Row style={{ paddingVertical: 4 }}>
+          <Row gap={0} style={{ paddingVertical: 4 }}>
             <T muted style={{ width: 24, fontSize: 12 }}>#</T>
             <T muted style={{ flex: 1, fontSize: 12 }}>Club</T>
             {['P', 'W', 'D', 'L', 'GD', 'Pts'].map((h) => (
@@ -67,9 +67,9 @@ export default function LeagueScreen() {
             // Zones also get a word, so they do not rely on colour alone.
             const tag = i === 0 ? 'C' : i >= table.length - down ? 'R' : i < up ? 'P' : '';
             return (
-              <Row key={r.clubId} style={{ paddingVertical: 5, backgroundColor: mine ? alpha(colors.accent, 0.1) : undefined, borderRadius: 6 }} accessibilityLabel={`${i + 1}. ${c.name}${tag === 'C' ? ', leaders' : tag === 'P' ? ', promotion place' : tag === 'R' ? ', relegation place' : ''}`}>
+              <Row key={r.clubId} gap={0} style={{ paddingVertical: 5, backgroundColor: mine ? alpha(colors.accent, 0.1) : undefined, borderRadius: 6 }} accessibilityLabel={`${i + 1}. ${c.name}${tag === 'C' ? ', leaders' : tag === 'P' ? ', promotion place' : tag === 'R' ? ', relegation place' : ''}`}>
                 <T style={{ width: 24, fontSize: 13, color: zone ?? colors.text }}>{i + 1}</T>
-                <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: colors.text, fontFamily: mine ? fonts.bold : fonts.body }}>
+                <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, paddingRight: 4, fontSize: 13, color: colors.text, fontFamily: mine ? fonts.bold : fonts.body }}>
                   {c.name}
                   {tag ? <Text style={{ color: zone, fontFamily: fonts.semibold, fontSize: 11 }}>{`  ${tag}`}</Text> : null}
                 </Text>

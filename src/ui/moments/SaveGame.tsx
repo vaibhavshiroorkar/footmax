@@ -5,6 +5,7 @@ import { useTicker } from './useTicker';
 import { KeeperFigure } from './Keeper';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
+import { Football } from '../football';
 
 const BASE_WINDOW = 0.75;
 type Dir = -1 | 0 | 1;
@@ -13,8 +14,9 @@ const LABEL: Record<Dir, string> = { [-1]: 'LEFT', 0: 'DOWN THE MIDDLE', 1: 'RIG
 // The striker winds up and the ball flies late. Dive the right way fast.
 // Guessing early is allowed: a right guess is a decent save, a wrong one
 // leaves the goal open.
-export function SaveGame({ reflex = 0, onDone }: { reflex?: number; onDone: (q: number, text: string) => void }) {
-  const WINDOW = BASE_WINDOW + 0.12 * reflex;
+// keeping: his goalkeeping, which sets most of the time he has to react.
+export function SaveGame({ reflex = 0, keeping = 60, onDone }: { reflex?: number; keeping?: number; onDone: (q: number, text: string) => void }) {
+  const WINDOW = BASE_WINDOW * (0.55 + (keeping / 99) * 0.75) + 0.1 * reflex;
   const [setup] = useState(() => ({ delay: 0.8 + Math.random() * 1.0, dir: ([-1, 0, 1] as Dir[])[Math.floor(Math.random() * 3)] }));
   const [done, setDone] = useState<string | null>(null);
   const [dived, setDived] = useState<Dir | null>(null);
@@ -58,7 +60,7 @@ export function SaveGame({ reflex = 0, onDone }: { reflex?: number; onDone: (q: 
         <Line x1={0} y1={90} x2={300} y2={90} stroke={colors.pitchLine} strokeWidth={2} />
         <KeeperFigure x={keeperX} ground={90} h={56} dive={(dived ?? 0) * 0.85} kit={colors.gold} />
         {!struck && <Circle cx={150} cy={165} r={12} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />}
-        <Circle cx={ballX} cy={ballY} r={7} fill="#ffffff" />
+        <Football cx={ballX} cy={ballY} r={7.5} rot={(ballX + ballY) * 7} />
       </Svg>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (struck ? `He goes ${LABEL[setup.dir]}!` : 'He steps up... read his body shape.')}

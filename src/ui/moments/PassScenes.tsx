@@ -5,6 +5,7 @@ import { useTicker } from './useTicker';
 import { T } from '../kit';
 import { colors } from '../theme';
 import { PassOutcome } from '../../engine/match';
+import { Football } from '../football';
 
 // Scenes for the big passes, top-down with the attack going up the screen.
 // The user's team is in lime, the defenders in red. Each scene reports a
@@ -56,7 +57,7 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
   const t = useTicker(true);
   const { done, finish } = useFinish(onDone);
   // How close to the line (in px) a release still beats the defender.
-  const gapOk = (14 + ((passing + vision) / 198) * 14) * (1 + window);
+  const gapOk = (6 + ((passing + vision) / 198) * 26) * (1 + window);
   const lineY = (tt: number) => 74 + (tt > setup.stepAt ? lerp(0, 12, (tt - setup.stepAt) / 0.3) : 0);
   const runnerY = (tt: number) => (tt < setup.burst ? 108 + Math.sin(tt * 8) * 1.5 : 108 - setup.speed * (tt - setup.burst));
   const runnerX = (tt: number) => setup.rx + Math.sin(tt * 2) * 6;
@@ -67,6 +68,8 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
     if (gap < -2) return finish(0.05, 'offside', 'Flag up. You held it too long.', t);
     if (gap > gapOk) return finish(0.1, 'cut', 'Too early. The defender reads it.', t);
     const q = Math.max(0.4, 1 - (Math.max(0, gap) / gapOk) * 0.6);
+    // Never a sure thing: even a good ball can meet an outstretched leg.
+    if (Math.random() > Math.min(0.92, 0.55 + 0.3 * q + (passing - 60) / 200)) return finish(0.2, 'cut', 'Good ball, but a defender stretches and gets a toe to it.', t);
     finish(q, 'ok', q > 0.8 ? 'Perfect. Right into his stride!' : 'Through! He is in.', t);
   };
   // Waited far too long: he is miles offside.
@@ -99,7 +102,7 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
         {!done && <Path d={`M ${rx} ${ry - 10} L ${rx} ${ry - 34}`} stroke={colors.accent} strokeWidth={2} strokeDasharray="3 4" opacity={0.7} />}
         <Circle cx={rx} cy={ry} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} />
         <Circle cx={150} cy={170} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} opacity={0.85} />
-        <Circle cx={ballX} cy={ballY} r={4.5} fill="#ffffff" stroke="#111111" strokeWidth={1.2} />
+        <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
         {done?.outcome === 'offside' && <Rect x={W - 26} y={ly - 22} width={14} height={10} fill="#facc15" />}
       </Turf>
       <T bold style={{ textAlign: 'center', marginTop: 8 }}>
@@ -125,7 +128,7 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
   const t = useTicker(true);
   const { done, finish } = useFinish(onDone);
   const FLY = 0.65;
-  const reach = (13 + (crossing / 99) * 7) * (1 + window);
+  const reach = (8 + (crossing / 99) * 16) * (1 + window);
   const goalY = 44;
   const striker = (tt: number) => {
     const aimX = tt < setup.switchAt ? setup.first : setup.final;
@@ -150,6 +153,7 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
     const dd = Math.hypot(d.x - spot.x, d.y - spot.y);
     if (ds <= reach && ds <= dd + 4) {
       const q = Math.max(0.4, 1 - (ds / reach) * 0.6);
+      if (Math.random() > Math.min(0.9, 0.5 + 0.3 * q + (crossing - 60) / 200)) return finish(0.15, 'cut', 'Good cross, but the defender gets a head to it first.', t);
       return finish(q, 'ok', q > 0.8 ? 'On a plate. He meets it!' : 'He gets on the end of it!', t);
     }
     if (dd <= reach) return finish(0.1, 'cut', 'The defender heads it clear.', t);
@@ -179,7 +183,7 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
         <Circle cx={d.x} cy={d.y} r={7.5} fill={RED} />
         <Circle cx={s.x} cy={s.y} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} />
         <Circle cx={from.x} cy={from.y + 10} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} opacity={0.85} />
-        <Circle cx={ballX} cy={ballY} r={4.5} fill="#ffffff" stroke="#111111" strokeWidth={1.2} />
+        <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
       </Turf>
       <View style={{ marginTop: 8 }}>
         <T bold style={{ textAlign: 'center' }}>

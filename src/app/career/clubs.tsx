@@ -74,8 +74,7 @@ export default function Clubs() {
                   {c.name}
                 </Text>
                 <T muted style={{ fontSize: 12 }}>
-                  {leagueOf(game.world, clubId)?.name}  |  squad level {targetOverall(c.reputation)}
-                  {rel ? `  |  history ${rel > 0 ? '+' : ''}${rel}` : ''}
+                  {[leagueOf(game.world, clubId)?.name, `squad level ${targetOverall(c.reputation)}`, rel ? `history ${rel > 0 ? '+' : ''}${rel}` : ''].filter(Boolean).join('  |  ')}
                 </T>
               </View>
               <View style={{ alignItems: 'center' }}>

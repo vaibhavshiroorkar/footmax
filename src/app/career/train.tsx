@@ -117,7 +117,8 @@ export default function Train() {
   // While the overlay is open the cards keep the old numbers; they move
   // when it closes, so the gains land where you can see them.
   const [frozen, setFrozen] = useState<Partial<Record<AttrKey, number>> | null>(null);
-  const [last, setLast] = useState<string>('');
+  // Results show as a toast at the top, so the drill tiles never move.
+  const setLast = useStore((st) => st.showToast);
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(params.tab === 'skills' || params.tab === 'abilities' ? 'abilities' : params.tab === 'moves' ? 'moves' : 'train');
   if (!game?.career) return <Redirect href="/" />;
@@ -184,7 +185,7 @@ export default function Train() {
         <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
         <Row gap={18}>
           <View style={{ flex: 1 }}>
-            <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${sessionsLeft} session${sessionsLeft === 1 ? '' : 's'} left`} />
+            <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${sessionsLeft} left`} />
           </View>
           <View style={{ flex: 1 }}>
             <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />
@@ -205,11 +206,6 @@ export default function Train() {
       {tab === 'moves' && <MovesBody />}
       {tab === 'train' && (
         <>
-          {last ? (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.green }}>
-              {last}
-            </Text>
-          ) : null}
           {/* Drills as compact tiles, two to a row. */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {drills.map((d) => {
