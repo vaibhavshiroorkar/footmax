@@ -1,5 +1,9 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Project docs
+
+Start every session with `docs/README.md`, then `docs/ROADMAP.md`. Add each new request to the roadmap as it arrives. Update the docs in the same commit as the work, as `docs/README.md` describes, so no context is lost between sessions.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

@@ -3,6 +3,7 @@
 How the game works and why, as it stands now. Update this file whenever a
 rule, system or decision changes, so it stays the single place that
 remembers every detail. The look and layout rules live in `DESIGN.md`.
+`docs/README.md` lists every doc and when to update it.
 
 ## What it is
 
@@ -382,17 +383,14 @@ contracts, board and federation confidence, sackings and job offers.
 
 ## Planned next
 
-Asked for and not built yet, in the order they will be done:
+`docs/ROADMAP.md` holds every open request and the version it ships in. Add
+new requests there, and move a rule into this file when it is built.
 
-1. Past seasons back to 2006/07 (prime Messi and Ronaldo): the season
-   picker is built (`src/ui/seasonPicker.tsx`, `src/data/seasons/`); each
-   season unlocks when its pack lands (format in `docs/SEASON_DATA.md`,
-   checked by `npm run check-seasons`).
-2. Legends as a paid option when starting a career: play a legend's
-   whole career or just his prime season.
-
-The current work list is `docs/PLAN-2026-11-04.md`. Real players appear
-by name only, never by face.
+Past seasons and Legends resume after that list. Their progress is in
+`docs/PLAN-2026-11-04.md`: the season picker is built
+(`src/ui/seasonPicker.tsx`, `src/data/seasons/`), and each season unlocks
+when its pack lands (format in `docs/SEASON_DATA.md`, checked by
+`npm run check-seasons`). Real players appear by name only, never by face.
 
 ## Working on the code
 
@@ -414,16 +412,17 @@ by name only, never by face.
     `DribbleGame`, `DribbleMore`, `HeaderGame`, `SaveGame`,
     `DefendGames`); `useTicker.ts` is their clock.
   - `src/app/match.tsx`: the match screen; `src/app/career/`: Play
-    (`index.tsx`), Train, Me (`profile.tsx`), More, Life, Clubs.
+    (`index.tsx`), Train, Me (`profile.tsx`), Life, Clubs.
   - `src/data/`: nations, leagues and real squads.
 - **Checks before every push:** `npm run typecheck`, `npm run lint`,
   `npm test`. The tests include whole matches played through the pitch:
   goals shown exactly once, keepers on the ball for saves, aim sides, the
   laws (`__tests__/ui/rules.test.ts`) and the zone mix
   (`__tests__/engine/zones.test.ts`).
-- **Looking at it in a browser:** `npx expo export -p web` builds `dist`;
-  serve it and drive it with headless Chrome. Always start Chrome with
-  `--mute-audio`.
+- **Looking at it in a browser:** `npx expo export --platform web --dev`
+  builds it and keeps the `window.__footmax` store hook; serve the output
+  and drive it with headless Chrome. The dev server here stops seeing
+  edits, so do not rely on it. Always start Chrome with `--mute-audio`.
 - **Shipping:** commit and push to `main`; Vercel deploys
   footmax.vercel.app. The user wants every change pushed so they can see
-  it live, and this file kept up to date with every rule and decision.
+  it live, and the docs updated in the same commit (`docs/README.md`).
