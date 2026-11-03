@@ -23,13 +23,14 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
 // The power bar's bands, as shares of the bar: low up to LOW, mid up to
 // MID, high up to HIGH, then too high (over the bar).
 const LOW = 0.34;
-const MID = 0.62;
-const HIGH = 0.86;
+const MID = 0.64;
+const HIGH = 0.85;
 // Half the width of goal a blocking defender covers.
 const BLOCK_HALF = 0.055;
 const FLIGHT = 0.6;
-// Seconds for the power bar to fill. Fast: where you tap sets the power.
-const RISE = 0.9;
+// The power bar speeds up as it fills (power = time share ^ EASE), so it
+// crawls through LOW and whips through HIGH. Hitting HIGH takes a sharp tap.
+const EASE = 1.5;
 
 // Two taps: the first stops the aim marker, the second the power bar. Then
 // the ball flies and what you see is what counts: out of the keeper's reach
@@ -85,7 +86,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const aimX = phase === 'aim' ? 0.5 + 0.62 * Math.sin(t * speed + setup.offset) : aim;
   // Power climbs fast once the aim is set; wait too long and he shoots at
   // full power, which flies over the bar.
-  const power = phase === 'power' ? Math.min(1, t / RISE) : shot?.power ?? 0;
+  // Seconds for the bar to fill: a good finisher gets a touch more time.
+  const RISE = 0.78 + (shooting / 99) * 0.2;
+  const power = phase === 'power' ? Math.min(1, t / RISE) ** EASE : shot?.power ?? 0;
   // In open play a defender closes in while you pick a spot.
   const aimLimit = kind === 'shot' ? 2.2 + (composure / 99) * 1.2 : Infinity;
 

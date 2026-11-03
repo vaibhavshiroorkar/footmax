@@ -126,6 +126,9 @@ moments to play, not a wall of information.
      longer you wait, so his reach grows.
   2. Power: a fast bar with four bands, LOW, MID, HIGH and TOO HIGH. Where
      you tap sets the power; at the top it shoots itself, over the bar.
+     The bar speeds up as it fills, so it crawls through LOW and whips
+     through the narrow HIGH band. Better shooting gives a slightly slower
+     bar.
      LOW is an easy save. MID is placed (less stray). HIGH is hard to save
      but strays more. TOO HIGH flies over (just into it chips the keeper
      in a one on one with the chip move). From distance a LOW or MID shot
