@@ -217,7 +217,7 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const team = game.world.clubs[myTeamId] ?? game.world.nationalTeams[myTeamId] ?? homeTeam;
   const stage = 0.6 + team.reputation / 100 + (team.national ? 0.5 : 0);
   const fameBefore = c.fame;
-  gainFame(c, stage * (0.2 + goals * 0.5 + assists * 0.3 + Math.max(0, rating - 7) * 0.5 + (result === 'W' ? 0.15 : 0)));
+  gainFame(c, stage * (0.2 + goals * 0.5 + assists * 0.4 + Math.max(0, rating - 7) * 0.5 + (result === 'W' ? 0.15 : 0)));
   // A win bonus, so winning pays as well as feeling good.
   const bonus = result === 'W' && !team.national ? Math.max(250, Math.round((p.wage * 0.5) / 50) * 50) : 0;
   c.money += bonus;
@@ -225,7 +225,7 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const w = weightsFor(p);
   const young = p.age <= 19 ? 1 : p.age <= 23 ? 0.5 : 0.2;
   for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.04 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
-  const xp = Math.round(20 + goals * 15 + assists * 10 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
+  const xp = Math.round(20 + goals * 15 + assists * 14 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
   const levelBefore = c.level;
   const xpBefore = c.xp;
   const lvl = addXp(game, xp);

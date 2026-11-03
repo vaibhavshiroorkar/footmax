@@ -115,6 +115,18 @@ moments to play, not a wall of information.
     dangerous, with a Shoot button too; a safe ball arrives about 85% of
     the time, a through ball about 65%, better passers more; a safe pass
     can come back as a one-two;
+  - pass scenes: picking a through ball or a cross opens a short scene.
+    Through ball: the runner bursts at the defensive line, which may step
+    up; release just before he crosses it (late is offside, early is cut
+    out). Cross: the striker attacks the near or far post and may switch
+    late; a marker sweeps the box and the ball takes a moment to land, so
+    aim where he will be. Better passing (and vision for through balls)
+    widens the window, and Playmaker widens it more. A ball played well
+    is a bigger chance (up to 1.4 times the danger); the pitch shows the
+    same thing (a through ball runs him into the box, a cross is a header,
+    an offside is flagged);
+  - assists pay more: a bigger rating boost, more XP and more fame than
+    before, so a good pass can be worth as much as a shot;
   - dribbles, which use one of four games (read and go, skill combo,
     nutmeg timing, sprint) depending on the skill move picked;
   - tackles and saves;

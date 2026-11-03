@@ -27,6 +27,9 @@ export const SHOUT_MINUTES = 8;
 // No rest between calls: the user can switch call whenever he likes.
 
 export type PassKind = 'safe' | 'square' | 'through' | 'cross';
+// How a through ball or cross played in its scene went: into his path, an
+// offside flag, or cut out by a defender.
+export type PassOutcome = 'ok' | 'offside' | 'cut';
 
 export interface PassOption {
   playerId: string;
@@ -187,8 +190,9 @@ export interface MatchState {
   // Side that kicks off next, after a goal or at half time.
   kickoff?: SideKey;
   // The pass the last pass moment played: who it was for and whether it
-  // arrived. The pitch draws exactly that pass.
-  lastPass?: { to: string; ok: boolean };
+  // arrived. The pitch draws exactly that pass: a cross as a cross, and an
+  // offside flag when the pass scene called it.
+  lastPass?: { to: string; ok: boolean; kind?: PassKind; offside?: boolean };
   // The career player's current call, and when the next one is allowed.
   shout?: { kind: ShoutKind; until: number };
   // Career: the zone the user picked. Unset means the default for his role.
@@ -382,7 +386,7 @@ function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Play
   bump(s, shooter.id, 1.0);
   if (assister) {
     s.assists[assister.id] = (s.assists[assister.id] ?? 0) + 1;
-    bump(s, assister.id, 0.6);
+    bump(s, assister.id, 0.75);
   }
   bump(s, keeper.id, -0.3);
   for (const p of players(world, s[other(sideKey)].onPitch)) if (p.position === 'DEF') bump(s, p.id, -0.15);
@@ -686,8 +690,9 @@ export function autoQuality(rng: Rng, world: World, m: KeyMoment): number {
 // match then shows and counts exactly that.
 // aim: where the user's shot went across the goal (see PlayStep.aim), so the
 // pitch shows the ball going exactly there. blocker: the defender a missed
-// shot hit, so the pitch shows the block.
-export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', aim?: number, blocker?: string): void {
+// shot hit, so the pitch shows the block. passed: what a pass scene showed
+// (through ball or cross), which the match then counts.
+export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', aim?: number, blocker?: string, passed?: PassOutcome): void {
   let m = s.pending;
   if (!m) return;
   if (m.kind === 'choice') {
@@ -696,11 +701,11 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   }
   s.pending = null;
   const from = s.events.length;
-  resolveMomentInner(world, s, m, quality, chosenPlayerId, moveId, forced);
+  resolveMomentInner(world, s, m, quality, chosenPlayerId, moveId, forced, passed);
   visualizeMoment(world, s, m, from, aim, forced === 'miss' ? blocker : undefined);
 }
 
-function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss'): void {
+function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, forced?: 'goal' | 'save' | 'miss', passed?: PassOutcome): void {
   const rng = new Rng(s.rngState);
   const played = quality !== null;
   const actor = world.players[m.actorId];
@@ -903,11 +908,13 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       // nearly always arrives; a through ball about two times in three.
       const ok =
         target &&
-        (played
+        (passed
+          ? passed === 'ok'
+          : played
           ? rng.chance(clamp(0.35 + 0.6 * q + 0.15 * ((actor.attrs.passing - 50) / 50) + 0.04 * lvl('playmaker'), 0.1, 0.96))
           : rng.chance(clamp(0.25 + 0.65 * q * (target.openness ?? 0.5) * skill(actor.attrs.passing) + 0.04 * lvl('playmaker'), 0.05, 0.95)));
       const focused = actor.id === s.focus.playerId;
-      if (target) s.lastPass = { to: target.playerId, ok: !!ok };
+      if (target) s.lastPass = { to: target.playerId, ok: !!ok, kind: target.kind, offside: passed === 'offside' || undefined };
       if (ok && target && target.kind === 'safe' && focused && !m.deep && (m.chain ?? 0) < 2) {
         // A one-two: the ball comes back and the user goes again, a little
         // further forward.
@@ -916,20 +923,24 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         push(s, s.minute, m.side, 'info', `${shortName(actor)} plays a one-two with ${shortName(mate)}.`, actor.id, played);
         s.pending = { ...m, kind: 'choice', choices: ['shot', 'dribble', 'pass'], options: undefined, assistId: mate.id, bonus: m.bonus + 0.04, chain: (m.chain ?? 0) + 1 };
       } else if (ok && target) {
-        bump(s, actor.id, 0.15);
+        // A ball played well in its scene is a big chance: up to 1.4 times
+        // the danger. A poor one, still arriving, is worth less.
+        const threat = (target.threat ?? 0.12) * (passed ? 0.6 + 0.8 * q : 1);
+        bump(s, actor.id, passed && q > 0.7 ? 0.25 : 0.15);
         const receiver = world.players[target.playerId];
         if (m.deep && !rng.chance(0.3 + 1.5 * (target.threat ?? 0.12))) {
           // From deep, a good ball keeps the move going; a chance is not
           // guaranteed.
           push(s, s.minute, m.side, 'info', `${shortName(actor)} finds ${shortName(receiver)} and the move goes on.`, actor.id, played);
         } else {
-          autoShot(rng, world, s, m.side, receiver, actor, target.threat ?? 0.12 + 0.15 * target.openness);
+          autoShot(rng, world, s, m.side, receiver, actor, passed ? threat : target.threat ?? 0.12 + 0.15 * target.openness);
           const last = s.events[s.events.length - 1];
           if (last) last.played = played;
         }
       } else {
         bump(s, actor.id, -0.1);
-        push(s, s.minute, m.side, 'info', line(rng, 'passFail', { p: shortName(actor) }), actor.id, played);
+        if (passed === 'offside' && target) push(s, s.minute, m.side, 'info', `Flag up. ${shortName(world.players[target.playerId])} is offside.`, actor.id, played);
+        else push(s, s.minute, m.side, 'info', line(rng, 'passFail', { p: shortName(actor) }), actor.id, played);
       }
       s.rngState = rng.state;
       break;
@@ -1124,7 +1135,9 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
   } else if (pass) {
     // The ball goes to the team-mate the user picked, whatever happens next.
     const at = mateSpot(pass.to);
-    if (!pass.ok) {
+    if (pass.offside) {
+      steps.push({ x: at.x, y: at.y, carrier: null, side: defKey, act: 'offside', other: pass.to, restart: 'freekick' });
+    } else if (!pass.ok) {
       // Cut out on its way to him.
       const winner = defenders.length ? rng.pick(defenders) : null;
       steps.push({ x: (start.x + at.x) / 2, y: (start.y + at.y) / 2, carrier: winner, side: defKey, act: 'win', other: holder });
@@ -1135,9 +1148,12 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
       steps.push({ ...back, carrier: m.actorId, side: attKey, act: 'pass' });
       steps.push({ ...back, carrier: m.actorId, side: attKey, act: 'moment' });
     } else {
-      const box = m.setPiece ? toPitch(attKey, { depth: 0.9, lat: clamp(0.5 + rng.range(-0.12, 0.12), 0.3, 0.7) }) : at;
-      steps.push({ ...box, carrier: pass.to, side: attKey, act: m.setPiece ? 'cross' : 'pass', header: m.setPiece || undefined });
-      if (result && lastShot?.playerId) addFinish(steps, rng, attKey, lastShot.playerId, result, playSide(world, s, defKey).keeperId, !!m.setPiece);
+      // A cross lands in the box for a header; a through ball runs him in
+      // behind, into the box.
+      const cross = !!m.setPiece || pass.kind === 'cross';
+      const box = cross ? toPitch(attKey, { depth: 0.9, lat: clamp(0.5 + rng.range(-0.12, 0.12), 0.3, 0.7) }) : pass.kind === 'through' ? toPitch(attKey, { depth: 0.86, lat: clamp(0.5 + rng.range(-0.15, 0.15), 0.25, 0.75) }) : at;
+      steps.push({ ...box, carrier: pass.to, side: attKey, act: cross ? 'cross' : 'pass', header: cross || undefined });
+      if (result && lastShot?.playerId) addFinish(steps, rng, attKey, lastShot.playerId, result, playSide(world, s, defKey).keeperId, cross);
     }
   } else if (s.pending) {
     // A beaten man: the run goes on and the user gets the shot.

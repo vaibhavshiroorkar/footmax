@@ -3,7 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useTicker } from './useTicker';
 import { T } from '../kit';
 import { alpha, colors, fonts } from '../theme';
-import { PassKind, PassOption } from '../../engine/match';
+import { PassKind, PassOption, PassOutcome } from '../../engine/match';
+import { CrossScene, ThroughBallScene } from './PassScenes';
 
 const BASE_LIMIT = 5;
 
@@ -29,16 +30,25 @@ function Bars({ value, color }: { value: number; color: string }) {
 // tap on a team-mate picks him (see LivePitch targets). Every option trades
 // safety against danger, and waiting lets the defence close the lanes.
 // onShoot: forget the pass and have a go yourself.
-export function PassPanel({ options, names, playmaker = 0, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; picked?: string | null; onDone: (q: number, text: string, playerId?: string) => void; onShoot?: () => void }) {
+// A through ball or a cross opens its scene (see PassScenes): how well it is
+// played there decides whether it arrives and how big the chance is.
+export function PassPanel({ options, names, playmaker = 0, passing = 60, vision = 60, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; passing?: number; vision?: number; picked?: string | null; onDone: (q: number, text: string, playerId?: string, outcome?: PassOutcome) => void; onShoot?: () => void }) {
   const LIMIT = BASE_LIMIT + 0.6 * playmaker;
   const [done, setDone] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
-  const t = useTicker(!done);
+  const [scene, setScene] = useState<{ o: PassOption; quick: number } | null>(null);
+  const t = useTicker(!done && !scene);
   const finished = useRef(false);
 
   const choose = (o: PassOption | undefined, timedOut = false) => {
     if (finished.current) return;
     finished.current = true;
+    if (o && !timedOut && (o.kind === 'through' || o.kind === 'cross')) {
+      // A quick decision keeps a little of its value into the scene.
+      setChosen(o.playerId);
+      setScene({ o, quick: 1 - Math.min(t, LIMIT) / LIMIT });
+      return;
+    }
     const q = o ? clamp(o.openness * (1 - (0.4 * Math.min(t, LIMIT)) / LIMIT) + 0.1) : 0.05;
     const text = timedOut ? 'Too slow! Closed down.' : q > 0.7 ? 'Perfectly weighted!' : q > 0.45 ? 'It might get there...' : 'Brave ball...';
     setChosen(o?.playerId ?? null);
@@ -47,12 +57,19 @@ export function PassPanel({ options, names, playmaker = 0, picked, onDone, onSho
   };
 
   // A tap on the pitch arrives here as `picked`.
+  // Deferred a tick so the state change happens outside the render pass.
   useEffect(() => {
-    if (picked && !done) choose(options.find((o) => o.playerId === picked));
+    if (picked && !done) setTimeout(() => choose(options.find((o) => o.playerId === picked)), 0);
   });
   useEffect(() => {
-    if (t >= LIMIT && !done) choose([...options].sort((a, b) => a.openness - b.openness)[0], true);
+    if (t >= LIMIT && !done) setTimeout(() => choose([...options].sort((a, b) => a.openness - b.openness)[0], true), 0);
   });
+
+  if (scene) {
+    const end = (q: number, outcome: PassOutcome, text: string) => onDone(clamp(q * (0.85 + 0.15 * scene.quick)), text, scene.o.playerId, outcome);
+    const extra = 0.08 * playmaker;
+    return scene.o.kind === 'through' ? <ThroughBallScene passing={passing} vision={vision} window={extra} onDone={end} /> : <CrossScene crossing={passing} window={extra} onDone={end} />;
+  }
 
   const left = Math.max(0, 1 - t / LIMIT);
   return (

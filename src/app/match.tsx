@@ -347,14 +347,16 @@ export default function MatchScreen() {
             options={live.pending.options ?? []}
             names={Object.fromEntries((live.pending.options ?? []).map((o) => [o.playerId, world.players[o.playerId].lastName]))}
             playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
+            passing={world.players[live.pending.actorId].attrs.passing}
+            vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
             onShoot={() => {
               setPassPick(null);
               mutateLive((m) => shootInstead(m));
             }}
-            onDone={(q, _t, id) => {
+            onDone={(q, _t, id, outcome) => {
               setPassPick(null);
-              mutateLive((m, g) => resolveMoment(g.world, m, q, id));
+              mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, undefined, undefined, undefined, outcome));
             }}
           />
         </Card>
