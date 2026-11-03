@@ -264,6 +264,26 @@ moments to play, not a wall of information.
   (`scripts/makeSounds.py`), with a setting and a button in the match to
   turn it off.
 
+## Internationals
+
+- Breaks in weeks 9, 20 and 30; summers hold the tournaments
+  (`tournamentsForSummer`): World Cups in 2010, 2014... (32 teams until
+  2022, 48 from 2026), Euros in 2008, 2012... (16 teams until 2012, 24
+  from 2016), the Copa America in odd years until 2019 and then with the
+  Euros, AFCON in even years until 2012 and odd years after, the Asian Cup
+  in 2007, 2011..., the Gold Cup in odd years, the Nations League Finals
+  in odd years from 2019.
+- **World Cup qualifying** (`src/engine/qualifying.ts`): drawn at the start
+  of the season before a World Cup (or at the first break of an old save).
+  Every nation, by confederation, in seeded groups of three or four,
+  home and away over six matchdays, two at each break. Group winners go
+  through first, then the best runners-up (by points per game), up to the
+  confederation's places; places left over go to the best of the rest.
+  The World Cup takes exactly these teams. The user's nation's results
+  and the final verdict come to the inbox; Tournaments shows its group.
+  During qualifiers caps come from the matches, not the friendlies.
+- The other tournaments pick their teams on form (team rating plus luck).
+
 ## Manager mode
 
 Run a club, a national team or both: lineups and tactics, a transfer
@@ -364,13 +384,11 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. World Cup qualifying for every nation, so even India can try to
-   qualify.
-2. Past seasons back to 2006/07 (prime Messi and Ronaldo): the season
+1. Past seasons back to 2006/07 (prime Messi and Ronaldo): the season
    picker is built (`src/ui/seasonPicker.tsx`, `src/data/seasons/`); each
    season unlocks when its pack lands (format in `docs/SEASON_DATA.md`,
    checked by `npm run check-seasons`).
-3. Legends as a paid option when starting a career: play a legend's
+2. Legends as a paid option when starting a career: play a legend's
    whole career or just his prime season.
 
 The current work list is `docs/PLAN-2026-11-04.md`. Real players appear

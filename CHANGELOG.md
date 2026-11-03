@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.10.0
+
+- World Cup qualifying for every nation: in the season before a World
+  Cup, each confederation plays seeded groups of three or four, home and
+  away, two matchdays at each international break. Group winners and the
+  best runners-up fill the places, so even India can qualify. Your
+  nation's group is on Tournaments and results come to the inbox.
+- Tournaments follow their era: 32-team World Cups and 16-team Euros
+  before 2026 and 2016, and the real calendar for the Copa America,
+  AFCON, the Asian Cup and the Nations League.
+
 ## 1.9.0
 
 - Life replaces More on the bottom bar, laid out as a store: This week,

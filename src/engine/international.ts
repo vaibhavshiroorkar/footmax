@@ -11,7 +11,7 @@ export const SQUAD_SIZE = 26;
 // players get a call-up message.
 export const INTERNATIONAL_BREAKS = [9, 20, 30];
 
-interface TournamentDef {
+export interface TournamentDef {
   key: string;
   name: string;
   quotas: Partial<Record<Confederation, number>>;
@@ -20,19 +20,37 @@ interface TournamentDef {
 }
 
 const WORLD_CUP: TournamentDef = { key: 'wc', name: 'World Cup', quotas: { UEFA: 16, CONMEBOL: 6, CONCACAF: 6, CAF: 9, AFC: 8, OFC: 1 }, groups: 12, bestThirds: 8 };
+// 32 teams up to 2022.
+const WORLD_CUP_32: TournamentDef = { key: 'wc', name: 'World Cup', quotas: { UEFA: 13, CONMEBOL: 5, CONCACAF: 4, CAF: 5, AFC: 4, OFC: 1 }, groups: 8, bestThirds: 0 };
 const EURO: TournamentDef = { key: 'euro', name: 'European Championship', quotas: { UEFA: 24 }, groups: 6, bestThirds: 4 };
+// 16 teams up to 2012.
+const EURO_16: TournamentDef = { key: 'euro', name: 'European Championship', quotas: { UEFA: 16 }, groups: 4, bestThirds: 0 };
 const COPA: TournamentDef = { key: 'copa', name: 'Copa America', quotas: { CONMEBOL: 10, CONCACAF: 2 }, groups: 3, bestThirds: 2 };
 const AFCON: TournamentDef = { key: 'afcon', name: 'Africa Cup of Nations', quotas: { CAF: 12 }, groups: 3, bestThirds: 2 };
 const ASIAN: TournamentDef = { key: 'asian', name: 'Asian Cup', quotas: { AFC: 8 }, groups: 2, bestThirds: 0 };
 const GOLD: TournamentDef = { key: 'gold', name: 'Gold Cup', quotas: { CONCACAF: 7, AFC: 1 }, groups: 2, bestThirds: 0 };
 const NATIONS_LEAGUE: TournamentDef = { key: 'unl', name: 'Nations League Finals', quotas: { UEFA: 4 }, groups: 0, bestThirds: 0 };
 
-// The summer after a season: World Cup in 2030, 2034...; Euros and Copa
-// in 2028, 2032...; the smaller cups in odd years.
+export function worldCupDef(year: number): TournamentDef {
+  return year >= 2026 ? WORLD_CUP : WORLD_CUP_32;
+}
+
+// The summer after a season. World Cups in 2010, 2014... (48 teams from
+// 2026), Euros in 2008, 2012... (24 teams from 2016). The smaller cups
+// follow their real calendars: AFCON in even years until 2012, then odd
+// years; the Copa America in odd years until 2019, then with the Euros; the
+// Nations League Finals from 2019; the Asian Cup in 2007, 2011, 2015...
 export function tournamentsForSummer(year: number): TournamentDef[] {
-  if (year % 4 === 2) return [WORLD_CUP];
-  if (year % 4 === 0) return [EURO, COPA];
-  return [AFCON, ASIAN, GOLD, NATIONS_LEAGUE];
+  const out: TournamentDef[] = [];
+  if (year % 4 === 2) out.push(worldCupDef(year));
+  if (year % 4 === 0) out.push(year >= 2016 ? EURO : EURO_16);
+  if (year % 4 === 0 && year >= 2016) out.push(COPA);
+  if (year % 2 === 1 && year <= 2019) out.push(COPA);
+  if ((year % 2 === 0 && year <= 2012) || (year % 2 === 1 && year >= 2013)) out.push(AFCON);
+  if (year % 4 === 3) out.push(ASIAN);
+  if (year % 2 === 1) out.push(GOLD);
+  if (year % 2 === 1 && year >= 2019) out.push(NATIONS_LEAGUE);
+  return out;
 }
 
 export function nationOfTeam(world: World, teamId: string): Nation | undefined {
@@ -117,7 +135,9 @@ export function startTournaments(game: Game): Tournament[] {
   const out: Tournament[] = [];
   const taken = new Set<string>();
   for (const def of tournamentsForSummer(year)) {
-    const teams = qualify(world, rng, def, taken);
+    // The World Cup takes the teams that came through qualifying.
+    const q = world.qualifying;
+    const teams = def.key === 'wc' && q?.year === year && q.qualified ? q.qualified.slice(0, def.groups * 4) : qualify(world, rng, def, taken);
     teams.forEach((id) => taken.add(id));
     const t: Tournament = {
       id: `${def.key}${year}`,
@@ -236,10 +256,12 @@ export function tournamentFixtureFor(world: World, teamId: string): Fixture | un
   return undefined;
 }
 
-// International break: everyone in a squad gets a cap or two.
-export function internationalBreak(game: Game, rng: Rng): void {
+// International break: everyone in a squad gets a cap or two from the
+// friendlies. With qualifiers on, caps come from those matches instead.
+export function internationalBreak(game: Game, rng: Rng, friendlies = true): void {
   const world = game.world;
   refreshNationalSquads(game);
+  if (!friendlies) return;
   for (const nation of majorNations(world)) {
     const team = world.nationalTeams[nation.teamId];
     const starters = [...team.playerIds].sort((a, b) => matchRating(world.players[b]) - matchRating(world.players[a])).slice(0, 15);

@@ -10,6 +10,7 @@ import { MAX_SQUAD, MIN_SQUAD, inTransferWindow, movePlayer, returnLoans, runAiT
 import { careerPlayer } from './career';
 import { managerSeasonReview, managerWeekly, nationReview } from './manager';
 import { squad } from './lineup';
+import { playQualifyingBreak, qualifyingLive, startQualifying } from './qualifying';
 import { INTERNATIONAL_BREAKS, advanceTournaments, internationalBreak, startTournaments, tournamentsDone } from './international';
 import { callUpMessage, careerOffers, managerOffers, ownClubRenewal } from './offers';
 import { autoSkills } from './skills';
@@ -65,7 +66,11 @@ export function advanceWeek(game: Game): WeekResult {
   weeklyRecovery(game);
 
   if (INTERNATIONAL_BREAKS.includes(world.week)) {
-    internationalBreak(game, rng);
+    // Old saves and new games get their draw at the first break.
+    startQualifying(world, rng);
+    const qualifiers = qualifyingLive(world);
+    internationalBreak(game, rng, !qualifiers);
+    if (qualifiers) playQualifyingBreak(game, rng);
     if (game.career && !game.career.retired) {
       const p = careerPlayer(game);
       const team = world.nationalTeams[nationById(world, p.nationId)?.teamId ?? ''];
@@ -349,6 +354,7 @@ function rollover(game: Game, rng: Rng) {
   world.week = 1;
   world.phase = 'season';
   world.tournaments = [];
+  startQualifying(world, rng);
   for (const league of world.leagues) {
     for (const id of league.clubIds) fillSquad(world, rng, world.clubs[id], MIN_SQUAD + 2);
     league.fixtures = makeFixtures(league.clubIds, rng, () => newId(world, 'f'), world.seasonWeeks);

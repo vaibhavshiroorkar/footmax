@@ -174,6 +174,23 @@ export interface Tournament {
   done: boolean;
 }
 
+export interface QualifyingGroup {
+  conf: Confederation;
+  teamIds: string[];
+}
+
+export interface Qualifying {
+  // The World Cup it is for.
+  year: number;
+  groups: QualifyingGroup[];
+  // week is the matchday, 1 to rounds.
+  fixtures: Fixture[];
+  round: number;
+  rounds: number;
+  // Set once the last matchday is played.
+  qualified?: string[];
+}
+
 // Names are copied in so honours survive players retiring and being deleted.
 export interface Honour {
   season: number;
@@ -204,6 +221,9 @@ export interface World {
   tournaments: Tournament[];
   // Global end-of-season awards, newest first.
   awards?: SeasonAwards[];
+  // World Cup qualifying, played at the international breaks of the season
+  // before a World Cup.
+  qualifying?: Qualifying;
 }
 
 export interface AwardEntry {
