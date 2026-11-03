@@ -97,6 +97,8 @@ const TIME = 2.6;
 // Goals keep their moment: the celebration lasts as long in real time as
 // it did when play ran at 1.8.
 const HOLD = TIME / 1.8;
+// How long a VAR check holds play, in pitch seconds.
+const VAR_HOLD = 3.4 * HOLD;
 
 export class PitchSim {
   bodies = new Map<string, Body>();
@@ -115,6 +117,8 @@ export class PitchSim {
   celebrate: { at: number; until: number; scorer: string | null; side: 'home' | 'away'; cx: number; cy: number; style: string; told?: boolean } | null = null;
   // Each player's own celebration, when he has one (the career player).
   celebrations: Record<string, string> = {};
+  // A VAR check in progress: when it started and where the monitor stands.
+  varCheck: { at: number; x: number; y: number } | null = null;
   caption = 'Teams are out. Waiting for kick off.';
   callout: Callout | null = null;
   hooks: SimHooks = {};
@@ -323,7 +327,11 @@ export class PitchSim {
     let tx: number;
     let ty: number;
     const booked = a?.act === 'card' && a.carrier ? this.bodies.get(a.carrier) : undefined;
-    if (booked) {
+    if (this.varCheck) {
+      // Over to the monitor at the touchline.
+      tx = this.varCheck.x + 1.2;
+      ty = this.varCheck.y;
+    } else if (booked) {
       tx = booked.x + 1.6;
       ty = booked.y + 0.8;
     } else if (this.layout === 'kickoff') {
@@ -468,7 +476,9 @@ export class PitchSim {
         // The keeper facing the shot decides where the ball can go, so the
         // picture always matches the result: a save goes where he can get
         // to, a goal goes beyond his dive, a miss goes wide of the posts.
-        const defSide = step.act === 'goal' ? (step.side === 'home' ? 'away' : 'home') : step.side;
+        // A goal step names the scoring side; a ruled-out one names the side
+        // that gets the free kick, which is the defending side.
+        const defSide = step.act === 'goal' && step.var !== 'overturned' ? (step.side === 'home' ? 'away' : 'home') : step.side;
         const keeper = this.active().find((b) => b.pos === 'GK' && b.side === defSide);
         const lineY = defSide === 'home' ? 0 : PL;
         const inward = defSide === 'home' ? 1 : -1;
@@ -734,6 +744,29 @@ export class PitchSim {
       case 'save':
       case 'miss': {
         if (this.ball.flight) return;
+        // VAR: hold play while the referee checks the monitor, then call it.
+        if (step.act === 'goal' && step.var && a.stage === 0) {
+          a.stage = 5;
+          this.varCheck = { at: this.clock, x: 0.8, y: PL / 2 };
+          this.callout = { text: 'VAR CHECK', sub: 'Checking the goal', tone: 'stop', until: this.clock + VAR_HOLD };
+          this.caption = 'VAR is checking the goal...';
+          this.hooks.onSound?.('whistle', 0.6);
+          this.ball.owner = null;
+          return;
+        }
+        if (a.stage === 5) {
+          if (this.clock < (this.varCheck?.at ?? 0) + VAR_HOLD) return;
+          this.varCheck = null;
+          if (step.var === 'overturned') {
+            a.stage = 1;
+            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', until: this.clock + 1.6 * HOLD };
+            this.caption = `VAR: no goal. ${step.varReason ?? ''}`;
+            this.hooks.onSound?.('whistle', 0.9);
+            return pause(1.4);
+          }
+          a.stage = 0;
+          step.var = undefined;
+        }
         if (a.stage === 0) {
           a.stage = 1;
           const shooter = this.name(a.from);

@@ -24,6 +24,9 @@ export interface ShotFacts {
   blocker?: string;
   // How the chance was made, for the assist half of the line.
   pattern?: Pattern;
+  // A goal VAR looked at: it stands, or it is ruled out (and why).
+  var?: 'stands' | 'overturned';
+  varReason?: string;
 }
 
 type Names = { p: string; a?: string; k: string; club?: string; d?: string };

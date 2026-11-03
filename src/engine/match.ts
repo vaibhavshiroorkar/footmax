@@ -389,9 +389,31 @@ function names(world: World, s: MatchState, sideKey: SideKey) {
 
 // --- Shot resolution -------------------------------------------------------
 
+// VAR looks at some goals before they count; a few are ruled out.
+const VAR_REVIEW = 0.08;
+const VAR_OVERTURN = 0.4;
+const VAR_REASONS = ['Offside in the build-up', 'A foul in the build-up', 'Handball'];
+
 function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Player, assister: Player | undefined, kind: LineKind, played: boolean, facts?: ShotFacts) {
   const side = s[sideKey];
   const keeper = keeperOf(world, s[other(sideKey)]);
+  if (s.visual && facts && kind !== 'penaltyGoal') {
+    const vr = new Rng(s.rngState);
+    const review = vr.chance(VAR_REVIEW);
+    const out = review && vr.chance(VAR_OVERTURN);
+    const reason = vr.pick(VAR_REASONS);
+    s.rngState = vr.state;
+    if (out) {
+      // In the net, but it does not count. The pitch shows the check and
+      // the decision; the event is a miss with the reason.
+      side.onTarget++;
+      bump(s, shooter.id, -0.1);
+      push(s, s.minute, sideKey, 'miss', `VAR rules out ${shortName(shooter)}'s goal. ${reason}.`, shooter.id, played);
+      s.events[s.events.length - 1].shot = { ...facts, var: 'overturned', varReason: reason };
+      return;
+    }
+    if (review) facts = { ...facts, var: 'stands' };
+  }
   side.goals++;
   side.onTarget++;
   s.goals[shooter.id] = (s.goals[shooter.id] ?? 0) + 1;
@@ -409,7 +431,7 @@ function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Play
   const vars = { p: shortName(shooter), a: assister ? shortName(assister) : '', k: shortName(keeper), ...names(world, s, sideKey) };
   const text = facts ? goalLine(rng, facts, { ...vars, a: assister ? vars.a : undefined }) : line(rng, assister && kind === 'goal' ? 'goalAssist' : kind, vars);
   s.rngState = rng.state;
-  push(s, s.minute, sideKey, 'goal', text, shooter.id, played);
+  push(s, s.minute, sideKey, 'goal', facts?.var === 'stands' ? `${text} VAR checks it: the goal stands.` : text, shooter.id, played);
   s.events[s.events.length - 1].shot = facts;
   if (shooter.id === s.focus.playerId && s.focus.celebration) {
     push(s, s.minute, sideKey, 'info', `${shortName(shooter)} ${celebrationText(s.focus.celebration)}`, shooter.id);

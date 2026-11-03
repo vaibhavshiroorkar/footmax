@@ -57,6 +57,9 @@ export interface PlayStep {
   shape?: 'driven' | 'curl' | 'low';
   // A miss inside the posts that goes over the bar.
   over?: boolean;
+  // A goal VAR checks before it counts, and what it decides.
+  var?: 'stands' | 'overturned';
+  varReason?: string;
   // A 'card' step: which one.
   card?: 'yellow' | 'red';
 }
@@ -407,7 +410,10 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
   const shape = facts?.shape;
   const head = facts ? !!facts.header : header;
   if (result === 'goal') {
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var });
+  } else if (facts?.var === 'overturned') {
+    // In the net, then VAR rules it out: a free kick to the defenders.
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, restart: 'freekick' });
   } else if (result === 'save') {
     // About a third are tipped round the post or over: a corner.
     const tipped = facts ? !!facts.tipped : rng.chance(0.33);

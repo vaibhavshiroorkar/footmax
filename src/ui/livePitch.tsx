@@ -207,6 +207,8 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // rot spins the ball as it rolls.
   const ball = useState(() => ({ pos: new Animated.ValueXY({ x: -50, y: -50 }), shadow: new Animated.ValueXY({ x: -50, y: -50 }), size: new Animated.Value(10), z: new Animated.Value(0), rot: new Animated.Value(0) }))[0];
   const [confetti, setConfetti] = useState<{ key: number; x: number; y: number; palette: string[] } | null>(null);
+  // Where the VAR monitor stands while a check is on.
+  const [monitor, setMonitor] = useState<{ x: number; y: number } | null>(null);
   const [caption, setCaption] = useState(sim.caption);
   const [callout, setCallout] = useState<Callout | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
@@ -286,6 +288,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let onBallAt = 0;
     let lastGone = '';
     let lastCelebrate = -1;
+    let lastVar: number | null = null;
     const toScreen = (x: number, y: number) => {
       const { width: w, h: hh } = props.current;
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
@@ -321,6 +324,12 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       ball.size.setValue(10 + sim.ball.z * 2.2);
       ball.z.setValue(Math.min(1, sim.ball.z / 4));
       ball.rot.setValue(sim.ball.rot);
+      // A VAR check: the monitor appears at the touchline until the call.
+      const vc = sim.varCheck;
+      if ((vc?.at ?? null) !== lastVar) {
+        lastVar = vc?.at ?? null;
+        setMonitor(vc ? toScreen(vc.x, vc.y) : null);
+      }
       // A goal: confetti once, where the scorer celebrates.
       if (c && c.at !== lastCelebrate) {
         lastCelebrate = c.at;
@@ -460,6 +469,15 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           <FootballIcon />
         </Animated.View>
         {confetti && <Confetti key={confetti.key} x={confetti.x} y={confetti.y} palette={confetti.palette} />}
+        {monitor && (
+          <View pointerEvents="none" style={{ position: 'absolute', left: monitor.x - 13, top: monitor.y - 22, alignItems: 'center' }}>
+            {/* A pitch-side monitor: the screen on a stand. */}
+            <View style={{ width: 26, height: 17, borderRadius: 3, backgroundColor: '#111827', borderWidth: 2, borderColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 7, color: colors.accent }}>VAR</Text>
+            </View>
+            <View style={{ width: 3, height: 7, backgroundColor: '#e5e7eb' }} />
+          </View>
+        )}
         {callout && <CalloutView key={`${callout.text}-${callout.until}`} c={callout} home={home} away={away} />}
       </View>
       <View style={{ height: 22, justifyContent: 'center', paddingHorizontal: 4 }}>

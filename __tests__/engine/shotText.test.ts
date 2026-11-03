@@ -20,6 +20,15 @@ describe('feed lines match the pitch', () => {
         if (!end) continue;
         const f = shot.shot;
         checked++;
+        if (f.var === 'overturned') {
+          // In the net on the pitch, then ruled out: a free kick, no goal.
+          expect(shot.type).toBe('miss');
+          expect(end.act).toBe('goal');
+          expect(end.var).toBe('overturned');
+          expect(end.restart).toBe('freekick');
+          expect(shot.text).toMatch(/VAR/);
+          continue;
+        }
         expect(end.act).toBe(shot.type);
         expect(end.aim).toBe(f.aim);
         const text = shot.text.toLowerCase();

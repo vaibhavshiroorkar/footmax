@@ -2,6 +2,12 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.6.0
+
+- VAR: some goals are checked. Play holds while the referee goes to the
+  pitch-side monitor; then the goal stands or is ruled out (offside, a
+  foul, handball) and the defenders get a free kick.
+
 ## 1.5.0
 
 - Stars dominate: team strength weighs great players more, and great

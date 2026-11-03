@@ -94,6 +94,13 @@ moments to play, not a wall of information.
     the players are drawn as people: keeper in a ready crouch who dives
     full stretch, defenders who spread their arms to cover the goal they
     hide, a four-man wall that jumps.
+- **VAR:** about 8% of goals (not penalties) are checked. The ball goes
+  in, play holds, VAR CHECK shows and the referee goes to a monitor at the
+  touchline. Then GOAL (it stands, the celebration plays and the feed says
+  the goal stood) or NO GOAL (ruled out for offside, a foul or handball,
+  about 4 in 10 checks): it never counts and the defenders get a free
+  kick. The scoreboard adds a goal only after the call. Tested in
+  `__tests__/ui/var.test.ts`.
 - **The laws on the pitch** (checked frame by frame in
   `__tests__/ui/rules.test.ts`):
   - kick-off: each side in its own half, the other side outside the
@@ -324,15 +331,13 @@ contracts, board and federation confidence, sackings and job offers.
 
 Asked for and not built yet, in the order they will be done:
 
-1. VAR: the referee reviews a goal or a penalty, with an animation of
-   him at the monitor, before the decision.
-2. Money buys many useful things; Clash Royale style cases with
+1. Money buys many useful things; Clash Royale style cases with
    equipment that makes the player better.
-3. Life events with consequences: dressing room, romance, crime and
+2. Life events with consequences: dressing room, romance, crime and
    jail, corruption, career-ending injuries, and good events that help.
-4. World Cup qualifying for every nation, so even India can try to
+3. World Cup qualifying for every nation, so even India can try to
    qualify.
-5. Start the game in 2010, just after the World Cup, with squads of that
+4. Start the game in 2010, just after the World Cup, with squads of that
    time (prime Messi and Ronaldo). This needs 2010 squad data for every
    league; today's data is 2025/26.
 
