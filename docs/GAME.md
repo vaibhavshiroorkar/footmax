@@ -104,8 +104,9 @@ moments to play, not a wall of information.
 - **Key moments** pop up over the match while the pitch plays on in slow
   motion:
   - a choice: shoot, pass or take him on;
-  - shots from the box, from distance (defenders can block) or one on one
-    (chip with the chip move);
+  - shots from the box or from distance, with the defenders the pitch
+    has in the way drawn in front of goal (up to three, nearest first), or
+    one on one with nobody in the way (chip with the chip move);
   - penalties, and free kicks with a choice: shoot it, or cross it into
     the box (the pass options become crosses); both start from a foul on
     the user shown on the pitch;
@@ -120,6 +121,11 @@ moments to play, not a wall of information.
   - defending duels: read the pass (pick the lane from the passer's body
     shape; win it and you pick the counter pass), block a shot (slide as
     the ring closes) and head a cross clear (jump as the ball drops).
+  - a defending mistake (failing the timing and losing the duel) is
+    punished: the man you lost gets a much better chance (clean through,
+    a clear sight of goal, free in the box), and the user's rating drops
+    more, and more again if it goes in. A lost duel in midfield can still
+    end in a shot.
 - **Shooting:** two taps.
   1. Aim: a marker slides across the goal. In open play a defender closes
      in (a timer under the goal), and the keeper comes off his line the
@@ -135,8 +141,11 @@ moments to play, not a wall of information.
      gives the keeper time to get across (his reach band under him widens
      as you watch); only HIGH beats him from far.
   The shot strays from the aim by composure, shooting, weak foot and
-  distance. Inside the keeper's reach it is saved; out of reach and on
-  target it is a goal; wide misses.
+  distance. Into a defender's body it is blocked; inside the keeper's
+  reach it is saved; out of reach and on target it is a goal; wide misses.
+  Each defender is drawn as wide as the part of the goal he hides, so a
+  man close to the shooter looks bigger and blocks more. A blocked shot
+  hits that same defender on the pitch and goes behind for a corner.
 - **On the ball:** in a quiet move, when the user's player has the ball,
   the buttons become Shoot, Pass and Take him on, usable anywhere. Play
   slows to slow motion (at any speed) and waits about two seconds while
@@ -189,6 +198,14 @@ contracts, board and federation confidence, sackings and job offers.
   Leaderboards, Settings, and a locked legends store (names only).
 - Me: ladder, form and contract, season goals, milestones, growth,
   attributes, history.
+- Inbox: Important (what needs an answer) and News.
+- Media events: a pool of different situations, each with its own
+  answers and effects (morale, fame, energy, money, club relations, board
+  confidence). Ones tied to what just happened come first: a brace, a
+  bad game, a big win or a defeat. Others: transfer links, a rival's
+  jibe, a hospital visit, a documentary, a fan's letter, boot deals,
+  title talk, the sack question, a star's rumoured exit, the academy. The
+  last six are not repeated.
 - Notifications only appear when the player must act or can upgrade.
 
 ## Accounts and hosting

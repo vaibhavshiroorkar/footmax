@@ -10,6 +10,7 @@ import { MIN_SQUAD, inTransferWindow, loanPlayer, movePlayer } from './transfers
 import { nationalPool, pickNationalSquad } from './international';
 import { jobOffers, managerClub, nationJobOffer } from './manager';
 import { adjustRelation } from './relations';
+import { answerMediaEvent, pickMediaEvent } from './mediaEvents';
 
 const ACCEPT: Choice = { id: 'accept', label: 'Accept' };
 const DECLINE: Choice = { id: 'decline', label: 'Decline' };
@@ -92,18 +93,12 @@ function loanOffer(game: Game, rng: Rng) {
   });
 }
 
+// Interviews, rumours, fan moments: a different situation each time.
 function mediaRequest(game: Game, rng: Rng) {
   if (hasOpen(game, 'media')) return;
-  const outlets = ['Sky Sports', 'a podcast', 'the local paper', 'a TV talk show', 'a big YouTube channel'];
-  addMessage(game, 'media', 'Interview request', `${rng.pick(outlets)} want an interview after your recent games. How do you play it?`, {
-    type: 'media',
-    weeksLeft: 1,
-    choices: [
-      { id: 'humble', label: 'Stay humble' },
-      { id: 'bold', label: 'Talk big' },
-      { id: 'decline', label: 'Skip it' },
-    ],
-  });
+  const e = pickMediaEvent(game, rng);
+  if (!e) return;
+  addMessage(game, 'media', e.title, e.body, { type: 'media', event: e.id, weeksLeft: 1, choices: e.choices });
 }
 
 function nationSwitchOffer(game: Game, rng: Rng) {
@@ -329,17 +324,7 @@ function playerDemands(game: Game, rng: Rng) {
 }
 
 function pressConference(game: Game, rng: Rng) {
-  if (hasOpen(game, 'media')) return;
-  const topics = ['your recent form', 'the transfer window', 'the title race', 'a rival manager\'s comments'];
-  addMessage(game, 'media', 'Press conference', `Reporters want your view on ${rng.pick(topics)}.`, {
-    type: 'media',
-    weeksLeft: 1,
-    choices: [
-      { id: 'praise', label: 'Praise the players' },
-      { id: 'demand', label: 'Demand more' },
-      { id: 'decline', label: 'Keep it short' },
-    ],
-  });
+  mediaRequest(game, rng);
 }
 
 // --- Responding --------------------------------------------------------------
@@ -375,7 +360,7 @@ export function respond(game: Game, messageId: string, choiceId: string, amount?
       return done('accepted', `You join ${game.world.clubs[a.clubId!].name} on loan.`);
     }
     case 'media':
-      return done(choiceId, mediaEffects(game, choiceId));
+      return done(choiceId, (a.event ? answerMediaEvent(game, a.event, choiceId, new Rng(game.world.week)) : null) ?? mediaEffects(game, choiceId));
     case 'callup': {
       const p = careerPlayer(game);
       const rng = new Rng(game.world.rngState + msg.week);
@@ -545,6 +530,7 @@ function completeSale(game: Game, msg: Message): string {
   return `${fullName(p)} sold to ${buyer.name} for ${formatMoney(a.fee!)}.`;
 }
 
+// Older saves: interviews and press conferences from before mediaEvents.ts.
 function mediaEffects(game: Game, choiceId: string): string {
   if (game.career) {
     const c = game.career;

@@ -255,6 +255,8 @@ export interface MessageAction {
   weekly?: number;
   brand?: string;
   wageShare?: number;
+  // Media: which event this is (see mediaEvents.ts).
+  event?: string;
   // Rounds of haggling left before the other side walks away.
   patience?: number;
   // Counts down each week; the action expires when it passes zero.

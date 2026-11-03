@@ -145,7 +145,7 @@ export default function Inbox() {
     <Screen title="Inbox" nav={game.mode}>
       <Tabs<Filter>
         tabs={[
-          { key: 'todo', label: todo.length ? `To do (${todo.length})` : 'To do' },
+          { key: 'todo', label: todo.length ? `Important (${todo.length})` : 'Important' },
           { key: 'news', label: 'News' },
         ]}
         value={filter}

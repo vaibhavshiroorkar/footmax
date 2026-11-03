@@ -141,7 +141,7 @@ function NavItem({ tab, active, onPress, badge }: { tab: (typeof CAREER_TABS)[nu
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
-      accessibilityLabel={badge ? `${tab.label}, ${badge} to do` : tab.label}
+      accessibilityLabel={badge ? `${tab.label}, ${badge} important` : tab.label}
       style={{ flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 8, minHeight: 52 }}
     >
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: s.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }}>
