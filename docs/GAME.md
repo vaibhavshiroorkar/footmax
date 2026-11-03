@@ -72,6 +72,19 @@ moments to play, not a wall of information.
   (`src/engine/play.ts`) is played out: passes, crosses and throw-ins
   (lobbed balls rise off their shadow), tackles, fouls, offsides,
   throw-ins, corners, goal kicks, shots, cards and injuries.
+  - Players are drawn from above: shoulders in the shirt, the head, arms
+    and legs that swing as they run, turned the way they face, with the
+    shirt number upright on the back. A diving keeper stretches out with
+    his arms up; a player on the floor lies flat.
+  - The ball spins as it rolls and leaves a short trail when it flies.
+    Crosses are whipped and bend, long balls drift, curlers start outside
+    the post and bend in, low shots skim the grass, driven ones swerve a
+    little. Height, bend and pace vary every time.
+  - Goal celebrations: the scorer runs to the corner flag and does his
+    celebration (knee slide, backflip, robot, shush, heart hands, ice
+    cold; the career player does the one he picked), team-mates chase him
+    and crowd round with arms up, and confetti bursts in his colours. The
+    caption then says what he did.
 - **The laws on the pitch** (checked frame by frame in
   `__tests__/ui/rules.test.ts`):
   - kick-off: each side in its own half, the other side outside the
@@ -97,6 +110,13 @@ moments to play, not a wall of information.
 - **What you see is what counts:**
   - the scoreboard only adds a goal when the pitch shows it going in;
   - each move plays once;
+  - every shot's facts are decided once (where it goes across the goal,
+    how it is struck, over or wide, tipped, deflected, blocked, how the
+    chance was built) and both the feed line and the pitch come from
+    them, so "curls it into the left corner" is what you see; tested in
+    `__tests__/engine/shotText.test.ts`;
+  - a failed pass names the defender who cuts it out, and the pitch shows
+    that defender winning it;
   - a save goes where the keeper can reach and he gets to it, and a goal
     goes past his dive;
   - an aimed shot goes to the same side on the pitch as in the shot game;
@@ -138,7 +158,15 @@ moments to play, not a wall of information.
     a clear sight of goal, free in the box), and the user's rating drops
     more, and more again if it goes in. A lost duel in midfield can still
     end in a shot.
-- **Shooting:** two taps.
+- **Shooting:** two taps. First pick how to strike it, free for everyone:
+  Driven (hard and true), Curl (bends in from outside the post: round a
+  defender, into the corners, but slower, so a curler at the keeper gives
+  him time) or Low (hard for the keeper to get down to, easier to block,
+  never goes over; struck too hard it drags wide). On free kicks a curler
+  goes round the ends of the wall and a low one hits their feet. The shot
+  view starts from where he stands: out to the left of goal, the ball
+  starts on the left. With men in the way, Pass instead turns the shot
+  into a pass from the same spot.
   1. Aim: a marker slides across the goal. In open play a defender closes
      in (a timer under the goal), and the keeper comes off his line the
      longer you wait, so his reach grows.
@@ -183,7 +211,9 @@ moments to play, not a wall of information.
   first two minutes, and no moment opens before kick-off.
 - **Screen:** one scoreboard row with speed (1x, 2x, 4x, 8x), pause, sound
   and skip (to half time or to full time), scorers under it, the pitch,
-  the zone slider, the action buttons, then two tabs: Feed, and Teams
+  the zone slider, the action buttons (on the bench: "Skip to when I come
+  on", which stops when the coach brings him on, or plays to full time if
+  he never does), then two tabs: Feed, and Teams
   (possession and shots, then one team at a time, picked by its crest,
   with team OVR, each player's OVR, live rating, goals and assists). No
   pop-up after goals. Full time shows the rating, player of the match,

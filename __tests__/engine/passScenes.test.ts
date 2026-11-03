@@ -12,7 +12,7 @@ function passMoment(seed: number, outcome: PassOutcome, kind: 'through' | 'cross
   const keeperId = s[other].onPitch.find((id) => game.world.players[id].position === 'GK')!;
   s.pending = { kind: 'pass', side, minute: 30, actorId: me, keeperId, bonus: 0, options: [{ playerId: mate, kind, openness: 0.5, threat: 0.28 }] };
   const shotsBefore = s[side].shots;
-  resolveMoment(game.world, s, 0.95, mate, undefined, undefined, undefined, undefined, outcome);
+  resolveMoment(game.world, s, 0.95, mate, undefined, { passed: outcome });
   return { s, side, mate, shots: s[side].shots - shotsBefore };
 }
 

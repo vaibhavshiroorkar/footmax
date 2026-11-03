@@ -1,5 +1,6 @@
 import { Position } from '../engine/types';
 import { PlayStep, Restart, Spot, toPitch } from '../engine/play';
+import { CELEBRATIONS, celebrationText } from '../engine/creation';
 
 // A small football simulation for the live pitch. The match engine decides
 // what happens (who passes, who shoots, whether it goes in); this moves 22
@@ -47,6 +48,10 @@ interface Flight {
   t: number;
   dur: number;
   peak: number;
+  // Sideways bend at the middle of the flight, in metres (+ to the left of
+  // the line of travel). It starts and ends where it was going, so a curl
+  // never changes where the ball lands.
+  curl?: number;
 }
 
 export interface Callout {
@@ -91,7 +96,8 @@ const TIME = 1.8;
 
 export class PitchSim {
   bodies = new Map<string, Body>();
-  ball = { x: PW / 2, y: PL / 2, z: 0, owner: null as string | null, flight: null as Flight | null, vx: 0, vy: 0 };
+  // rot: how far the ball has turned (degrees), so it spins as it rolls.
+  ball = { x: PW / 2, y: PL / 2, z: 0, rot: 0, owner: null as string | null, flight: null as Flight | null, vx: 0, vy: 0 };
   queue: PlayStep[] = [];
   act: Active | null = null;
   clock = 0;
@@ -100,7 +106,11 @@ export class PitchSim {
   holding = false;
   layout: 'play' | 'kickoff' = 'kickoff';
   kickoffSide: 'home' | 'away' = 'home';
-  celebrate: { until: number; scorer: string | null; side: 'home' | 'away'; cx: number; cy: number } | null = null;
+  // A goal celebration: the scorer runs to the corner and does his thing
+  // (style, see CELEBRATIONS); team-mates pile in after him.
+  celebrate: { at: number; until: number; scorer: string | null; side: 'home' | 'away'; cx: number; cy: number; style: string; told?: boolean } | null = null;
+  // Each player's own celebration, when he has one (the career player).
+  celebrations: Record<string, string> = {};
   caption = 'Teams are out. Waiting for kick off.';
   callout: Callout | null = null;
   hooks: SimHooks = {};
@@ -116,6 +126,10 @@ export class PitchSim {
   private prevStep: PlayStep | null = null;
   // Each side's offside line this frame (depth in metres from its own goal).
   offsideLine = { home: PL, away: PL };
+
+  setCelebration(id: string, style: string) {
+    this.celebrations[id] = style;
+  }
 
   setHooks(h: SimHooks) {
     this.hooks = h;
@@ -209,6 +223,15 @@ export class PitchSim {
       .sort((a, b) => a.d - b.d)
       .slice(0, 3)
       .map(({ id, x, half, near }) => ({ id, x, half, near }));
+  }
+
+  // Where a shooter stands across the goal he faces, from his own view:
+  // -1 well out to his left, 0 straight in front, 1 well out to his right.
+  shotAngle(shooterId: string): number {
+    const s = this.bodies.get(shooterId);
+    if (!s) return 0;
+    const flip = s.side === 'home' ? 1 : -1;
+    return clamp(((s.x - PW / 2) * flip) / 16, -1, 1);
   }
 
   // Is this player still part of the move on screen or the one queued?
@@ -394,8 +417,11 @@ export class PitchSim {
         const thrown = prev?.act === 'start' && prev.restart === 'throw';
         const speed = thrown ? 12 : step.act === 'cross' ? 15 : d > 30 ? 19 : 15;
         const peak = thrown ? 1.6 : step.act === 'cross' ? 4 : d > 30 ? 3 : d > 18 ? 0.8 : 0;
+        // Crosses are whipped in and bend; long balls drift; short ones run
+        // almost straight.
+        const bend = thrown ? 0 : step.act === 'cross' ? 2.4 + Math.random() * 1.6 : d > 30 ? 1 + Math.random() : d > 18 ? 0.5 : 0.15;
         this.ball.owner = null;
-        this.ball.flight = { fx, fy, tx, ty, t: 0, dur: Math.max(0.45, d / speed), peak };
+        this.ball.flight = { fx, fy, tx, ty, t: 0, dur: Math.max(0.45, d / speed), peak, curl: bend * (Math.random() < 0.5 ? -1 : 1) };
         this.hooks.onSound?.('kick', step.act === 'cross' || d > 30 ? 0.8 : 0.5);
         const to = step.act === 'offside' ? step.other : step.carrier;
         this.caption =
@@ -482,11 +508,18 @@ export class PitchSim {
           toward = lineY - inward * 2;
           dive = kx + clamp(tx - kx, -0.8, 0.8);
         }
-        // Blocked: the ball hits the defender the shot game showed in the way.
-        const blocker = step.blocker ? this.bodies.get(step.blocker) : undefined;
-        if (blocker) {
-          tx = blocker.x;
-          toward = blocker.y;
+        // Blocked: the ball hits the defender the shot game showed in the
+        // way, or (for 'lane' and 'wall') whoever stands in the way here.
+        let blocker = step.blocker ? this.bodies.get(step.blocker) : undefined;
+        if (step.blocker && !blocker && shooter) {
+          const lane = this.laneDefenders(shooter.id).sort((p, q) => Math.abs(p.x - (step.aim ?? 0.5)) - Math.abs(q.x - (step.aim ?? 0.5)))[0];
+          blocker = lane ? this.bodies.get(lane.id) : undefined;
+          if (blocker) step.blocker = blocker.id;
+        }
+        if (step.blocker) {
+          // Nobody near enough: it hits the first man a few metres out.
+          tx = blocker ? blocker.x : clamp(this.ball.x + (tx - this.ball.x) * 0.25, 2, PW - 2);
+          toward = blocker ? blocker.y : this.ball.y + (toward - this.ball.y) * 0.25;
           dive = kx;
         }
         this.act.keeperId = keeper?.id;
@@ -496,12 +529,36 @@ export class PitchSim {
         const fy = this.ball.y;
         const d = dist(fx, fy, tx, toward);
         this.ball.owner = null;
-        let dur = Math.max(0.3, d / (step.header ? 17 : 27));
+        // A touch of pace variety, so no two shots fly the same.
+        let dur = Math.max(0.3, d / (step.header ? 17 : 27)) * (0.9 + Math.random() * 0.2);
         // A save means he gets there, so the ball never beats his dive.
         if (step.act === 'save' && keeper) dur = Math.max(dur, (dist(keeper.x, keeper.y, tx, lineY + inward * 0.7) / (keeper.top * 1.5)) * 1.25 + 0.1);
-        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur, peak: step.header ? 0.6 : step.act === 'miss' && Math.random() < 0.4 ? 3.2 : 1.2 };
+        // How it was struck: the user's choice, or a mix for everyone else.
+        const shape = step.shape ?? (step.header ? 'driven' : Math.random() < 0.3 ? 'curl' : Math.random() < 0.3 ? 'low' : 'driven');
+        // Over the bar when the match says so; otherwise each kind of strike
+        // has its own height, with some spread.
+        const r = Math.random();
+        const over = step.act === 'miss' && !step.blocker && (step.over ?? (step.aim === undefined && Math.random() < 0.4));
+        const peak = over ? 3 + r * 0.8 : step.header ? 0.5 + r * 0.3 : shape === 'low' ? 0.08 + r * 0.1 : shape === 'curl' ? 1.1 + r * 0.8 : 0.4 + r * 0.6;
+        // A curler starts outside its target and bends back in: the bend
+        // points away from the middle of the goal. Driven and low shots
+        // swerve a little either way.
+        const len = Math.max(0.1, dist(fx, fy, tx, toward));
+        const perpX = -(toward - fy) / len;
+        let curl = (Math.random() - 0.5) * (shape === 'low' ? 0.6 : 1.4);
+        if (shape === 'curl' && !step.blocker) {
+          const out = Math.sign(tx - PW / 2) || (Math.random() < 0.5 ? -1 : 1);
+          curl = (1.6 + Math.random() * 1.8) * (Math.sign(perpX * out) || 1);
+        }
+        this.ball.flight = { fx, fy, tx, ty: toward, t: 0, dur: shape === 'low' ? dur * 0.92 : dur, peak, curl };
         this.hooks.onSound?.('kick', 1);
-        this.caption = step.header ? `${this.name(shooter?.id)} goes for the header!` : `${this.name(shooter?.id)} shoots!`;
+        this.caption = step.header
+          ? `${this.name(shooter?.id)} goes for the header!`
+          : shape === 'curl'
+            ? `${this.name(shooter?.id)} tries to curl one in!`
+            : shape === 'low'
+              ? `${this.name(shooter?.id)} drills it low!`
+              : `${this.name(shooter?.id)} shoots!`;
         this.act.from = shooter?.id ?? null;
         break;
       }
@@ -526,7 +583,13 @@ export class PitchSim {
 
   private runAction(dt: number) {
     if (this.celebrate) {
-      if (this.clock > this.celebrate.until) this.celebrate = null;
+      const c = this.celebrate;
+      // Once he is away, the caption says what he does.
+      if (!c.told && this.clock > c.at + 1.1) {
+        c.told = true;
+        this.caption = `${this.name(c.scorer).replace(/^#\d* /, '')} ${celebrationText(c.style)}`;
+      }
+      if (this.clock > c.until) this.celebrate = null;
       return;
     }
     if (!this.act) {
@@ -678,7 +741,8 @@ export class PitchSim {
             const scorer = a.from ? this.bodies.get(a.from) : undefined;
             const cy = step.side === 'home' ? PL - 6 : 6;
             const cx = (scorer?.x ?? PW / 2) < PW / 2 ? 4 : PW - 4;
-            this.celebrate = { until: this.clock + 3.2, scorer: a.from, side: step.side, cx, cy };
+            const style = (a.from && this.celebrations[a.from]) || CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)].id;
+            this.celebrate = { at: this.clock, until: this.clock + 4.2, scorer: a.from, side: step.side, cx, cy, style };
             this.ball.owner = null;
             this.ball.vx = 0;
             this.ball.vy = 0;
@@ -716,12 +780,14 @@ export class PitchSim {
             const lineY = step.side === 'home' ? PL : 0;
             const out = step.side === 'home' ? 1 : -1;
             this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: clamp(this.ball.x + (this.ball.x < PW / 2 ? -6 : 6), 2, PW - 2), ty: lineY + out * 1.5, t: 0, dur: 0.6, peak: 1.6 };
-            this.callout = { text: 'BLOCKED!', sub: `${this.name(step.blocker)}. Corner.`, tone: 'stop', until: this.clock + 1.4 };
+            const by = this.name(step.blocker);
+            this.callout = { text: 'BLOCKED!', sub: by ? `${by}. Corner.` : 'Corner.', tone: 'stop', until: this.clock + 1.4 };
             this.hooks.onSound?.('ooh', 0.7);
-            this.caption = `${shooter} shoots... blocked by ${this.name(step.blocker)}`;
+            this.caption = by ? `${shooter} shoots... blocked by ${by}` : `${shooter} shoots... blocked`;
             return pause(1.4);
           }
-          this.callout = { text: step.header ? 'OVER!' : 'WIDE!', sub: step.restart === 'corner' ? 'Off a defender. Corner.' : undefined, tone: 'miss', until: this.clock + 1.2 };
+          const overBar = step.over ?? (step.aim === undefined ? !!step.header : step.aim >= 0 && step.aim <= 1);
+          this.callout = { text: overBar ? 'OVER!' : 'WIDE!', sub: step.restart === 'corner' ? 'Off a defender. Corner.' : undefined, tone: 'miss', until: this.clock + 1.2 };
           this.hooks.onSound?.('ooh', 0.7);
           this.caption = `${shooter} misses the target`;
           return pause(1.2);
@@ -768,9 +834,14 @@ export class PitchSim {
       const k = Math.min(1, f.t / f.dur);
       // Ground passes slow as they arrive; balls in the air keep their pace.
       const e = f.peak > 1.5 ? k : 1 - Math.pow(1 - k, 1.6);
-      b.x = f.fx + (f.tx - f.fx) * e;
-      b.y = f.fy + (f.ty - f.fy) * e;
+      const len = Math.max(0.1, dist(f.fx, f.fy, f.tx, f.ty));
+      const bend = (f.curl ?? 0) * 4 * e * (1 - e);
+      const px = b.x;
+      const py = b.y;
+      b.x = f.fx + (f.tx - f.fx) * e + (-(f.ty - f.fy) / len) * bend;
+      b.y = f.fy + (f.ty - f.fy) * e + ((f.tx - f.fx) / len) * bend;
       b.z = 4 * f.peak * k * (1 - k);
+      b.rot = (b.rot + dist(px, py, b.x, b.y) * 85) % 360;
       if (k >= 1) {
         b.flight = null;
         b.z = 0;
@@ -784,8 +855,11 @@ export class PitchSim {
       const towardGoal = owner.side === 'home' ? 1 : -1;
       const dx = sp > 0.4 ? owner.vx / sp : 0;
       const dy = sp > 0.4 ? owner.vy / sp : towardGoal;
+      const px = b.x;
+      const py = b.y;
       b.x += (owner.x + dx * 0.9 - b.x) * Math.min(1, dt * 14);
       b.y += (owner.y + dy * 0.9 - b.y) * Math.min(1, dt * 14);
+      b.rot = (b.rot + dist(px, py, b.x, b.y) * 85) % 360;
       b.z = 0;
       return;
     }
@@ -809,7 +883,10 @@ export class PitchSim {
     if (this.celebrate) {
       const c = this.celebrate;
       if (b.id === c.scorer) return { x: c.cx, y: c.cy };
-      if (b.side === c.side && b.pos !== 'GK') return { x: c.cx + Math.sin(b.phase) * 3, y: c.cy + Math.cos(b.phase) * 3 + (c.side === 'home' ? -3 : 3) };
+      // Team-mates chase him, then crowd round him; the keeper claps from
+      // his box.
+      const near = this.clock > c.at + 1.4 ? 1.6 : 4;
+      if (b.side === c.side && b.pos !== 'GK') return { x: c.cx + Math.sin(b.phase) * near, y: c.cy + Math.cos(b.phase) * near + (c.side === 'home' ? -1.5 : 1.5) };
       return this.shapeSpot(b, 0.35, false);
     }
     // Players with a job in the current step.

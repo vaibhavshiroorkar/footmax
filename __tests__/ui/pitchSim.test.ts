@@ -139,7 +139,7 @@ describe('acting on the ball', () => {
     expect(s.pending?.kind).toBe('shot');
     expect(s.pending?.view).toBe('outside');
     expect(s.pending?.range).toBeGreaterThan(0.5);
-    resolveMoment(game.world, s, 0.5, undefined, undefined, 'miss', 1.3);
+    resolveMoment(game.world, s, 0.5, undefined, undefined, { forced: 'miss', aim: 1.3 });
     expect(s.pending).toBeNull();
     expect(takeAction(game.world, s, 'pass', { x: 0.5, y: 0.5 })).toBe(true);
     expect(s.pending?.options?.length).toBeGreaterThan(1);

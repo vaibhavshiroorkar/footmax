@@ -4,7 +4,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { KeyMoment, MatchEvent, MatchState, MomentKind, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, stepMinute } from '../engine/match';
+import { KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
@@ -13,7 +13,7 @@ import { useResultFeedback } from '../ui/shared';
 import { formatMoney, fullName, shortName } from '../engine/player';
 import { Club, Game, MatchReward, Player, Style } from '../engine/types';
 import { SKILL_MOVES, skillLevel, xpForLevel } from '../engine/skills';
-import { ShotGame, ShotOutcome } from '../ui/moments/ShotGame';
+import { ShotGame } from '../ui/moments/ShotGame';
 import { PASS_LABEL, PassPanel } from '../ui/moments/PassGame';
 import { DribbleGame } from '../ui/moments/DribbleGame';
 import { ComboDribble, GapDribble, RaceDribble } from '../ui/moments/DribbleMore';
@@ -331,6 +331,7 @@ export default function MatchScreen() {
         onSim={(sim) => (simRef.current = sim)}
         zone={game.mode === 'career' ? zoneOf(game.world, live) : undefined}
         shout={live.shout && live.minute <= live.shout.until ? live.shout.kind : null}
+        celebration={game.career?.celebration}
       />
       )}
       {/* Passing happens on the pitch: the options light up above, the cards sit here. */}
@@ -356,14 +357,23 @@ export default function MatchScreen() {
             }}
             onDone={(q, _t, id, outcome) => {
               setPassPick(null);
-              mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, undefined, undefined, undefined, outcome));
+              mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, { passed: outcome }));
             }}
           />
         </Card>
       )}
 
       {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && <ZoneSlider game={game} live={live} />}
-      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && (onBall && !live.pending ? <BallBar onAct={act} /> : <ShoutBar game={game} live={live} />)}
+      {kicked && !live.finished && !live.pausedAtHalf && game.mode === 'career' && (onBall && !live.pending ? <BallBar onAct={act} /> : <ShoutBar
+            game={game}
+            live={live}
+            onSkip={() => {
+              mutateLive((m, g) => simUntilOn(g.world, m));
+              // The pitch did not show these goals; the board shows them now.
+              setShownGoals(useStore.getState().live?.scorers.length ?? 0);
+              commitIfDone();
+            }}
+          />)}
       {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
         <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
       )}
@@ -838,14 +848,19 @@ function ZoneSlider({ game, live }: { game: Game; live: MatchState }) {
   );
 }
 
-function ShoutBar({ game, live }: { game: Game; live: MatchState }) {
+function ShoutBar({ game, live, onSkip }: { game: Game; live: MatchState; onSkip: () => void }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const id = game.career?.playerId;
   if (!id || !(live.home.onPitch.includes(id) || live.away.onPitch.includes(id))) {
     return (
-      <View style={[styles.shoutBar, { justifyContent: 'center' }]}>
-        <Icon name="time-outline" size={15} color={colors.muted} />
-        <Text style={styles.shoutWait}>On the bench. Calls open when you come on.</Text>
+      <View style={[styles.shoutBar, { justifyContent: 'space-between', alignItems: 'center' }]}>
+        <Row gap={6} style={{ flex: 1, minWidth: 0 }}>
+          <Icon name="time-outline" size={15} color={colors.muted} />
+          <Text style={styles.shoutWait} numberOfLines={1}>
+            On the bench
+          </Text>
+        </Row>
+        <Button label="Skip to when I come on" icon="play-forward" small variant="secondary" onPress={onSkip} />
       </View>
     );
   }
@@ -950,9 +965,11 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
   const mutateLive = useStore((s) => s.mutateLive);
   const actor = game.world.players[moment.actorId];
   const [move, setMove] = useState<string | null>(null);
-  const resolve = (q: number | null, chosen?: string, moveId?: string, forced?: ShotOutcome, aim?: number, blocker?: string) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, forced, aim, blocker));
+  const resolve = (q: number | null, chosen?: string, moveId?: string, played?: Played) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, played));
   // The defenders in the way on the pitch as the moment opens.
   const [lanes] = useState(() => (moment.kind === 'shot' ? getSim()?.laneDefenders(moment.actorId) : undefined));
+  // Where he stands across the goal, so the shot starts from there.
+  const [angle] = useState(() => (moment.kind === 'shot' ? getSim()?.shotAngle(moment.actorId) ?? 0 : 0));
   const names: Record<string, string> = {};
   for (const o of moment.options ?? []) names[o.playerId] = game.world.players[o.playerId].lastName;
   const base = MOMENT_TITLES[moment.kind];
@@ -1026,7 +1043,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
-        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} onDone={(q, _t, outcome, aim, blocker) => resolve(q, undefined, undefined, outcome, aim, blocker)} />
+        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}

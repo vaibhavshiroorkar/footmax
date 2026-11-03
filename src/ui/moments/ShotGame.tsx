@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Svg, { Circle, Ellipse, G, Line, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
-import { KeeperFigure } from './Keeper';
+import { KeeperFigure, OutfieldFigure } from './Keeper';
+import { ShotShape } from '../../engine/match';
 import { T } from '../kit';
 import { alpha, colors, fonts } from '../theme';
 
@@ -41,7 +42,11 @@ const EASE = 1.5;
 // range: 0 at the edge of the box, 1 from a long way out.
 // defenders: the men in the way on the live pitch (PitchSim.laneDefenders).
 // A shot into one is blocked, and onDone names him so the pitch shows it.
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; onDone: (q: number, text: string, outcome: ShotOutcome, aim: number, blocker?: string) => void }) {
+// Every player can pick how to strike it (see SHAPES): driven, curled or low.
+// angle: where he stands across the goal (-1 out to his left, 1 to his
+// right, see PitchSim.shotAngle); the ball starts from there.
+// onPass: give it to a team-mate instead, before the aim is set.
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -49,6 +54,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const bands: Bands = { low: LOW, mid: MID, high: Math.min(0.95, HIGH + 0.03 * finesse) };
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
+  const [shape, setShape] = useState<ShotShape>('driven');
+  const shapes = kind === 'penalty' ? [] : SHAPES;
   // x is where the ball actually goes: the aim plus any stray.
   // stop: the ball never reaches the goal because a defender or the wall
   // was in the way.
@@ -64,6 +71,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     // Two normal draws, used for the stray and for where a parry goes.
     stray: Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random()),
     parry: Math.random() < 0.5 ? -1 : 1,
+    // How this ball flies: bend on a curler, swerve on a driven shot, and
+    // its arc. Random each time, so no two shots look the same.
+    bend: 40 + Math.random() * 38,
+    swerve: (Math.random() - 0.5) * 26,
+    arc: 0.7 + Math.random() * 0.7,
   }));
   const t = useTicker(phase !== 'done', phase);
   const speed = 2 + (1 - composure / 99) * 2.4;
@@ -78,11 +90,14 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const flight = outside ? 0.85 : FLIGHT;
   // How much goal he covers for a shot of this power. Soft or mid-power
   // shots from distance give him time to get across; a high one does not.
-  const reachAt = (p: number) => {
+  // A curler into the corner bends away from him, but it is slower, so a
+  // curler at him gives him time. A low shot is hard to get down to.
+  const reachAt = (p: number, x = aim) => {
     if (kind === 'penalty') return reach;
-    const band = p < bands.low ? 1.6 : p <= bands.mid ? 1 : 0.85;
+    const band = p < bands.low ? 1.6 : p <= bands.mid ? 1 : shape === 'curl' ? 0.95 : 0.85;
     const time = 1 + range * (p > bands.mid ? 0.25 : 0.9);
-    return reach * band * time;
+    const struck = shape === 'curl' ? (Math.abs(x - 0.5) > 0.28 ? 0.88 : 1.08) : shape === 'low' ? 0.9 : 1;
+    return reach * band * time * struck;
   };
   // The men in the way. From the live pitch when it says, shuffling a little
   // as they close you down. Without it, from distance: one defender from the
@@ -113,24 +128,30 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     } else if (phase === 'power') fire(power);
   };
 
-  const fire = (power: number) => {
+  const fire = (struck: number) => {
+    let power = struck;
     {
       // No shot goes exactly where it was aimed. Better finishers stray less;
       // the weaker foot, distance and an overhit ball stray more.
-      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0);
+      // A low shot cannot go over: struck too hard it drags wide instead.
+      const dragged = shape === 'low' && power > bands.high;
+      const spread = 0.025 + (1 - (composure + shooting) / 198) * 0.09 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0) + (shape === 'curl' ? 0.012 : 0) + (dragged ? 0.08 : 0);
       const x = aim + setup.stray * spread;
       const strayed = Math.abs(x - aim) > 0.06;
-      // Into a defender's body: blocked.
-      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - x) < b.half);
+      if (dragged) power = bands.high;
+      // Into a defender's body: blocked. A curler passes him wide of where it
+      // ends up, so it can bend round him; a low one is easier to block.
+      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - (shape === 'curl' ? x + curlSide(x) * 0.14 * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
       const blocked = hit >= 0;
       const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: setup.keeper }
         : lob
           ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: setup.keeper }
-          : judge(kind, x, power, setup, bands, reachAt(power));
+          : judge(kind, x, power, setup, bands, reachAt(power, x), wallSpan(shape, power));
       if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
-      const wall = kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75;
+      const span = wallSpan(shape, power);
+      const wall = kind === 'freekick' && !!span && x >= setup.wall + span[0] && x <= setup.wall + span[1];
       setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, ...r });
       setPhase('flight');
     }
@@ -159,7 +180,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   useEffect(() => {
     if (phase === 'flight' && shot && t >= flight && !sent.current) {
       sent.current = true;
-      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, shot.x, shot.blocker !== undefined ? blockers[shot.blocker]?.id : undefined), 1200);
+      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, { aim: shot.x, blocker: shot.blocker !== undefined ? blockers[shot.blocker]?.id : undefined, shape, over: shot.outcome === 'miss' && !shot.stop && shot.power > bands.high, wall: shot.stop === 'wall' }), 1200);
     }
   });
 
@@ -173,11 +194,25 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // A blocked shot hits the defender's body; a wall shot hits the wall.
   const hitMan = shot?.blocker !== undefined ? blockers[shot.blocker] : undefined;
   const stopY = shot?.stop === 'block' ? (hitMan ? manAt(hitMan, GOAL).ground - manAt(hitMan, GOAL).h * 0.6 : GOAL.y + GOAL.h + 30) : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
-  const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / bands.high)));
+  const low = shape === 'low';
+  const targetY = stopY ?? (over ? GOAL.y - 14 : low ? GOAL.y + GOAL.h * 0.86 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / bands.high)));
   const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
-  let ballX = 150 + (endX - 150) * k;
-  let ballY = H - 12 + (targetY - (H - 12)) * k - Math.sin(Math.PI * k) * 10;
-  let ballR = 8 - 3.5 * k;
+  // Where the ball is at kk (0 at the boot, 1 at the goal). A curler starts
+  // out wide and bends back in; a driven shot rises a little; a low one
+  // skims the grass.
+  const fromX = 150 + angle * 105;
+  const pathAt = (kk: number) => {
+    const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
+    const x = (1 - kk) * (1 - kk) * fromX + 2 * (1 - kk) * kk * ((fromX + endX) / 2 + bendX) + kk * kk * endX;
+    const y = H - 12 + (targetY - (H - 12)) * (low ? 1 - (1 - kk) * (1 - kk) : kk) - Math.sin(Math.PI * kk) * (low ? 2 : shape === 'curl' ? 14 : 9) * setup.arc;
+    return { x, y, r: 8 - 3.5 * kk };
+  };
+  const at0 = pathAt(k);
+  let ballX = at0.x;
+  let ballY = at0.y;
+  let ballR = at0.r;
+  // Spin: the seam turns as it flies, faster on a curler.
+  const spin = (t * (shape === 'curl' ? 1500 : 900)) % 360;
   if (after > 0 && shot) {
     if (shot.stop) {
       // Off the body and away: back toward you and to the side.
@@ -205,101 +240,145 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const diveAmount = shot ? Math.min(1, k * 1.6) * 0.9 * diveSide : 0;
 
   return (
-    <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Lock power'}>
-      <View style={{ alignItems: 'center' }}>
-        <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
-          <Rect x={0} y={0} width={W} height={H} fill={colors.pitch} />
-          {Array.from({ length: 13 }, (_, i) => (
-            <Line key={`v${i}`} x1={GOAL.x + (i * GOAL.w) / 12} y1={GOAL.y} x2={GOAL.x + (i * GOAL.w) / 12} y2={GOAL.y + GOAL.h} stroke="#ffffff22" strokeWidth={1} />
-          ))}
-          {Array.from({ length: 6 }, (_, i) => (
-            <Line key={`h${i}`} x1={GOAL.x} y1={GOAL.y + (i * GOAL.h) / 5} x2={GOAL.x + GOAL.w} y2={GOAL.y + (i * GOAL.h) / 5} stroke="#ffffff22" strokeWidth={1} />
-          ))}
-          <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
-          <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
-          {/* The keeper's reach before you shoot, so the gap is readable. */}
-          {phase !== 'flight' && <Rect x={px(Math.max(0, setup.keeper - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
-          {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
-          {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
-            const m = manAt(b, GOAL);
-            const cx = px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t));
+    <View>
+      {shapes.length > 0 && (
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6, alignSelf: 'stretch' }}>
+          {shapes.map((sh) => {
+            const on = shape === sh.id;
+            const locked = phase === 'flight' || phase === 'done';
             return (
-              <G key={b.id ?? i}>
-                <Ellipse cx={cx} cy={m.ground} rx={m.w * 0.7} ry={m.w * 0.22} fill="#000000" opacity={0.25} />
-                <Rect x={cx - m.w / 2} y={m.ground - m.h} width={m.w} height={m.h} rx={m.w * 0.42} fill="#c8102e" />
-                <Circle cx={cx} cy={m.ground - m.h - m.w * 0.38} r={m.w * 0.42} fill="#d9a77c" />
-              </G>
+              <Pressable
+                key={sh.id}
+                disabled={locked}
+                onPress={() => setShape(sh.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${sh.label} shot`}
+                style={{ flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? alpha(colors.accent, 0.16) : colors.bgElev, opacity: locked && !on ? 0.4 : 1 }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.8, color: on ? colors.accent : colors.muted }}>{sh.label.toUpperCase()}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 9.5, color: colors.faint }} numberOfLines={1}>
+                  {sh.hint}
+                </Text>
+              </Pressable>
             );
           })}
-          {kind === 'freekick' && <Rect x={px(setup.wall)} y={GOAL.y + GOAL.h - 46} width={GOAL.w * 0.3} height={46} rx={6} fill="#c8102e" opacity={0.9} />}
-          <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
-          {phase !== 'flight' && (
-            <>
-              <Circle cx={px(aimX)} cy={GOAL.y + GOAL.h / 2} r={9} stroke="#ffffff" strokeWidth={3} fill={phase === 'aim' ? 'none' : '#ffffff'} />
-              <Line x1={px(aimX)} y1={GOAL.y + 8} x2={px(aimX)} y2={GOAL.y + GOAL.h - 8} stroke="#ffffff88" strokeWidth={1} />
-            </>
-          )}
-          {phase !== 'flight' && <Circle cx={150} cy={H - 12} r={8} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />}
-          {phase === 'flight' && (
-            <>
-              <Ellipse cx={ballX} cy={Math.min(H - 6, H - 8 + (GOAL.y + GOAL.h - (H - 8)) * k)} rx={ballR} ry={ballR * 0.4} fill="#000000" opacity={0.25} />
-              <Circle cx={ballX} cy={ballY} r={ballR} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />
-            </>
-          )}
-        </Svg>
-        {landed && shot && (
-          <View pointerEvents="none" style={{ position: 'absolute', top: 60, left: 0, right: 0, alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 44, color: shot.outcome === 'goal' ? colors.accent : '#ffffff', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 8 }}>
-              {shot.outcome === 'goal' ? 'GOAL!' : shot.outcome === 'save' ? 'SAVED' : over ? 'OVER!' : 'MISSED'}
-            </Text>
-          </View>
-        )}
-        {/* One bar under the goal: first the time to aim, then the power. */}
-        <View style={{ width: '100%', height: 30, marginTop: 8, justifyContent: 'center' }}>
-          {phase === 'aim' ? (
-            <View style={{ gap: 4 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{aimLimit < Infinity ? '1. AIM  |  DEFENDER CLOSING' : '1. AIM'}</Text>
-              <View style={{ height: 6, backgroundColor: colors.bg, borderRadius: 3, overflow: 'hidden' }}>
-                {aimLimit < Infinity && <View style={{ width: `${Math.max(0, 1 - t / aimLimit) * 100}%`, height: 6, backgroundColor: t / aimLimit > 0.7 ? colors.red : colors.gold }} />}
-              </View>
-            </View>
-          ) : (
-            <View style={{ gap: 3 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.accent }}>2. POWER  |  {bandName(power, bands)}</Text>
-              <View style={{ height: 18, flexDirection: 'row', borderRadius: 6, overflow: 'hidden' }}>
-                {BAND_VIEW.map((b) => {
-                  const from = b.from(bands);
-                  const to = b.to(bands);
-                  return (
-                    <View key={b.label} style={{ width: `${(to - from) * 100}%`, backgroundColor: alpha(b.color, 0.28), alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.bg }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: b.color }} numberOfLines={1}>
-                        {b.label}
-                      </Text>
-                    </View>
-                  );
-                })}
-                <View style={{ position: 'absolute', left: `${power * 100}%`, top: -2, bottom: -2, width: 4, marginLeft: -2, borderRadius: 2, backgroundColor: '#ffffff' }} />
-              </View>
-            </View>
-          )}
         </View>
-        <T bold style={{ marginTop: 10, textAlign: 'center' }}>
-          {phase === 'aim'
-            ? outside
-              ? 'Tap to aim: past the defender, away from the keeper.'
-              : oneOnOne
-                ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
-                : blockers.length
-                  ? 'Tap to aim past the defender. The keeper comes out if you wait.'
-                  : 'Tap to aim. He comes off his line if you wait.'
-            : phase === 'power'
-              ? 'Tap to set the power!'
-              : landed
-                ? shot?.text
-                : ' '}
-        </T>
-      </View>
-    </Pressable>
+      )}
+      {onPass && kind === 'shot' && phase === 'aim' && (
+        <Pressable
+          onPress={onPass}
+          accessibilityRole="button"
+          accessibilityLabel="Pass instead"
+          style={({ pressed }) => ({ height: 32, marginBottom: 6, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.blue, backgroundColor: pressed ? alpha(colors.blue, 0.2) : alpha(colors.blue, 0.08) })}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 0.8, color: colors.blue }}>PASS INSTEAD</Text>
+        </Pressable>
+      )}
+      <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Lock power'}>
+        <View style={{ alignItems: 'center' }}>
+          <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
+            <Rect x={0} y={0} width={W} height={H} fill={colors.pitch} />
+            {Array.from({ length: 13 }, (_, i) => (
+              <Line key={`v${i}`} x1={GOAL.x + (i * GOAL.w) / 12} y1={GOAL.y} x2={GOAL.x + (i * GOAL.w) / 12} y2={GOAL.y + GOAL.h} stroke="#ffffff22" strokeWidth={1} />
+            ))}
+            {Array.from({ length: 6 }, (_, i) => (
+              <Line key={`h${i}`} x1={GOAL.x} y1={GOAL.y + (i * GOAL.h) / 5} x2={GOAL.x + GOAL.w} y2={GOAL.y + (i * GOAL.h) / 5} stroke="#ffffff22" strokeWidth={1} />
+            ))}
+            <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
+            <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
+            {/* The keeper's reach before you shoot, so the gap is readable. */}
+            {phase !== 'flight' && <Rect x={px(Math.max(0, setup.keeper - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
+            {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
+            {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
+              const m = manAt(b, GOAL);
+              const cx = px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t));
+              return (
+                <OutfieldFigure key={b.id ?? i} x={cx} ground={m.ground} h={m.h} span={m.w} />
+              );
+            })}
+            {kind === 'freekick' &&
+              [0, 1, 2, 3].map((i) => (
+                <OutfieldFigure key={i} x={px(setup.wall + 0.0375 + i * 0.075)} ground={GOAL.y + GOAL.h + 2} h={50} span={GOAL.w * 0.075} jump={phase === 'flight' ? Math.sin(Math.min(1, k * 1.5) * Math.PI) : 0} />
+              ))}
+            <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
+            {phase !== 'flight' && (
+              <>
+                <Circle cx={px(aimX)} cy={GOAL.y + GOAL.h / 2} r={9} stroke="#ffffff" strokeWidth={3} fill={phase === 'aim' ? 'none' : '#ffffff'} />
+                <Line x1={px(aimX)} y1={GOAL.y + 8} x2={px(aimX)} y2={GOAL.y + GOAL.h - 8} stroke="#ffffff88" strokeWidth={1} />
+              </>
+            )}
+            {phase !== 'flight' && <Circle cx={fromX} cy={H - 12} r={8} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />}
+            {phase === 'flight' && (
+              <>
+                <Ellipse cx={ballX} cy={Math.min(H - 6, H - 8 + (GOAL.y + GOAL.h - (H - 8)) * k)} rx={ballR} ry={ballR * 0.4} fill="#000000" opacity={0.25} />
+                {/* A short trail behind the ball while it flies. */}
+                {k < 1 &&
+                  [0.05, 0.1, 0.15].map((d, i) => {
+                    const g = pathAt(Math.max(0, k - d));
+                    return <Circle key={i} cx={g.x} cy={g.y} r={g.r * (0.85 - i * 0.15)} fill="#ffffff" opacity={0.28 - i * 0.08} />;
+                  })}
+                <G transform={`rotate(${spin} ${ballX} ${ballY})`}>
+                  <Circle cx={ballX} cy={ballY} r={ballR} fill="#ffffff" stroke="#111111" strokeWidth={1.5} />
+                  <Path d={`M ${ballX - ballR * 0.55} ${ballY - ballR * 0.2} L ${ballX} ${ballY - ballR * 0.6} L ${ballX + ballR * 0.55} ${ballY - ballR * 0.2} L ${ballX + ballR * 0.35} ${ballY + ballR * 0.45} L ${ballX - ballR * 0.35} ${ballY + ballR * 0.45} Z`} fill="#111111" />
+                </G>
+              </>
+            )}
+          </Svg>
+          {landed && shot && (
+            <View pointerEvents="none" style={{ position: 'absolute', top: 60, left: 0, right: 0, alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.display, fontSize: 44, color: shot.outcome === 'goal' ? colors.accent : '#ffffff', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 8 }}>
+                {shot.outcome === 'goal' ? 'GOAL!' : shot.outcome === 'save' ? 'SAVED' : over ? 'OVER!' : 'MISSED'}
+              </Text>
+            </View>
+          )}
+          {/* One bar under the goal: first the time to aim, then the power. */}
+          <View style={{ width: '100%', height: 30, marginTop: 8, justifyContent: 'center' }}>
+            {phase === 'aim' ? (
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{aimLimit < Infinity ? '1. AIM  |  DEFENDER CLOSING' : '1. AIM'}</Text>
+                <View style={{ height: 6, backgroundColor: colors.bg, borderRadius: 3, overflow: 'hidden' }}>
+                  {aimLimit < Infinity && <View style={{ width: `${Math.max(0, 1 - t / aimLimit) * 100}%`, height: 6, backgroundColor: t / aimLimit > 0.7 ? colors.red : colors.gold }} />}
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: 3 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.accent }}>2. POWER  |  {bandName(power, bands)}</Text>
+                <View style={{ height: 18, flexDirection: 'row', borderRadius: 6, overflow: 'hidden' }}>
+                  {BAND_VIEW.map((b) => {
+                    const from = b.from(bands);
+                    const to = b.to(bands);
+                    return (
+                      <View key={b.label} style={{ width: `${(to - from) * 100}%`, backgroundColor: alpha(b.color, 0.28), alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.bg }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: b.color }} numberOfLines={1}>
+                          {b.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  <View style={{ position: 'absolute', left: `${power * 100}%`, top: -2, bottom: -2, width: 4, marginLeft: -2, borderRadius: 2, backgroundColor: '#ffffff' }} />
+                </View>
+              </View>
+            )}
+          </View>
+          <T bold style={{ marginTop: 10, textAlign: 'center' }}>
+            {phase === 'aim'
+              ? outside
+                ? 'Tap to aim: past the defender, away from the keeper.'
+                : oneOnOne
+                  ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
+                  : blockers.length
+                    ? 'Tap to aim past the defender. The keeper comes out if you wait.'
+                    : 'Tap to aim. He comes off his line if you wait.'
+              : phase === 'power'
+                ? 'Tap to set the power!'
+                : landed
+                  ? shot?.text
+                  : ' '}
+          </T>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -335,11 +414,12 @@ function judge(
   setup: { keeper: number; dive: number; wall: number },
   b: Bands,
   reach: number,
+  wall: [number, number] | null,
 ): { outcome: ShotOutcome; text: string; q: number; diveTo: number } {
   const toward = (target: number) => clamp(setup.keeper + Math.max(-reach, Math.min(reach, target - setup.keeper)));
   if (x < 0.02 || x > 0.98) return { outcome: 'miss', text: 'Wide of the post!', q: 0.05, diveTo: toward(x) };
   if (power > b.high) return { outcome: 'miss', text: 'Blazed over the bar!', q: 0.05, diveTo: toward(x) };
-  if (kind === 'freekick' && x >= setup.wall && x <= setup.wall + 0.3 && power < 0.75) return { outcome: 'miss', text: 'Straight into the wall.', q: 0.08, diveTo: setup.keeper };
+  if (kind === 'freekick' && wall && x >= setup.wall + wall[0] && x <= setup.wall + wall[1]) return { outcome: 'miss', text: 'Straight into the wall.', q: 0.08, diveTo: setup.keeper };
   if (kind === 'penalty') {
     const diveTo = clamp(setup.keeper + setup.dive * 0.3);
     if (Math.abs(x - diveTo) < 0.17 || (power < b.low && Math.abs(x - setup.keeper) < 0.25)) return { outcome: 'save', text: 'He guessed right!', q: 0.35, diveTo: x };
@@ -356,6 +436,28 @@ function judge(
 }
 
 type Bands = { low: number; mid: number; high: number };
+
+// How to strike it. Free for everyone; each trades one thing for another.
+const SHAPES: { id: ShotShape; label: string; hint: string }[] = [
+  { id: 'driven', label: 'Driven', hint: 'Hard and true' },
+  { id: 'curl', label: 'Curl', hint: 'Bends round them' },
+  { id: 'low', label: 'Low', hint: 'Skims the grass' },
+];
+
+// A curler is aimed outside the post and bends back in, so on its way it is
+// further out than where it ends up: to the right of a right-side target.
+function curlSide(x: number): number {
+  return x >= 0.5 ? 1 : -1;
+}
+
+// The part of the wall (from its left end, as shares of the goal) a free
+// kick runs into. A curler goes round the ends; a low one goes into their
+// feet whatever the power; a driven one gets over if hit hard enough.
+function wallSpan(shape: ShotShape, power: number): [number, number] | null {
+  if (shape === 'curl') return power < 0.85 ? [0.06, 0.24] : null;
+  if (shape === 'low') return [0, 0.3];
+  return power < 0.75 ? [0, 0.3] : null;
+}
 
 const BAND_VIEW: { label: string; color: string; from: (b: Bands) => number; to: (b: Bands) => number }[] = [
   { label: 'LOW', color: colors.blue, from: () => 0, to: (b) => b.low },
