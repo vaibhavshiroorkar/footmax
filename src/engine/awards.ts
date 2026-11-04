@@ -18,6 +18,7 @@ function entry(game: Game, p: Player, score: number): AwardEntry {
 export function computeAwards(game: Game, minApps = 10): SeasonAwards {
   const world = game.world;
   const champions = new Set(world.leagues.map((l) => leagueTable(l, world)[0]?.clubId));
+  const europeWinner = world.europe?.season === world.season ? world.europe.winner : undefined;
   const topTier = new Set(world.leagues.filter((l) => l.tier === 1).flatMap((l) => l.clubIds));
   const pool = world.leagues.flatMap((l) => l.clubIds.flatMap((id) => world.clubs[id].playerIds.map((pid) => world.players[pid]))).filter((p) => p && p.stats.apps >= minApps);
 
@@ -25,7 +26,7 @@ export function computeAwards(game: Game, minApps = 10): SeasonAwards {
   // smaller league.
   const score = (p: Player) => {
     const stage = topTier.has(p.clubId ?? '') ? 1 : 0.7;
-    const title = champions.has(p.clubId ?? '') ? 8 : 0;
+    const title = (champions.has(p.clubId ?? '') ? 8 : 0) + (europeWinner && p.clubId === europeWinner ? 10 : 0);
     const keeper = p.position === 'GK' ? 6 : 0;
     return (avgRating(p.stats) * 8 + p.stats.goals * 0.9 + p.stats.assists * 0.55 + title + keeper) * stage;
   };

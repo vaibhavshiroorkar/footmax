@@ -1,4 +1,5 @@
 import type { CareerProgress } from './progress';
+import type { Europe } from './europe';
 
 export type Position = 'GK' | 'DEF' | 'MID' | 'FWD';
 export type Build = 'lean' | 'athletic' | 'stocky';
@@ -146,6 +147,12 @@ export interface Fixture {
   // Knockout games level after 90 minutes go to penalties.
   penaltyWinner?: string;
   stage?: string;
+  // The Champions League, which runs alongside the league.
+  europe?: boolean;
+  // A league-phase game or a first leg: level is a fine result.
+  noShootout?: boolean;
+  // The second leg of a tie, settled on aggregate.
+  secondLeg?: boolean;
 }
 
 export interface League {
@@ -223,6 +230,10 @@ export interface World {
   freeAgents: string[];
   honours: Honour[];
   tournaments: Tournament[];
+  // The Champions League this season (see europe.ts).
+  europe?: Europe;
+  // Each league's final order last season, for who gets in.
+  lastFinish?: Record<string, string[]>;
   // Global end-of-season awards, newest first.
   awards?: SeasonAwards[];
   // World Cup qualifying, played at the international breaks of the season

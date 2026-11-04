@@ -152,7 +152,7 @@ export function NextMatchCard({ game }: { game: Game }) {
   const league = clubId ? leagueOf(world, clubId) : undefined;
   const home = f ? teamById(world, f.homeId) : null;
   const away = f ? teamById(world, f.awayId) : null;
-  const where = summer ? `Summer ${world.season + 1}${f?.stage ? `  |  ${f.stage}` : ''}` : `Week ${world.week}${league ? `  |  ${league.name}` : ''}${league && world.week > 1 && clubId ? `  |  ${ordinal(tablePosition(world, clubId))}` : ''}`;
+  const where = f?.europe ? `Week ${world.week}  |  Champions League  |  ${f.stage}` : summer ? `Summer ${world.season + 1}${f?.stage ? `  |  ${f.stage}` : ''}` : `Week ${world.week}${league ? `  |  ${league.name}` : ''}${league && world.week > 1 && clubId ? `  |  ${ordinal(tablePosition(world, clubId))}` : ''}`;
   return (
     <Card glow={f ? colors.accent : undefined}>
       <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.muted, textAlign: 'center' }} numberOfLines={1}>

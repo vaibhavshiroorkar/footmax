@@ -357,6 +357,26 @@ moments to play, not a wall of information.
   turn it off. The referee shouts his calls (`ref-*.wav`, built by
   `scripts/makeRefVoice.py`), with its own setting, and stays quiet at 4x.
 
+## Champions League
+
+`src/engine/europe.ts`, shown on `/europe`, linked from Tournaments.
+
+- **Who plays:** drawn in week 1 from last season's tables (`world.lastFinish`), or
+  by reputation in the first season. Places by nation (England and Spain 5 from
+  2024/25, Germany and Italy 4, France 3, Portugal and the Netherlands 2), then the
+  best other European clubs, two a nation.
+- **Format by season:** from 2024/25, 36 clubs in one table: four pots of nine, each
+  club meeting two from each pot, one home and one away, eight games. 1st to 8th go
+  to the last 16, 9th to 24th play off. Before that, 32 clubs in eight groups of
+  four, top two through. Then two-legged ties and a one-game final.
+- **Ties:** decided on aggregate, then penalties. Away goals count until 2020/21.
+- **Small nations:** the champion of the user's league, outside the seven big
+  nations and in UEFA, plays a tie in weeks 2 and 3 for the last place.
+- **Calendar:** a week can hold two matches. `userFixture` gives the European game
+  first, and the week only moves on once the league game is played too.
+- **Rewards:** money, fame and a manager's budget for each round, a milestone, and
+  weight in the Ballon d'Or. Only the user's club is paid.
+
 ## Internationals
 
 - Breaks in weeks 9, 20 and 30; summers hold the tournaments

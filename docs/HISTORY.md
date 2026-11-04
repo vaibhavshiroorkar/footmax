@@ -157,6 +157,12 @@ saves untouched; `secondaryRole` moved to the `roles` list (save version 4). Eve
 technique was wired to a real effect, because a node that changes nothing is clutter.
 Energy stays out of 100, so physical cuts the cost of a session, not the cap.
 
+### 18. v1.22.0: Champions League (2026-11-04)
+
+The biggest calendar change: a week can now hold two user matches, so finishing a
+European game no longer advances the week. Old saves join the next season rather than
+drawing a tournament mid-season, and no save migration was needed.
+
 ## Decisions that still hold
 
 | Decision | Why |

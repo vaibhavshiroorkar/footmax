@@ -18,6 +18,7 @@ import { callUpMessage, careerOffers, managerOffers, ownClubRenewal } from './of
 import { presentAwards } from './awards';
 import { seasonRollover } from './progress';
 import { lifeWeekly } from './lifeEvents';
+import { playEuropeWeek, startEurope } from './europe';
 
 const rep = (v: number) => Math.round(clamp(v, 10, 95));
 
@@ -55,6 +56,9 @@ export function advanceWeek(game: Game): WeekResult {
 
   const rng = new Rng(world.rngState);
   const myClub = userClubId(game);
+  // The draw is in week 1. A save from before the competition joins next season.
+  if (world.week === 1 && world.europe?.season !== world.season) startEurope(world, rng, myClub);
+  playEuropeWeek(game, rng);
   let homeGame = false;
   for (const league of world.leagues) {
     for (const f of league.fixtures) {
@@ -155,6 +159,7 @@ function closeLeagueSeason(game: Game, rng: Rng) {
     const table = leagueTable(league, world);
     const champ = world.clubs[table[0].clubId];
     world.honours.push({ season, title: `${league.name} champions`, winner: champ.name, clubId: champ.id });
+    world.lastFinish = { ...(world.lastFinish ?? {}), [league.id]: leagueTable(league, world).map((r) => r.clubId) };
     champ.reputation = rep(champ.reputation + 3);
     const leaguePlayers = league.clubIds.flatMap((id) => squad(world, world.clubs[id]));
     const scorer = [...leaguePlayers].sort((a, b) => b.stats.goals - a.stats.goals)[0];

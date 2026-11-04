@@ -187,6 +187,7 @@ export const MILESTONES: MilestoneDef[] = [
   { id: 'ovr80', label: 'Reach 80 overall', icon: 'trending-up', xp: 400, fame: 6, test: (g) => overall(careerPlayer(g)) >= 80 },
   { id: 'ovr90', label: 'Reach 90 overall', icon: 'diamond', xp: 600, fame: 10, test: (g) => overall(careerPlayer(g)) >= 90 },
   { id: 'topflight', label: 'Play in a top league', icon: 'star', xp: 300, fame: 5, test: (g) => { const p = careerPlayer(g); const l = g.world.leagues.find((x) => x.id === g.world.clubs[p.clubId ?? '']?.leagueId); return !!l && l.tier === 1 && p.stats.apps >= 1; } },
+  { id: 'europe', label: 'Champion of Europe', icon: 'trophy', xp: 900, fame: 12, test: (g) => g.world.honours.some((h) => h.title === 'Champions League winners' && careerPlayer(g).history.some((s) => s.season === h.season && s.clubId === h.clubId && s.apps >= 5)) },
   { id: 'title', label: 'League champion', icon: 'trophy', xp: 500, fame: 8, test: (g) => g.world.honours.some((h) => h.title.endsWith('champions') && careerPlayer(g).history.some((s) => s.season === h.season && s.clubId === h.clubId && s.apps >= 5)) },
   { id: 'award', label: 'Individual award', icon: 'medal', xp: 400, fame: 8, test: (g) => g.world.honours.some((h) => h.playerId === careerPlayer(g).id) },
   { id: 'millionaire', label: 'First million', icon: 'cash', xp: 200, fame: 3, test: (g) => (g.career?.money ?? 0) >= 1_000_000 },

@@ -179,8 +179,14 @@ champions path and a league path.
 **Before 2024/25.** A double round-robin group stage of 32 clubs. Away goals last counted
 in 2020/21, and level ties then went to extra time and penalties.
 
-**Open, for v1.22.0.** Group-era details from a proper source, each era's access list by
-nation, and how the league phase draw is seeded.
+**Group era (confirmed).** 32 clubs in eight groups of four, seeded, no two from one
+association in a group. Top two go through, third drops into the Europa League. The
+game does not model the Europa League, so third place simply ends there.
+
+**Open.** Each era's real access list by nation: sources disagree and England had six
+in 2025/26, so the game's places are approximate. The real draw has a two-per-nation
+limit; the game only avoids same-nation games where it can. Other continents' club
+cups are not in.
 
 ## Shot distance
 

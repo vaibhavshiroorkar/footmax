@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useGame } from '../state/store';
-import { Card, H2, Pill, Row, Screen, T, Tabs } from '../ui/kit';
+import { Button, Card, H2, Pill, Row, Screen, T, Tabs } from '../ui/kit';
 import { colors } from '../ui/theme';
 import { groupTable, tournamentsForSummer } from '../engine/international';
 import { teamById } from '../engine/lineup';
@@ -33,6 +33,7 @@ export default function Tournaments() {
             {world.qualifying?.year === world.season + 1 ? 'The World Cup takes the teams that come through qualifying; the other cups pick on form.' : 'Teams qualify on form.'} International breaks fall in weeks 9, 20 and 30.
           </T>
         </Card>
+        <EuropeLink />
         <QualifyingCard game={game} teamId={myNation ?? undefined} />
         <Card>
           <H2>Past winners</H2>
@@ -53,6 +54,7 @@ export default function Tournaments() {
 
   return (
     <Screen title="Internationals" nav={game.mode === 'manager' && !game.manager?.clubId && game.manager?.nationalTeamId ? 'manager' : undefined}>
+      <EuropeLink />
       <Tabs tabs={world.tournaments.map((x, i) => ({ key: String(i), label: SHORT[x.id.replace(/\d+$/, '')] ?? x.name }))} value={index} onChange={setIndex} />
       <Card>
         <Row style={{ justifyContent: 'space-between' }}>
@@ -108,6 +110,11 @@ export default function Tournaments() {
       <View style={{ height: 8 }} />
     </Screen>
   );
+}
+
+function EuropeLink() {
+  const router = useRouter();
+  return <Button label="Champions League" icon="trophy" variant="secondary" onPress={() => router.push('/europe')} />;
 }
 
 // World Cup qualifying: your nation's group, and where it stands.

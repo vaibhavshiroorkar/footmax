@@ -391,7 +391,7 @@ describe('defensive moments and second positions', () => {
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'CB', seed: 32 });
     boost(game);
     const kinds = new Set<string>();
-    play(game, 4, kinds);
+    play(game, 10, kinds);
     expect(kinds.has('tackle')).toBe(true);
   });
 

@@ -7,6 +7,7 @@ import { ROLES, isRole, FORMATION_LEAN } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { ShotEnd } from './contact';
+import { firstLegOf } from './europe';
 import { EXTRA_PASS_VISION } from './perks';
 import { CARD_PER_MINUTE, FLAG_CALL, FLARE_ODDS, FLARE_UP, FOUL_CALL, HEAT_PER_CARD, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
@@ -203,6 +204,8 @@ export interface MatchState {
   heat: number;
   // Knockout games go to penalties when level.
   knockout: boolean;
+  // The second leg of a tie: the first leg, for the aggregate.
+  firstLeg?: Fixture;
   penaltyWinner?: string;
   // All key moments this match, played or skipped. Capped by MAX_MOMENTS.
   moments: number;
@@ -303,7 +306,8 @@ export function createMatch(world: World, fixture: Fixture, focus: MatchFocus, s
     yellows: {},
     sentOff: {},
     heat: 0,
-    knockout: !!fixture.stage && fixture.stage !== 'Group',
+    knockout: !!fixture.stage && fixture.stage !== 'Group' && !fixture.noShootout,
+    firstLeg: fixture.secondLeg ? firstLegOf(world, fixture) : undefined,
     moments: 0,
     focus,
     rngState: seed >>> 0,
@@ -1884,7 +1888,13 @@ function finishMatch(world: World, s: MatchState, rng: Rng) {
     }
   }
   push(s, s.endMinute, null, 'full', `Full time: ${teamById(world, s.home.clubId).name} ${s.home.goals}-${s.away.goals} ${teamById(world, s.away.clubId).name}.`);
-  if (s.knockout && diff === 0) shootout(world, s, rng);
+  // A second leg is level on aggregate, not on the night. Away goals settle it
+  // until 2020/21.
+  const leg = s.firstLeg;
+  const homeTotal = s.home.goals + (leg?.awayGoals ?? 0);
+  const awayTotal = s.away.goals + (leg?.homeGoals ?? 0);
+  const awayGoalsDecide = !!leg && world.season <= 2020 && s.away.goals !== leg.awayGoals;
+  if (s.knockout && homeTotal === awayTotal && !awayGoalsDecide) shootout(world, s, rng);
   s.rngState = rng.state;
 }
 

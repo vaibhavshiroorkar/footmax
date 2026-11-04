@@ -7,6 +7,7 @@ import { MatchState, commitMatch, createMatch, simToEnd, MatchFocus } from './ma
 import { afterCareerMatch } from './career';
 import { managerAfterMatch } from './manager';
 import { advanceWeek, userClubId, WeekResult } from './season';
+import { europeFixtureFor } from './europe';
 import { pickNationalSquad, refreshNationalSquads, tournamentFixtureFor } from './international';
 import { DataPack } from '../data/pack';
 import { formCheck } from './relations';
@@ -195,6 +196,9 @@ export function userFixture(game: Game): Fixture | undefined {
   const teamId = userTeamId(game);
   if (!teamId) return undefined;
   if (world.phase === 'tournament') return tournamentFixtureFor(world, teamId);
+  // Midweek comes first: a European game, then the league.
+  const midweek = europeFixtureFor(world, teamId);
+  if (midweek) return midweek;
   const f = fixtureFor(world, teamId, world.week);
   return f && !f.played ? f : undefined;
 }
@@ -261,6 +265,8 @@ export function finishUserMatch(game: Game, s: MatchState): FinishResult {
     }
     if (game.mode === 'manager' && game.manager) managerAfterMatch(game, f);
   }
+  // A midweek game: the league match is still to come this week.
+  if (f?.europe && userFixture(game)) return { newSeason: false, summerStarted: false, levelUp };
   return { ...advanceWeek(game), levelUp };
 }
 

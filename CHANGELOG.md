@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.22.0
+
+- The Champions League. Finish high enough and your club is in, with the format of
+  the season: 36 clubs in one table from 2024/25, or 32 clubs in groups before.
+  Then two-legged ties and a final.
+- Win your league in a small nation and you get a qualifying tie for the last
+  place, so even a club from San Marino can dream.
+- European nights are midweek, so some weeks hold two matches. Fitness and rotation
+  start to matter.
+- It pays: money, fame, a new milestone, and it counts for the Ballon d'Or.
+
 ## 1.21.0
 
 - The ability tree has its own screen: a big map to drag around, with a branch for
