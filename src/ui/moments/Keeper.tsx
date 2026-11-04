@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { RigFigure } from '../rig/Figure';
-import { dive as divePose, jump as jumpPose, ready, spread } from '../rig/poses';
+import { dive as divePose, jump as jumpPose, ready, run as runPose, spread } from '../rig/poses';
 import { Pt } from '../rig/skeleton';
 
 // A goalkeeper standing on `ground` at `x`, about `h` units tall.
@@ -15,10 +15,11 @@ export const KeeperFigure = memo(function KeeperFigure({ x, ground, h = 60, dive
 // An outfield player seen from the front, standing on `ground` at `x`, `h`
 // units tall. span: how wide his body and arms reach, in the same units as
 // x, so a defender making himself big shows exactly the goal he hides.
-export const OutfieldFigure = memo(function OutfieldFigure({ x, ground, h = 60, span, kit = '#c8102e', shorts = '#111827', skin = '#d9a77c', hair = '#2a1d14', jump = 0 }: { x: number; ground: number; h?: number; span?: number; kit?: string; shorts?: string; skin?: string; hair?: string; jump?: number }) {
+// stride: he is on the move, at this point of his run. back: seen from behind.
+export const OutfieldFigure = memo(function OutfieldFigure({ x, ground, h = 60, span, kit = '#c8102e', shorts = '#111827', skin = '#d9a77c', hair = '#2a1d14', jump = 0, stride, back = false }: { x: number; ground: number; h?: number; span?: number; kit?: string; shorts?: string; skin?: string; hair?: string; jump?: number; stride?: number; back?: boolean }) {
   const s = h / 60;
-  const pose = jump > 0 ? jumpPose(jump) : spread((span ?? 28 * s) / 2 / s);
-  return <RigFigure x={x} ground={ground} h={h} pose={pose} lift={jump * 10} kit={kit} shorts={shorts} skin={skin} hair={hair} />;
+  const pose = jump > 0 ? jumpPose(jump) : stride !== undefined ? runPose(stride) : spread((span ?? 28 * s) / 2 / s);
+  return <RigFigure x={x} ground={ground} h={h} pose={pose} lift={jump * 10} back={back} kit={kit} shorts={shorts} skin={skin} hair={hair} />;
 });
 
 // Keeper shirts: bright colours that clash with neither outfield kit.

@@ -40,6 +40,24 @@ export function jump(k: number): PoseInput {
   return { hip: { x: 0, y: hip }, handL: { x: -13 - k * 2, y: hip - 12 - k * 22 }, handR: { x: 13 + k * 2, y: hip - 12 - k * 22 }, footL: { x: -5, y: -k * 8 }, footR: { x: 5, y: -k * 8 } };
 }
 
+// Striking a ball, seen from behind. foot: which leg swings. k: -1 at the top of
+// the backswing, 0 at the ball, 1 at the end of the follow-through.
+export function kick(foot: 'L' | 'R', k: number): PoseInput {
+  const s = foot === 'R' ? 1 : -1;
+  const lift = Math.max(0, Math.abs(k)) * 15;
+  const swing = { x: s * (5 + (k > 0 ? -k * 11 : -k * 6)), y: -lift };
+  const plant = { x: -s * 7, y: 0 };
+  return {
+    hip: { x: -s * 2, y: -25 + Math.abs(k) * 1.5 },
+    lean: -s * 0.1 * k,
+    // The arm opposite the kicking leg comes across for balance.
+    handL: { x: -18 - (s < 0 ? 6 * k : 0), y: -36 + (s > 0 ? -7 * Math.abs(k) : 0) },
+    handR: { x: 18 + (s > 0 ? 6 * k : 0), y: -36 + (s < 0 ? -7 * Math.abs(k) : 0) },
+    footL: s > 0 ? plant : swing,
+    footR: s > 0 ? swing : plant,
+  };
+}
+
 // A slide tackle along the ground toward dir.
 export function slide(dir: -1 | 1): PoseInput {
   return { hip: { x: -dir * 4, y: -9 }, lean: -dir * 1.1, handL: { x: -dir * 24, y: -16 }, handR: { x: -dir * 12, y: -3 }, footL: { x: dir * 20, y: -3 }, footR: { x: dir * 12, y: 0 } };

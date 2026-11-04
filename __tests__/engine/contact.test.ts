@@ -1,4 +1,4 @@
-import { ShotInput, ShotRun, coverage, flyShot, keeperBody } from '../../src/engine/contact';
+import { ShotInput, ShotRun, ballSpeed, coverage, flyShot, keeperBody, passWeight, powerStray } from '../../src/engine/contact';
 import { Rng } from '../../src/engine/rng';
 
 const rng = new Rng(99);
@@ -41,6 +41,23 @@ describe('a shot against a real body', () => {
       const r = shot({ aim, height: 0.1 + rand() * 0.8, flight: 0.45 + rand() * 0.5, skill: 30 + rand() * 60 });
       if (r.end === 'net') expect(Math.abs(r.keeperTo - aim) * 7.32).toBeGreaterThan(1);
     }
+  });
+
+  it('makes a harder shot faster and less true', () => {
+    expect(ballSpeed(0.9)).toBeGreaterThan(ballSpeed(0.3));
+    expect(powerStray(0.9)).toBeGreaterThan(powerStray(0.3));
+  });
+
+  it('beats him more often in the very corner', () => {
+    const spot = many(3000, () => shot({ aim: 0.86, height: 0.5, flight: 1 })).goal;
+    const corner = many(3000, () => shot({ aim: 0.94, height: 0.85, flight: 1 })).goal;
+    expect(corner).toBeGreaterThan(spot);
+  });
+
+  it('weighs a pass by how close the charge was', () => {
+    expect(passWeight(0.5, 0.5)).toBe(1);
+    expect(passWeight(0.9, 0.5)).toBeLessThan(passWeight(0.6, 0.5));
+    expect(passWeight(0, 1)).toBeGreaterThan(0);
   });
 
   it('rewards a better keeper', () => {

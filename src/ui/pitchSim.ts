@@ -232,11 +232,10 @@ export class PitchSim {
       if (ahead <= 0.03 || ahead >= 0.95 || d > 30) continue;
       const gx = s.x + (b.x - s.x) / ahead;
       const x = 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
-      // A man wide of the goal hides none of it, so he is not in the way.
-      if (x < -0.1 || x > 1.1) continue;
       // About 0.45 m of body each side of him, seen from the shooter.
       const half = clamp(0.45 / ahead / (2 * GOAL_HALF), 0.04, 0.12);
-      out.push({ id: b.id, x, half, near: 1 - ahead, d });
+      // Everyone ahead of him counts, though only those in the lane can block.
+      out.push({ id: b.id, x: clamp(x, -1.6, 2.6), half, near: 1 - ahead, d });
     }
     return out
       .sort((a, b) => a.d - b.d)
@@ -246,8 +245,8 @@ export class PitchSim {
 
   // The goal as the shooter sees it at this moment, for the shot game: where
   // the keeper really stands across it (as PlayStep.aim), how far off his line
-  // he is, the middle of any wall, and team-mates ahead of the shooter.
-  shotScene(shooterId: string): { keeper: number; out: number; wall?: number; mates: { id: string; x: number; near: number }[] } {
+  // he is, and team-mates ahead of the shooter.
+  shotScene(shooterId: string): { keeper: number; out: number; mates: { id: string; x: number; near: number }[] } {
     const s = this.bodies.get(shooterId);
     if (!s) return { keeper: 0.5, out: 0, mates: [] };
     const defSide = s.side === 'home' ? 'away' : 'home';
@@ -261,13 +260,11 @@ export class PitchSim {
       return 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
     };
     const k = this.active().find((b) => b.pos === 'GK' && b.side === defSide);
-    const wall = this.setPiece?.wall.map((id) => this.bodies.get(id)).filter((b): b is Body => !!b) ?? [];
     return {
       // His place across the goal itself. He stays near the middle to cover both
       // corners, shading to the near post.
       keeper: k ? clamp(0.5 + ((k.x - PW / 2) / (2 * GOAL_HALF)) * flip, 0.34, 0.66) : 0.5,
       out: k ? Math.abs(k.y - lineY) : 0,
-      wall: wall.length ? wall.reduce((n, b) => n + across(b), 0) / wall.length : undefined,
       mates: this.active()
         .filter((b) => b.side === s.side && b.id !== s.id && b.pos !== 'GK' && (b.y - s.y) / toGoal > 0.03 && (b.y - s.y) / toGoal < 0.95 && dist(b.x, b.y, s.x, s.y) < 30)
         .map((b) => ({ id: b.id, x: across(b), near: 1 - (b.y - s.y) / toGoal }))
@@ -584,7 +581,8 @@ export class PitchSim {
         // way, or (for 'lane' and 'wall') whoever stands in the way here.
         let blocker = step.blocker ? this.bodies.get(step.blocker) : undefined;
         if (step.blocker && !blocker && shooter) {
-          const lane = this.laneDefenders(shooter.id).sort((p, q) => Math.abs(p.x - (step.aim ?? 0.5)) - Math.abs(q.x - (step.aim ?? 0.5)))[0];
+          // Only a man in front of the goal can be the one who blocks it.
+          const lane = this.laneDefenders(shooter.id).filter((l) => l.x > -0.2 && l.x < 1.2).sort((p, q) => Math.abs(p.x - (step.aim ?? 0.5)) - Math.abs(q.x - (step.aim ?? 0.5)))[0];
           blocker = lane ? this.bodies.get(lane.id) : undefined;
           if (blocker) step.blocker = blocker.id;
         }
@@ -743,7 +741,7 @@ export class PitchSim {
         // A set piece: taken once the other side has backed off.
         // A corner goes as soon as the taker is ready; others wait for the
         // distance, but not for long.
-        if (a.t > 0.7 && (step.restart === 'corner' || this.restartClear(step) || a.t > (step.restart === 'penalty' ? 4 : 2.2))) {
+        if (a.t > 0.7 && (step.restart === 'corner' || this.restartClear(step) || a.t > (step.restart === 'penalty' ? 4 : step.restart === 'freekick' ? 3.2 : 2.2))) {
           if (step.restart === 'freekick' || step.restart === 'corner') this.hooks.onSound?.('whistle', 0.45);
           return done();
         }
@@ -1097,7 +1095,7 @@ export class PitchSim {
       }
     }
     const sp = this.setPiece;
-    if (sp && !this.celebrate && b.pos !== 'GK') {
+    if (sp && !this.celebrate && (b.pos !== 'GK' || sp.kind === 'freekick')) {
       const spot = this.setPieceSpot(b, sp);
       if (spot) return spot;
     }
@@ -1124,10 +1122,13 @@ export class PitchSim {
       return null;
     }
     if (sp.kind === 'freekick' && sp.wall.length) {
+      // The wall covers the near side of the goal, and the keeper the far side.
+      const nearSide = Math.sign(sp.x - PW / 2) || 1;
+      if (b.side === defSide && b.pos === 'GK') return { x: PW / 2 - nearSide * GOAL_HALF * 0.35, y: goalY + inward * 1.5 };
       const i = sp.wall.indexOf(b.id);
       if (i >= 0) {
-        // On the line from the ball to the middle of the goal.
-        const gx = PW / 2 - sp.x;
+        // On the line from the ball to the near half of the goal.
+        const gx = PW / 2 + nearSide * GOAL_HALF * 0.5 - sp.x;
         const gy = goalY - sp.y;
         const gd = Math.hypot(gx, gy) || 1;
         const ux = gx / gd;

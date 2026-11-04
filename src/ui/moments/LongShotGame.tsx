@@ -20,8 +20,8 @@ const RISE = 1.15;
 type Played = { aim: number; shape: 'driven'; over?: boolean };
 
 // From a long way out. Side on, so you can see how far off his line the keeper
-// is: that is the whole shot. Choose lob or driven, then stop the bar in a
-// narrow window. The further out, the narrower it is.
+// is: that is the whole shot. Choose lob or driven, then hold to fill the bar and
+// let go in a narrow window. The further out, the narrower it is.
 export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }: { metres: number; shooting: number; keeperOut?: number; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: Played) => void }) {
   const looks = useLooks();
   const [kind, setKind] = useState<LongKind | null>(null);
@@ -31,7 +31,9 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
   const t = useTicker(run === null ? kind !== null : true, run ? 'fly' : kind ?? 'pick');
   const sent = useRef(false);
   const half = longWindow(metres, shooting);
-  const bar = kind && !run ? Math.min(1, t / RISE) : struck;
+  // The bar only fills while the finger is down.
+  const [heldAt, setHeldAt] = useState<number | null>(null);
+  const bar = kind && !run ? (heldAt === null ? 0 : Math.min(1, (t - heldAt) / RISE)) : struck;
 
   const strike = (p: number) => {
     if (!kind || run) return;
@@ -40,7 +42,7 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
     setRun(r);
   };
   useEffect(() => {
-    if (kind && !run && t >= RISE) setTimeout(() => strike(1), 0);
+    if (kind && !run && heldAt !== null && t - heldAt >= RISE) setTimeout(() => strike(1), 0);
   });
 
   const dur = kind === 'lob' ? 2.1 : 1.5;
@@ -66,7 +68,7 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
 
   return (
     <View style={{ gap: 8 }}>
-      <Pressable onPress={() => strike(bar)} accessibilityRole="button" accessibilityLabel="Strike it">
+      <Pressable onPressIn={() => kind && !run && setHeldAt((v) => v ?? t)} onPressOut={() => heldAt !== null && strike(bar)} accessibilityRole="button" accessibilityLabel="Hold, then release to strike it">
         <View style={{ borderRadius: 14, overflow: 'hidden' }}>
           <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
             <Rect x={0} y={0} width={W} height={H} fill="#16324f" />
@@ -109,7 +111,7 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
         </View>
       )}
       <T bold style={{ textAlign: 'center', minHeight: 22 }}>
-        {run && k >= 1 ? (run.outcome === 'goal' ? 'GOAL!' : run.outcome === 'save' ? 'Saved.' : 'Missed.') : kind === null ? 'A shot from here? Read the keeper.' : run ? ' ' : 'Tap in the green.'}
+        {run && k >= 1 ? (run.outcome === 'goal' ? 'GOAL!' : run.outcome === 'save' ? 'Saved.' : 'Missed.') : kind === null ? 'A shot from here? Read the keeper.' : run ? ' ' : 'Hold, and release in the green.'}
       </T>
     </View>
   );

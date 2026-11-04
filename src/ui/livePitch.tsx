@@ -406,6 +406,9 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
 
   const size = Math.max(15, Math.min(21, width / 22));
   const { awayShirt, homeKeeper, awayKeeper } = matchKits(home.colors, away.colors);
+  // The user's side attacks to the right if they are at home.
+  const mine = focusId ? (live.home.onPitch.includes(focusId) || live.home.bench.includes(focusId) ? 'right' : 'left') : null;
+  const attack = mine && (live.minute <= 3 || (live.minute >= 46 && live.minute <= 48)) ? mine : null;
   const dots = (['home', 'away'] as SideKey[]).flatMap((side) => {
     const team = side === 'home' ? home : away;
     const ids = [...live[side].onPitch, ...gone.filter((g) => g.side === side && !live[side].onPitch.includes(g.id)).map((g) => g.id)];
@@ -473,6 +476,14 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
             transform: [{ scale: ball.z.interpolate({ inputRange: [0, 1], outputRange: [1, 0.55] }) }],
           }}
         />
+        {/* Which way you are attacking, for the first moments of each half. */}
+        {attack && (
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+            <Svg width={width * 0.5} height={40} viewBox="0 0 200 40" style={{ transform: attack === 'left' ? [{ scaleX: -1 }] : undefined }}>
+              <Path d="M 6 20 L 170 20 M 150 6 L 176 20 L 150 34" stroke="#ffffff" strokeOpacity={0.22} strokeWidth={6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </View>
+        )}
         {dots}
         {/* The referee: black with a yellow trim. */}
         <Animated.View

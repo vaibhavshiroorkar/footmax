@@ -11,6 +11,8 @@ function career() {
 
 describe('life with consequences', () => {
   it('an arrest bans him; a third is prison and the end', () => {
+    // A cool head can talk his way out, so take that roll away.
+    const roll = jest.spyOn(Math, 'random').mockReturnValue(0);
     const game = career();
     const p = game.world.players[game.career!.playerId];
     arrest({ game });
@@ -21,6 +23,7 @@ describe('life with consequences', () => {
     arrest({ game });
     expect(game.career!.retired).toBe(true);
     expect(game.career!.endReason).toMatch(/Jail/);
+    roll.mockRestore();
   });
 
   it('taken bribes can come out later', () => {

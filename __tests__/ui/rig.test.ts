@@ -1,5 +1,5 @@
 import { ARM, BONES, solve, twoBone } from '../../src/ui/rig/skeleton';
-import { dive, jump, point, ready, run, slide, spread, stand, straddle } from '../../src/ui/rig/poses';
+import { dive, jump, kick, point, ready, run, slide, spread, stand, straddle } from '../../src/ui/rig/poses';
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -43,6 +43,13 @@ describe('poses', () => {
       expect(dist(root, limb.mid)).toBeCloseTo(l1, 1);
     }
     expect(dist(s.hip, s.neck)).toBeCloseTo(BONES.spine, 3);
+  });
+
+  it('kicks with the foot it says', () => {
+    const right = solve(kick('R', -1));
+    const left = solve(kick('L', -1));
+    expect(right.legR.end.y).toBeLessThan(right.legL.end.y);
+    expect(left.legL.end.y).toBeLessThan(left.legR.end.y);
   });
 
   it('a dive stretches the keeper toward the side he goes', () => {

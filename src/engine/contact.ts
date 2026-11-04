@@ -56,6 +56,16 @@ export interface ShotRun {
 const toMetres = (share: number) => (share - 0.5) * GOAL_W;
 const toShare = (m: number) => m / GOAL_W + 0.5;
 
+// How hard it is hit decides how fast it goes and how true. power 0 to 1.
+export const ballSpeed = (power: number) => 13 + power * 21;
+export const powerStray = (power: number) => -0.012 + power * power * 0.085;
+
+// Weighing a pass: hold longer for a longer ball. held 0 to 1 is how full the bar
+// was, ideal where it should be. Returns how much of the pass's value survives.
+export function passWeight(held: number, ideal: number): number {
+  return Math.max(0.35, 1 - Math.abs(held - ideal) * 1.4);
+}
+
 export interface KeeperBody {
   reaction: number;
   speed: number;
@@ -147,7 +157,9 @@ export function flyShot(s: ShotInput): ShotRun {
   const guess = s.keeper.guess === undefined ? undefined : toMetres(s.keeper.guess);
   // He misreads a little; a curler and a fake make it worse.
   const misread = Math.abs(normal(s.rand)) * (0.32 - s.keeper.skill * 0.0022) * (s.curl ?? 1) * (s.keeper.fooled ? 1.8 : 1);
-  const gap = Math.hypot(x - (guess ?? from), (z - BODY_Z) * 1.15);
+  // The very corners are the hardest of all to get to.
+  const corner = Math.abs(x) > GOAL_W / 2 - 0.65 && (z > GOAL_H - 0.7 || z < 0.45) ? 1.12 : 1;
+  const gap = Math.hypot(x - (guess ?? from), (z - BODY_Z) * 1.15) * corner;
   const need = guess === undefined ? gap + misread : gap;
   const moving = guess === undefined ? Math.min(k.stretch, k.speed * Math.max(0, s.flight - k.reaction * (s.keeper.fooled ? 1.5 : 1))) : 0.35;
   const can = (moving + k.reach * (s.keeper.fooled ? 0.82 : 1)) * (1 + rush * 0.35) * (1 - (s.keeper.edge ?? 0));

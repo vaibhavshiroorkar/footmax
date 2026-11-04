@@ -3,8 +3,10 @@ import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { KeeperFigure, OutfieldFigure } from './Keeper';
+import { RigFigure, useLooks } from '../rig/Figure';
+import { kick } from '../rig/poses';
 import { ShotShape } from '../../engine/match';
-import { ShotEnd, ShotRun, coverageShare, flyShot } from '../../engine/contact';
+import { ShotEnd, ShotRun, ballSpeed, coverageShare, flyShot, powerStray } from '../../engine/contact';
 import { T } from '../kit';
 import { alpha, colors, fonts } from '../theme';
 import { Football } from '../football';
@@ -48,12 +50,14 @@ const EASE = 1.7;
 // Every player can pick how to strike it (see SHAPES): driven, curled or low.
 // angle: where he stands across the goal (-1 out to his left, 1 to his
 // right, see PitchSim.shotAngle); the ball starts from there.
+// foot: the foot he strikes it with, which sets where he stands, how he swings
+// and which way a curler bends best.
 // edge: how much of the keeper's reach the shooter takes away (see contact.ts).
 // scene and kits: the keeper, wall and team-mates as the pitch has them, in
 // the colours of this match (see PitchSim.shotScene).
 // onPass: give it to a team-mate instead, before the aim is set.
 // fake and curler: techniques from the skill tree (see skillTree.ts).
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, edge = 0, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; edge?: number; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, edge = 0, foot = 'R', scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; edge?: number; foot?: 'L' | 'R'; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -72,10 +76,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall'; blocker?: number; run?: ShotRun; height: number; dur: number } | null>(null);
   const [setup] = useState(() => ({
     // On the line for a penalty; otherwise where the pitch has him.
-    keeper: kind === 'penalty' ? 0.5 : scene?.keeper ?? 0.32 + Math.random() * 0.36,
+    // At a free kick the wall takes one side and he takes the other.
+    keeper: kind === 'penalty' ? 0.5 : kind === 'freekick' ? (angle <= 0 ? 0.66 : 0.34) : scene?.keeper ?? 0.32 + Math.random() * 0.36,
     dive: Math.random() < 0.5 ? -1 : 1,
     kit: kits?.keeper ?? '#22c55e',
-    wall: scene?.wall !== undefined ? clamp(scene.wall - 0.15) : 0.15 + Math.random() * 0.4,
+    wall: angle <= 0 ? 0.04 : 0.66,
     offset: Math.random() * Math.PI * 2,
     blockers: [0.25 + Math.random() * 0.2, 0.55 + Math.random() * 0.2].map((x) => ({ x, speed: 0.8 + Math.random() * 0.8, phase: Math.random() * 6 })),
     jitter: [0, 1, 2].map(() => ({ speed: 0.9 + Math.random() * 0.8, phase: Math.random() * 6 })),
@@ -89,6 +94,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     arc: 0.7 + Math.random() * 0.7,
   }));
   const t = useTicker(phase !== 'done', phase);
+  const looks = useLooks();
   const speed = 2.6 + (1 - composure / 99) * 2.6;
   // How far the keeper can get across, as a share of the goal's width. Out
   // at your feet in a one on one he covers more of it.
@@ -105,7 +111,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const metres = kind === 'penalty' ? 11 : kind === 'freekick' ? 24 : outside ? 19 + range * 24 : oneOnOne ? 9 : 14;
   // Stray grows exponentially with distance, as the chance of a goal falls.
   const longStray = Math.exp(0.05 * Math.max(0, metres - 20));
-  const flightAt = (p: number) => metres / ((p < bands.low ? 15 : p <= bands.mid ? 22 : 29) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));
+  const flightAt = (p: number) => metres / (ballSpeed(p) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));
   // The goal he can cover for that shot: the bar under him shows the truth.
   const reachAt = (p: number) => coverageShare(keeper, flightAt(p), rush) * (fooled ? 0.82 : 1) * (1 - edge);
   const reach = reachAt(bands.mid);
@@ -116,7 +122,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     kind !== 'shot' || oneOnOne
       ? []
       : defenders
-        ? defenders.map((d, i) => ({ ...d, ...setup.jitter[i % 3], amp: 0.025 }))
+        ? defenders.map((d, i) => ({ ...d, ...setup.jitter[i % 3], amp: 0.03 }))
         : outside
           ? (range > 0.55 ? setup.blockers : setup.blockers.slice(0, 1)).map((b) => ({ ...b, half: BLOCK_HALF, near: 0.4, amp: 0.14 }))
           : [];
@@ -126,17 +132,17 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // full power, which flies over the bar.
   // Seconds for the bar to fill: a good finisher gets a touch more time.
   const RISE = 0.62 + (shooting / 99) * 0.38;
-  const power = phase === 'power' ? Math.min(1, t / RISE) ** EASE : shot?.power ?? 0;
-  // In open play a defender closes in while you pick a spot.
-  const aimLimit = kind === 'shot' ? 1.8 + (composure / 99) * 1 : Infinity;
+  // Hold to charge: the bar only fills while the finger is down.
+  const [chargeAt, setChargeAt] = useState<number | null>(null);
+  const power = phase === 'power' ? (chargeAt === null ? 0 : Math.min(1, (t - chargeAt) / RISE) ** EASE) : shot?.power ?? 0;
+  // In open play a defender closes in the whole time: while you pick a spot and
+  // while you wind up. He puts you off as he gets near.
+  const aimLimit = kind === 'shot' ? 2.4 + (composure / 99) * 1.2 : Infinity;
+  const elapsed = phase === 'aim' ? t : phase === 'power' ? (rushAt ?? 0) + t : shot?.blockAt ?? 0;
+  const pressure = aimLimit === Infinity || !blockers.length ? 0 : Math.min(1, elapsed / aimLimit);
 
-  const tap = () => {
-    if (phase === 'aim') {
-      setAim(aimX);
-      setRushAt(t);
-      setPhase('power');
-    } else if (phase === 'power') fire(power);
-  };
+  // The man closing you down heads for the line of the shot.
+  const target = 0.5 + angle * 0.3;
 
   const fire = (struck: number) => {
     let power = struck;
@@ -145,13 +151,14 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       // the weaker foot, distance and an overhit ball stray more.
       // A low shot cannot go over: struck too hard it drags wide instead.
       const dragged = shape === 'low' && power > bands.high;
-      const spread = 0.015 + (1 - (composure + shooting) / 198) * 0.15 + longWeak * 0.1 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0) + (shape === 'curl' ? 0.012 : 0) + (dragged ? 0.08 : 0);
+      // Harder is faster but less true, and a man in your face makes it worse.
+      const spread = 0.015 + (1 - (composure + shooting) / 198) * 0.15 + longWeak * 0.1 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + powerStray(power) + pressure * 0.05 + (shape === 'curl' ? 0.012 : 0) + (dragged ? 0.08 : 0);
       const x = aim + setup.stray * spread * longStray;
       const strayed = Math.abs(x - aim) > 0.06;
       if (dragged) power = bands.high;
       // Into a defender's body: blocked. A curler passes him wide of where it
       // ends up, so it can bend round him; a low one is easier to block.
-      const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - (shape === 'curl' ? x + curlSide(x) * (curler ? 0.22 : 0.14) * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
+      const hit = blockers.findIndex((b, i) => Math.abs(blockerX(b, elapsed, i === 0 ? pressure : 0, target) - (shape === 'curl' ? x + curlSide(x) * (curler ? 0.22 : 0.14) * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
       const blocked = hit >= 0;
       const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
       const span = wallSpan(shape, power, bands);
@@ -171,15 +178,28 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: kpos }
             : { outcome: run!.outcome as ShotOutcome, text: lineFor(run!, kind, power, bands), q: run!.outcome === 'goal' ? (power > bands.mid ? 1 : 0.85) : run!.outcome === 'save' ? 0.4 : 0.05, diveTo: run!.keeperTo };
       if (run?.end === 'wide' && strayed) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
-      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, run, height, dur, ...r });
+      setShot({ power, blockAt: elapsed, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, run, height, dur, ...r });
       setPhase('flight');
     }
+  };
+
+  const tap = () => {
+    if (phase !== 'aim') return;
+    setAim(aimX);
+    setRushAt(t);
+    setPhase('power');
+  };
+  const press = () => {
+    if (phase === 'power' && chargeAt === null) setChargeAt(t);
+  };
+  const release = () => {
+    if (phase === 'power' && chargeAt !== null) fire(power);
   };
 
   // Out of time: tackled while aiming, or the power maxes out and he shoots.
   const timedOut = useRef(false);
   const tackled = () => {
-    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: kpos, height: 0.3, dur: 0.6 });
+    setShot({ power: 0.5, blockAt: elapsed, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: kpos, height: 0.3, dur: 0.6 });
     setPhase('flight');
   };
   useEffect(() => {
@@ -188,9 +208,13 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     if (phase === 'aim' && t > aimLimit) {
       timedOut.current = true;
       setTimeout(tackled, 0);
-    } else if (phase === 'power' && t >= RISE) {
+    } else if (phase === 'power' && chargeAt !== null && t - chargeAt >= RISE) {
       timedOut.current = true;
       setTimeout(() => fire(1), 0);
+    } else if (phase === 'power' && chargeAt === null && elapsed > aimLimit + 0.8) {
+      // Stood over it too long: he is on you.
+      timedOut.current = true;
+      setTimeout(tackled, 0);
     }
   });
 
@@ -223,9 +247,16 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // Where the ball is at kk (0 at the boot, 1 at the goal). A curler starts
   // out wide and bends back in; a driven shot rises a little; a low one
   // skims the grass.
+  // He stands to one side of the ball, by the foot he strikes it with.
   const fromX = 150 + angle * 105;
+  const striker = weakFoot ? (foot === 'R' ? 'L' : 'R') : foot;
+  const standX = fromX + (striker === 'R' ? -13 : 13);
+  // Back as he charges, through the ball as he strikes it.
+  const swing = phase === 'flight' ? Math.min(1, t / 0.28) : phase === 'power' ? -power : 0;
   const pathAt = (kk: number) => {
-    const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend * (curler ? 1.3 : 1) : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
+    // A right foot bends it best toward the left of goal, and a left foot the other way.
+    const natural = (striker === 'R') === (shot ? shot.x < 0.5 : false) ? 1.2 : 0.8;
+    const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend * (curler ? 1.3 : 1) * natural : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
     const x = (1 - kk) * (1 - kk) * fromX + 2 * (1 - kk) * kk * ((fromX + endX) / 2 + bendX) + kk * kk * endX;
     const y = H - 12 + (targetY - (H - 12)) * (low ? 1 - (1 - kk) * (1 - kk) : kk) - Math.sin(Math.PI * kk) * (low ? 2 : shape === 'curl' ? 14 : 9) * setup.arc;
     return { x, y, r: 10.5 - 4 * kk };
@@ -351,7 +382,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           )}
         </View>
       )}
-      <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Lock power'}>
+      <Pressable onPress={tap} onPressIn={press} onPressOut={release} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Hold to charge, release to shoot'}>
         <View style={{ alignItems: 'center' }}>
           <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
             <GoalFrame x={GOAL.x} y={GOAL.y} w={GOAL.w} h={GOAL.h} />
@@ -360,14 +391,15 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
             {kind === 'shot' && (scene?.mates ?? []).map((mate) => {
               const m = manAt({ x: mate.x, half: 0.06, near: mate.near, speed: 0, phase: 0, amp: 0 }, GOAL);
-              return <OutfieldFigure key={mate.id} x={px(mate.x)} ground={m.ground} h={m.h} span={m.w * 0.7} kit={kits?.own} />;
+              return <OutfieldFigure key={mate.id} x={sx(mate.x, GOAL)} ground={m.ground} h={m.h} kit={kits?.own} stride={t * 8} back />;
             })}
-            {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
-              const m = manAt(b, GOAL);
-              const cx = px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t));
-              return (
-                <OutfieldFigure key={b.id ?? i} x={cx} ground={m.ground} h={m.h} span={m.w} kit={kits?.opp} />
-              );
+            {[...blockers].map((b, i) => ({ b, i })).sort((p, q) => p.b.near - q.b.near).map(({ b, i }) => {
+              // The nearest man closes you down: he gets bigger as he gets near.
+              const closing = i === 0 ? pressure : 0;
+              const m = manAt({ ...b, near: Math.min(0.95, b.near + (1 - b.near) * closing * 0.7) }, GOAL);
+              const cx = sx(blockerX(b, elapsed, closing, target), GOAL);
+              const still = closing > 0.85 || phase === 'flight';
+              return <OutfieldFigure key={b.id ?? i} x={cx} ground={m.ground} h={m.h} span={m.w} kit={kits?.opp} stride={still ? undefined : elapsed * 9 + i} />;
             })}
             {kind === 'freekick' &&
               [0, 1, 2, 3].map((i) => (
@@ -380,6 +412,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
                 <Line x1={px(aimX)} y1={GOAL.y + 8} x2={px(aimX)} y2={GOAL.y + GOAL.h - 8} stroke="#ffffff88" strokeWidth={1} />
               </>
             )}
+            <RigFigure x={standX} ground={H - 3} h={52} pose={kick(striker, swing)} back kit={looks.own} skin={looks.me?.skin} hair={looks.me ? looks.me.hair : undefined} boots={looks.me?.boots} />
             {phase !== 'flight' && <Football cx={fromX} cy={H - 12} r={10.5} />}
             {phase === 'flight' && (
               <>
@@ -430,7 +463,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               </View>
             )}
           </View>
-          <T bold style={{ marginTop: 10, textAlign: 'center' }}>
+          <T bold style={{ marginTop: 10, minHeight: 44, textAlign: 'center' }}>
             {phase === 'aim'
               ? outside
                 ? 'Tap to aim: past the defender, away from the keeper.'
@@ -438,9 +471,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
                   ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
                   : blockers.length
                     ? 'Tap to aim past the defender. The keeper comes out if you wait.'
-                    : 'Tap to aim. He comes off his line if you wait.'
+                    : rushing ? 'Tap to aim. He comes off his line if you wait.' : 'Tap to aim.'
               : phase === 'power'
-                ? 'Tap to set the power!'
+                ? chargeAt === null
+                  ? 'Hold to charge. Release to strike.'
+                  : 'Harder is faster, but less accurate.'
                 : landed
                   ? shot?.text
                   : ' '}
@@ -472,13 +507,25 @@ const GoalFrame = memo(function GoalFrame({ x, y, w, h }: { x: number; y: number
 // A man in the way, as the live pitch reports him (see
 // PitchSim.laneDefenders), plus how he shuffles while you aim.
 export type Lane = { id: string; x: number; half: number; near: number };
-export type ShotScene = { keeper: number; out: number; wall?: number; mates: { id: string; x: number; near: number }[] };
+export type ShotScene = { keeper: number; out: number; mates: { id: string; x: number; near: number }[] };
 type Blocker = Omit<Lane, 'id'> & { id?: string; speed: number; phase: number; amp: number };
 
-// A defender's position across the goal at time t.
-function blockerX(b: Blocker, t: number): number {
-  return Math.max(-0.15, Math.min(1.15, b.x + b.amp * Math.sin(t * b.speed + b.phase)));
+// A defender's position across the goal at time t. closing runs from 0 to 1 as he
+// moves over toward target, the line of the shot.
+function blockerX(b: Blocker, t: number, closing = 0, target = 0.5): number {
+  return b.x + (target - b.x) * closing * 0.75 + b.amp * Math.sin(t * b.speed + b.phase);
 }
+
+// Where a place across the goal sits on screen. Past the posts it squeezes in, so
+// men wide of the goal stand at the side of the picture, not off it.
+function sx(x: number, goal: { x: number; w: number }): number {
+  if (x >= 0 && x <= 1) return goal.x + x * goal.w;
+  const past = x < 0 ? -x : x - 1;
+  const room = Math.min(goal.x, W - goal.x - goal.w) - 26;
+  const out = room * (1 - Math.exp(-past * 2.5));
+  return x < 0 ? goal.x - out : goal.x + goal.w + out;
+}
+
 
 // How big and how low to draw him: the nearer the shooter, the bigger and
 // the further down the screen. His width is exactly the goal he hides, so a

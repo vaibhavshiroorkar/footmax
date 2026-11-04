@@ -2,6 +2,21 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.2.0
+
+- Hold to charge: shots, long shots and passes now fill while you hold and strike
+  when you let go. Through balls and crosses are weighed the same way.
+- Harder shots are faster but less accurate, and the keeper has less chance with one
+  in the very corner.
+- Your foot matters: you stand to one side of the ball, swing that leg, and curl it
+  best toward the far side.
+- You see your player from behind, facing goal, and other players face you.
+- The shot view shows everyone ahead of you, wide ones included. They run, not slide,
+  and the nearest closes you down while you shoot, which puts you off.
+- Free kicks: the wall takes the near side of the goal and the keeper the far side,
+  on the live pitch and in the shot view. The ball now sits where the foul was.
+- A faint arrow shows which way you are attacking at the start of each half.
+
 ## 2.1.0
 
 - Keepers are better and harder to beat from the start. They stay central to cover

@@ -186,6 +186,18 @@ fixed: the ball's gap at a moment, dead-ball stretches by cause. "Ball through t
 came from a misread sending his body to the ball's spot, so a beaten keeper now stays
 clear of it. Restarts now keep the ball with the side taking them.
 
+### 22. v2.2.0: the shot and pass scene (2026-11-04)
+
+The floating defenders were men sliding sideways with no legs moving, so they run
+now. The view shows everyone ahead, not only the lane. A shot became an aim and a hold,
+and a pass a pick and a hold, so power is felt, not timed. On through balls and crosses
+the hold counts for 30% and the timing for the rest, so a plain tap still gets there.
+
+Trap: free kicks got no shot angle at all, so the wall would always have stood left.
+Trap: `setPieceSpot` skips keepers unless the caller lets them in. Two flaky tests went
+too: the arrest test rolled `Math.random`, and free kicks were taken with men still 5 m
+off the ball because the wait stopped at 2.2 s (now 3.2 s).
+
 ## Decisions that still hold
 
 | Decision | Why |

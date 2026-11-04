@@ -15,6 +15,30 @@ function setup() {
   return { sim, put };
 }
 
+describe('everyone ahead of the shooter', () => {
+  it('shows defenders wide of the goal too, who cannot block', () => {
+    const { sim, put } = setup();
+    put('cb', PW / 2 + 9, PL - 12);
+    const lanes = sim.laneDefenders('me');
+    expect(lanes.map((l) => l.id)).toContain('cb');
+    expect(lanes[0].x).toBeGreaterThan(1);
+  });
+});
+
+describe('a free kick', () => {
+  it('puts the wall on the near side and the keeper on the far side', () => {
+    const { sim, put } = setup();
+    const ball = { x: PW / 2 + 12, y: PL - 22 };
+    put('cb', ball.x, ball.y - 12);
+    sim.setPiece = { kind: 'freekick', side: 'home', ...ball, wall: ['cb'] };
+    const wall = sim['setPieceSpot'](sim.bodies.get('cb')!, sim.setPiece)!;
+    const keeper = sim['setPieceSpot'](sim.bodies.get('gk')!, sim.setPiece)!;
+    expect(keeper.x).toBeLessThan(PW / 2);
+    expect(wall.x).toBeGreaterThan(PW / 2);
+    expect(Math.hypot(wall.x - ball.x, wall.y - ball.y)).toBeCloseTo(9.15, 1);
+  });
+});
+
 describe('defenders in the shooting lane', () => {
   it('puts a man straight in front in the middle of the goal', () => {
     const { sim, put } = setup();

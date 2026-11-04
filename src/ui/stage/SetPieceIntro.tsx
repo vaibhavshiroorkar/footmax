@@ -60,7 +60,8 @@ export function SetPieceIntro({ kind, line, wall = 4, onDone }: { kind: SetPiece
             <>
               <Rect x={70} y={14} width={160} height={52} stroke="#ffffff" strokeWidth={3} fill="#ffffff10" />
               <Line x1={0} y1={66} x2={W} y2={66} stroke={colors.pitchLine} strokeWidth={2} />
-              <KeeperFigure x={150} ground={66} h={46} kit={looks.oppKeeper} />
+              {/* At a free kick the wall covers one side, the keeper the other. */}
+              <KeeperFigure x={kind === 'freekick' ? 190 : 150} ground={66} h={46} kit={looks.oppKeeper} />
               {kind === 'penalty' ? (
                 <>
                   {/* Out of the box they go, and wait on its edge. */}
@@ -76,7 +77,7 @@ export function SetPieceIntro({ kind, line, wall = 4, onDone }: { kind: SetPiece
                 <>
                   {/* The wall forms at 9.15 m while the referee marks it. */}
                   {Array.from({ length: wall }, (_, i) => (
-                    <Person key={i} side="opp" x={118 + i * 22 + (1 - k) * (i < 2 ? -90 : 90)} y={100} h={46} pose={walking ? runPose(t * 10 + i) : spread(14)} />
+                    <Person key={i} side="opp" x={84 + i * 22 + (1 - k) * (i < 2 ? -90 : 90)} y={100} h={46} pose={walking ? runPose(t * 10 + i) : spread(14)} />
                   ))}
                   <Line x1={100} y1={132} x2={100 + k * 110} y2={132} stroke="#ffffff" strokeWidth={2} strokeDasharray="2 3" />
                   <RefereeFigure x={100 + k * 110} ground={138} h={44} />

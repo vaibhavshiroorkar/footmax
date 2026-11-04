@@ -3,8 +3,9 @@ import { Pressable, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { T } from '../kit';
-import { colors } from '../theme';
+import { alpha, colors } from '../theme';
 import { PassOutcome } from '../../engine/match';
+import { passWeight } from '../../engine/contact';
 import { Football } from '../football';
 import { Person } from '../rig/Figure';
 import { run as runPose } from '../rig/poses';
@@ -16,6 +17,20 @@ import { run as runPose } from '../rig/poses';
 const W = 300;
 const H = 180;
 const FLIGHT = 0.55;
+// Seconds of holding for a full bar.
+const HOLD = 0.9;
+// The weight matters, but less than the timing: a plain tap still gets there.
+const weightOf = (charge: number) => 0.7 + 0.3 * passWeight(charge, 0.5);
+
+// How hard you are hitting it. The middle of the bar is the right weight.
+function HoldBar({ charge }: { charge: number }) {
+  return (
+    <View style={{ height: 8, marginTop: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.bg }}>
+      <View style={{ position: 'absolute', left: '40%', width: '20%', top: 0, bottom: 0, backgroundColor: alpha(colors.accent, 0.5) }} />
+      <View style={{ position: 'absolute', left: `${charge * 100}%`, top: 0, bottom: 0, width: 4, marginLeft: -2, backgroundColor: '#ffffff' }} />
+    </View>
+  );
+}
 
 type Done = (q: number, outcome: PassOutcome, text: string) => void;
 
@@ -62,12 +77,15 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
   const runnerY = (tt: number) => (tt < setup.burst ? 108 + Math.sin(tt * 8) * 1.5 : 108 - setup.speed * (tt - setup.burst));
   const runnerX = (tt: number) => setup.rx + Math.sin(tt * 2) * 6;
 
+  const [heldAt, setHeldAt] = useState<number | null>(null);
+  const charge = heldAt === null || done ? 0 : Math.min(1, (t - heldAt) / HOLD);
   const release = () => {
     if (done) return;
+    const weight = weightOf(charge);
     const gap = runnerY(t) - lineY(t);
     if (gap < -2) return finish(0.05, 'offside', 'Flag up. You held it too long.', t);
     if (gap > gapOk) return finish(0.1, 'cut', 'Too early. The defender reads it.', t);
-    const q = Math.max(0.4, 1 - (Math.max(0, gap) / gapOk) * 0.6);
+    const q = Math.max(0.4, 1 - (Math.max(0, gap) / gapOk) * 0.6) * weight;
     // Never a sure thing: even a good ball can meet an outstretched leg.
     if (Math.random() > Math.min(0.92, 0.55 + 0.3 * q + (passing - 60) / 200)) return finish(0.2, 'cut', 'Good ball, but a defender stretches and gets a toe to it.', t);
     finish(q, 'ok', q > 0.8 ? 'Perfect. Right into his stride!' : 'Through! He is in.', t);
@@ -91,7 +109,7 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
   const ballY = done ? lerp(166, target.y, k) : 166;
 
   return (
-    <Pressable onPress={release} accessibilityRole="button" accessibilityLabel="Play the through ball">
+    <Pressable onPressIn={() => setHeldAt(t)} onPressOut={release} accessibilityRole="button" accessibilityLabel="Hold, then release the through ball">
       <Turf>
         <Rect x={90} y={0} width={120} height={14} fill="none" stroke={colors.pitchLine} strokeWidth={2} />
         <Line x1={0} y1={ly} x2={W} y2={ly} stroke="#ffffff" strokeWidth={1.5} strokeDasharray="5 5" opacity={0.6} />
@@ -105,8 +123,9 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
         <Football cx={ballX} cy={ballY} r={6.5} rot={(ballX + ballY) * 9} />
         {done?.outcome === 'offside' && <Rect x={W - 26} y={ly - 22} width={14} height={10} fill="#facc15" />}
       </Turf>
+      <HoldBar charge={charge} />
       <T bold style={{ textAlign: 'center', marginTop: 8 }}>
-        {done ? done.text : 'Tap to release it just before he crosses the line.'}
+        {done ? done.text : 'Hold to weigh it. Release just before he crosses the line.'}
       </T>
     </Pressable>
   );
@@ -144,15 +163,18 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
   const sweep = (tt: number) => 150 + 62 * Math.sin(tt * 2.3 + setup.offset);
   const from = { x: setup.left ? 14 : W - 14, y: 112 };
 
+  const [heldAt, setHeldAt] = useState<number | null>(null);
+  const charge = heldAt === null || done ? 0 : Math.min(1, (t - heldAt) / HOLD);
   const cross = (auto = false) => {
     if (done) return;
+    const weight = weightOf(charge);
     const spot = { x: sweep(t), y: goalY + 4 };
     const s = striker(t + FLY);
     const d = marker(t + FLY);
     const ds = Math.hypot(s.x - spot.x, s.y - spot.y);
     const dd = Math.hypot(d.x - spot.x, d.y - spot.y);
     if (ds <= reach && ds <= dd + 4) {
-      const q = Math.max(0.4, 1 - (ds / reach) * 0.6);
+      const q = Math.max(0.4, 1 - (ds / reach) * 0.6) * weight;
       if (Math.random() > Math.min(0.9, 0.5 + 0.3 * q + (crossing - 60) / 200)) return finish(0.15, 'cut', 'Good cross, but the defender gets a head to it first.', t);
       return finish(q, 'ok', q > 0.8 ? 'On a plate. He meets it!' : 'He gets on the end of it!', t);
     }
@@ -172,7 +194,7 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
   const ballY = done ? lerp(from.y, spot.y, k) - Math.sin(Math.PI * k) * 26 : from.y;
 
   return (
-    <Pressable onPress={() => cross()} accessibilityRole="button" accessibilityLabel="Whip in the cross">
+    <Pressable onPressIn={() => setHeldAt(t)} onPressOut={() => cross()} accessibilityRole="button" accessibilityLabel="Hold, then release the cross">
       <Turf>
         {/* The box, the six-yard box and the goal, at the top. */}
         <Rect x={60} y={6} width={180} height={110} fill="none" stroke={colors.pitchLine} strokeWidth={2} />
@@ -186,8 +208,9 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
         <Football cx={ballX} cy={ballY} r={6.5} rot={(ballX + ballY) * 9} />
       </Turf>
       <View style={{ marginTop: 8 }}>
+        <HoldBar charge={charge} />
         <T bold style={{ textAlign: 'center' }}>
-          {done ? done.text : 'Tap to whip it in where he is running. Watch for a late switch.'}
+          {done ? done.text : 'Hold to weigh it, release where he is running. Watch for a late switch.'}
         </T>
       </View>
     </Pressable>

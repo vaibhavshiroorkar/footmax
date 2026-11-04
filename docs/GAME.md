@@ -260,7 +260,17 @@ moments to play, not a wall of information.
   which is violent conduct and a three-game ban. Composure helps. If the user is
   in it he chooses: walk away, which nearly always ends it, or square up, where a
   cool head might get away with it. A scene shows both men and the referee.
-- **Shooting:** two taps. First pick how to strike it, free for everyone:
+- **Hold to charge:** the power bar only fills while you hold. Harder means faster
+  (`ballSpeed`) but less true (`powerStray`). Passes are weighed the same way: hold
+  and release in the green (`passWeight`). A through ball or cross is held, and let
+  go on the timing, so how long you hold is the weight of the ball.
+- **Your foot:** you stand to one side of the ball and swing that leg. A curler
+  bends best toward the far side from your foot. You see your own side from behind.
+- **Pressure:** with men ahead of you, the nearest runs at you the whole time you
+  aim and charge, adding stray as he gets close. Stand over it too long and he takes
+  it. The view shows everyone ahead of you; only men in the lane can block.
+- **Free kick shape:** the wall covers the near side, the keeper the far side.
+- **Shooting:** an aim, then a hold. First pick how to strike it, free for everyone:
   Driven (hard and true), Curl (bends in from outside the post: round a
   defender, into the corners, but slower, so a curler at the keeper gives
   him time) or Low (hard for the keeper to get down to, easier to block,

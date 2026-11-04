@@ -19,8 +19,9 @@ const TRIM = '#111827';
 
 // One person from a pose, standing on `ground` at `x`, about `h` units tall.
 // lift raises him off the grass while his shadow stays on it.
-// turn: degrees, about his middle, for a flip.
-export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, turn = 0, kit, shorts = TRIM, socks, skin = '#d9a77c', hair = '#2a1d14', boots = '#0f172a', gloves = false }: { x: number; ground: number; h?: number; pose?: PoseInput; lift?: number; turn?: number } & Looks) {
+// turn: degrees, about his middle, for a flip. back: seen from behind, facing
+// the same way as the camera.
+export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, turn = 0, back = false, kit, shorts = TRIM, socks, skin = '#d9a77c', hair = '#2a1d14', boots = '#0f172a', gloves = false }: { x: number; ground: number; h?: number; pose?: PoseInput; lift?: number; turn?: number; back?: boolean } & Looks) {
   const s = solve(pose);
   const sock = socks ?? kit;
   const bone = (a: Pt, b: Pt, stroke: string, w: number) => <Line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" />;
@@ -46,8 +47,14 @@ export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, turn = 
         {hand(s.armL.end)}
         {hand(s.armR.end)}
         {bone(s.neck, half(s.neck, s.head), skin, 5)}
-        <Circle cx={s.head.x} cy={s.head.y} r={6.3} fill={skin} />
-        {hair && <Path d={`M ${s.head.x - 6.3} ${s.head.y - 1} Q ${s.head.x - 6} ${s.head.y - 8} ${s.head.x} ${s.head.y - 8} Q ${s.head.x + 6} ${s.head.y - 8} ${s.head.x + 6.3} ${s.head.y - 1} Q ${s.head.x + 3} ${s.head.y - 4} ${s.head.x} ${s.head.y - 4} Q ${s.head.x - 3} ${s.head.y - 4} ${s.head.x - 6.3} ${s.head.y - 1} Z`} fill={hair} />}
+        <Circle cx={s.head.x} cy={s.head.y} r={6.3} fill={back && hair ? hair : skin} />
+        {!back && (
+          <>
+            <Circle cx={s.head.x - 2.2} cy={s.head.y} r={0.9} fill="#1f2937" />
+            <Circle cx={s.head.x + 2.2} cy={s.head.y} r={0.9} fill="#1f2937" />
+          </>
+        )}
+        {!back && hair && <Path d={`M ${s.head.x - 6.3} ${s.head.y - 1} Q ${s.head.x - 6} ${s.head.y - 8} ${s.head.x} ${s.head.y - 8} Q ${s.head.x + 6} ${s.head.y - 8} ${s.head.x + 6.3} ${s.head.y - 1} Q ${s.head.x + 3} ${s.head.y - 4} ${s.head.x} ${s.head.y - 4} Q ${s.head.x - 3} ${s.head.y - 4} ${s.head.x - 6.3} ${s.head.y - 1} Z`} fill={hair} />}
       </G>
     </G>
   );
@@ -87,12 +94,13 @@ export const useLooks = () => useContext(LooksContext);
 // A player in a top-down scene. x and y are where the old circle sat; the
 // figure stands on that spot.
 // Memoised: scenes redraw every frame, and most people in them stand still.
+// Your side attacks up the screen, so you see their backs; the other side faces you.
 export const Person = memo(function Person({ x, y, side, me = false, h = 34, pose, lift = 0, opacity }: { x: number; y: number; side: 'own' | 'opp'; me?: boolean; h?: number; pose?: PoseInput; lift?: number; opacity?: number }) {
   const looks = useLooks();
   const you = me ? looks.me : undefined;
   return (
     <G opacity={opacity}>
-      <RigFigure x={x} ground={y + h * 0.3} h={h} pose={pose} lift={lift} kit={side === 'own' ? looks.own : looks.opp} skin={you?.skin} hair={you ? you.hair : undefined} boots={you?.boots} />
+      <RigFigure x={x} ground={y + h * 0.3} h={h} pose={pose} lift={lift} back={side === 'own'} kit={side === 'own' ? looks.own : looks.opp} skin={you?.skin} hair={you ? you.hair : undefined} boots={you?.boots} />
     </G>
   );
 });
