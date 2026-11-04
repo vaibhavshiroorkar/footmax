@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
@@ -312,15 +312,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Lock power'}>
         <View style={{ alignItems: 'center' }}>
           <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
-            <Rect x={0} y={0} width={W} height={H} fill={colors.pitch} />
-            {Array.from({ length: 13 }, (_, i) => (
-              <Line key={`v${i}`} x1={GOAL.x + (i * GOAL.w) / 12} y1={GOAL.y} x2={GOAL.x + (i * GOAL.w) / 12} y2={GOAL.y + GOAL.h} stroke="#ffffff22" strokeWidth={1} />
-            ))}
-            {Array.from({ length: 6 }, (_, i) => (
-              <Line key={`h${i}`} x1={GOAL.x} y1={GOAL.y + (i * GOAL.h) / 5} x2={GOAL.x + GOAL.w} y2={GOAL.y + (i * GOAL.h) / 5} stroke="#ffffff22" strokeWidth={1} />
-            ))}
-            <Rect x={GOAL.x} y={GOAL.y} width={GOAL.w} height={GOAL.h} stroke="#ffffff" strokeWidth={4} fill="none" />
-            <Line x1={0} y1={GOAL.y + GOAL.h} x2={W} y2={GOAL.y + GOAL.h} stroke={colors.pitchLine} strokeWidth={2} />
+            <GoalFrame x={GOAL.x} y={GOAL.y} w={GOAL.w} h={GOAL.h} />
             {/* The keeper's reach before you shoot, so the gap is readable. */}
             {phase !== 'flight' && <Rect x={px(Math.max(0, kpos - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
             {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
@@ -416,6 +408,24 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     </View>
   );
 }
+
+// The grass, net and posts. Memoised: they never change during a shot, and
+// the game redraws every frame.
+const GoalFrame = memo(function GoalFrame({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  return (
+    <>
+      <Rect x={0} y={0} width={W} height={H} fill={colors.pitch} />
+      {Array.from({ length: 13 }, (_, i) => (
+        <Line key={`v${i}`} x1={x + (i * w) / 12} y1={y} x2={x + (i * w) / 12} y2={y + h} stroke="#ffffff22" strokeWidth={1} />
+      ))}
+      {Array.from({ length: 6 }, (_, i) => (
+        <Line key={`h${i}`} x1={x} y1={y + (i * h) / 5} x2={x + w} y2={y + (i * h) / 5} stroke="#ffffff22" strokeWidth={1} />
+      ))}
+      <Rect x={x} y={y} width={w} height={h} stroke="#ffffff" strokeWidth={4} fill="none" />
+      <Line x1={0} y1={y + h} x2={W} y2={y + h} stroke={colors.pitchLine} strokeWidth={2} />
+    </>
+  );
+});
 
 // A man in the way, as the live pitch reports him (see
 // PitchSim.laneDefenders), plus how he shuffles while you aim.

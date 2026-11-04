@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, Rect } from 'react-native-svg';
+import Svg, { Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
 import { Football } from '../football';
+import { Person } from '../rig/Figure';
+import { run as runPose, slide as slidePose } from '../rig/poses';
 
 const BASE_WINDOW = 0.9;
 
@@ -59,15 +61,15 @@ export function DribbleGame({ speed = 0, stat = 60, mode = 'dribble', onDone }: 
         {tackle ? (
           <>
             {/* The attacker with the ball comes at you. */}
-            <Circle cx={150 + move} cy={60} r={16} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
+            <Person side="opp" x={150 + move} y={50} h={56} pose={committed ? runPose(t * 12) : undefined} />
             <Football cx={150 + move} cy={84} r={6.5} rot={move * 6} />
-            <Circle cx={150} cy={140} r={14} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
+            <Person side="own" me x={150} y={124} h={60} />
           </>
         ) : (
           <>
-            <Circle cx={150 + move} cy={70} r={16} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
-            <Circle cx={150} cy={140} r={14} fill={colors.gold} stroke="#ffffff" strokeWidth={2} />
-            <Football cx={150} cy={118} r={6.5} />
+            <Person side="opp" x={150 + move} y={52} h={56} pose={committed ? slidePose(setup.dir as -1 | 1) : undefined} />
+            <Person side="own" me x={150} y={122} h={60} />
+            <Football cx={150} cy={150} r={6.5} />
           </>
         )}
       </Svg>

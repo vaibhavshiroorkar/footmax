@@ -13,6 +13,7 @@ import { alpha, colors, fonts, luminance } from './theme';
 import { motionReduced } from '../state/settings';
 import { matchKits } from './moments/Keeper';
 import { FootballIcon } from './football';
+import { RigFigure } from './rig/Figure';
 import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
@@ -87,6 +88,12 @@ function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, ta
       }}
     >
       <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text>
+      {/* A team-mate to pick stands up as a person. */}
+      {target && (
+        <Svg width={size * 2} height={size * 2.4} viewBox="-30 -72 60 76" style={{ position: 'absolute', bottom: size * 0.3, left: -size / 2 }}>
+          <RigFigure x={0} ground={0} h={60} kit={fill} />
+        </Svg>
+      )}
       {tag && (
         <View style={{ position: 'absolute', bottom: size + 1, left: -16, right: -16, alignItems: 'center' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: colors.ink, backgroundColor: colors.gold, borderRadius: 4, paddingHorizontal: 4, overflow: 'hidden' }}>{tag}</Text>

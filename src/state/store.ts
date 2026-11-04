@@ -270,8 +270,9 @@ export function useGame(): Game | null {
   return useStore((s) => s.game);
 }
 
-// Dev builds expose the store so browser tests can set up game states.
-if (__DEV__ && typeof window !== 'undefined') {
+// Dev builds expose the store so browser tests can set up game states. A
+// production build can opt in, to measure real performance.
+if ((__DEV__ || process.env.EXPO_PUBLIC_TEST_HOOK) && typeof window !== 'undefined') {
   (window as unknown as { __footmax: typeof useStore }).__footmax = useStore;
   (window as unknown as { __footmaxDev: object }).__footmaxDev = { newCareerGame, startUserMatch };
 }

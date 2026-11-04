@@ -84,7 +84,7 @@ moments to play, not a wall of information.
   (lobbed balls rise off their shadow), tackles, fouls, offsides,
   throw-ins, corners, goal kicks, shots, cards and injuries.
   - Players are shirt-coloured dots with their numbers (keepers squarer,
-    with gloves). Human figures are only in the moment games.
+    with gloves). When picking a pass, the mates on offer stand up as figures.
   - The ball is a football (white with black panels) in every view, and
     spins as it rolls. Crosses are whipped and bend, long balls drift,
     curlers start outside the post and bend in, low shots skim the grass,
@@ -97,9 +97,10 @@ moments to play, not a wall of information.
     colours. The caption then says what he did. It lasts as long in real
     time as before the speed-up.
   - In the moment games (shot, passes, saves, blocks, headers, dribbles)
-    the players are drawn as people: keeper in a ready crouch who dives
-    full stretch, defenders who spread their arms to cover the goal they
-    hide, a four-man wall that jumps.
+    everyone is a jointed figure (`src/ui/rig/`) in this match's kits: a
+    skeleton with two-bone IK, so a hand goes to a target or stops at full
+    stretch, and elbows and knees only bend away from the body. The user's
+    figure has their look. `LooksContext` carries who wears what.
 - **VAR:** about 8% of goals (not penalties) are checked. The ball goes
   in, play holds, VAR CHECK shows and the referee goes to a monitor at the
   touchline. Then GOAL (it stands, the celebration plays and the feed says
@@ -435,6 +436,8 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
     `game.ts`), `alerts.ts` (badges).
   - `src/ui/pitchSim.ts`: the live pitch simulation (no React, tested);
     `src/ui/livePitch.tsx` draws it.
+  - `src/ui/rig/`: the jointed body. `skeleton.ts` (no React, tested),
+    `poses.ts`, `Figure.tsx` (`RigFigure`, `RefereeFigure`, `Person`).
   - `src/ui/moments/`: the mini-games (`ShotGame`, `PassGame`,
     `DribbleGame`, `DribbleMore`, `HeaderGame`, `SaveGame`,
     `DefendGames`); `useTicker.ts` is their clock.

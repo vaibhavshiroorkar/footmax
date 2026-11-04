@@ -6,15 +6,15 @@ import { T } from '../kit';
 import { colors } from '../theme';
 import { PassOutcome } from '../../engine/match';
 import { Football } from '../football';
+import { Person } from '../rig/Figure';
+import { run as runPose } from '../rig/poses';
 
 // Scenes for the big passes, top-down with the attack going up the screen.
-// The user's team is in lime, the defenders in red. Each scene reports a
-// quality from 0 to 1 and what happened, and the pitch then shows exactly
+// Both teams wear this match's kits. Each scene reports a quality from 0 to 1 and what happened, and the pitch then shows exactly
 // that (see resolveMoment's passed).
 
 const W = 300;
 const H = 180;
-const RED = '#d94b4b';
 const FLIGHT = 0.55;
 
 type Done = (q: number, outcome: PassOutcome, text: string) => void;
@@ -96,12 +96,12 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
         <Rect x={90} y={0} width={120} height={14} fill="none" stroke={colors.pitchLine} strokeWidth={2} />
         <Line x1={0} y1={ly} x2={W} y2={ly} stroke="#ffffff" strokeWidth={1.5} strokeDasharray="5 5" opacity={0.6} />
         {setup.defs.map((x, i) => (
-          <Circle key={i} cx={done?.outcome === 'cut' && x === near ? lerp(x, target.x, k) : x} cy={ly + 3} r={7} fill={RED} />
+          <Person key={i} side="opp" x={done?.outcome === 'cut' && x === near ? lerp(x, target.x, k) : x} y={ly + 3} />
         ))}
         {/* His run: an arrow ahead of him. */}
         {!done && <Path d={`M ${rx} ${ry - 10} L ${rx} ${ry - 34}`} stroke={colors.accent} strokeWidth={2} strokeDasharray="3 4" opacity={0.7} />}
-        <Circle cx={rx} cy={ry} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} />
-        <Circle cx={150} cy={170} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} opacity={0.85} />
+        <Person side="own" x={rx} y={ry} pose={runPose(t * 11)} />
+        <Person side="own" me x={150} y={158} />
         <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
         {done?.outcome === 'offside' && <Rect x={W - 26} y={ly - 22} width={14} height={10} fill="#facc15" />}
       </Turf>
@@ -180,9 +180,9 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
         <Rect x={130} y={0} width={40} height={6} fill="#ffffff" opacity={0.85} />
         {!done && <Circle cx={spot.x} cy={spot.y} r={reach * 0.55} fill="none" stroke="#ffffff" strokeWidth={2} strokeDasharray="4 3" />}
         {done && <Circle cx={spot.x} cy={spot.y} r={5} fill="none" stroke="#ffffff" strokeWidth={1.5} opacity={0.6} />}
-        <Circle cx={d.x} cy={d.y} r={7.5} fill={RED} />
-        <Circle cx={s.x} cy={s.y} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} />
-        <Circle cx={from.x} cy={from.y + 10} r={7.5} fill={colors.accent} stroke="#111111" strokeWidth={1.5} opacity={0.85} />
+        <Person side="opp" x={d.x} y={d.y} pose={runPose(t * 10)} />
+        <Person side="own" x={s.x} y={s.y} pose={runPose(t * 11)} />
+        <Person side="own" me x={from.x} y={from.y + 6} />
         <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
       </Turf>
       <View style={{ marginTop: 8 }}>

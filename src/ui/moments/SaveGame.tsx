@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, Line, Rect } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { KeeperFigure } from './Keeper';
+import { Person, useLooks } from '../rig/Figure';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
 import { Football } from '../football';
@@ -49,6 +50,7 @@ export function SaveGame({ reflex = 0, keeping = 60, onDone }: { reflex?: number
   const ballX = 150 + setup.dir * 95 * flight;
   const ballY = 150 - 95 * flight;
   const keeperX = 150 + (dived ?? 0) * 34;
+  const looks = useLooks();
   return (
     <View>
       <Svg width="100%" height={190} viewBox="0 0 300 180">
@@ -58,8 +60,8 @@ export function SaveGame({ reflex = 0, keeping = 60, onDone }: { reflex?: number
           <Line key={i} x1={40 + i * 22} y1={20} x2={40 + i * 22} y2={90} stroke="#ffffff22" strokeWidth={1} />
         ))}
         <Line x1={0} y1={90} x2={300} y2={90} stroke={colors.pitchLine} strokeWidth={2} />
-        <KeeperFigure x={keeperX} ground={90} h={56} dive={(dived ?? 0) * 0.85} kit={colors.gold} />
-        {!struck && <Circle cx={150} cy={165} r={12} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />}
+        <KeeperFigure x={keeperX} ground={90} h={56} dive={(dived ?? 0) * 0.85} kit={looks.ownKeeper} skin={looks.me?.skin} />
+        <Person side="opp" x={150} y={148} h={44} />
         <Football cx={ballX} cy={ballY} r={7.5} rot={(ballX + ballY) * 7} />
       </Svg>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>

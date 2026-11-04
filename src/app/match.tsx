@@ -24,6 +24,8 @@ import { PL, PW, PitchSim } from '../ui/pitchSim';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
 import { matchKits } from '../ui/moments/Keeper';
+import { LooksContext, MatchLooks, useLooks } from '../ui/rig/Figure';
+import { HAIR_COLORS, HAIR_STYLES, BOOT_COLORS, SKINS } from '../ui/avatar';
 import { LineupsCard } from '../ui/lineups';
 import { SaveGame } from '../ui/moments/SaveGame';
 import { BlockGame, ClearGame, InterceptGame } from '../ui/moments/DefendGames';
@@ -38,6 +40,14 @@ const SPEEDS = [
   { key: '4', label: '4x', ms: 120, mult: 4 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
+
+// Who wears what in this match, for every moment game, from the user's side.
+function matchLooks(game: Game, home: [string, string], away: [string, string], side: SideKey): MatchLooks {
+  const k = matchKits(home, away);
+  const look = game.career?.look;
+  const me = look ? { skin: SKINS[look.skin % SKINS.length], hair: look.hair % HAIR_STYLES.length === 5 ? null : HAIR_COLORS[look.hairColor % HAIR_COLORS.length], boots: BOOT_COLORS[look.boots % BOOT_COLORS.length] } : undefined;
+  return side === 'home' ? { own: k.homeShirt, opp: k.awayShirt, ownKeeper: k.homeKeeper, oppKeeper: k.awayKeeper, me } : { own: k.awayShirt, opp: k.homeShirt, ownKeeper: k.awayKeeper, oppKeeper: k.homeKeeper, me };
+}
 
 // The clock on the board counts up one minute at a time, even when the engine
 // has folded a few quiet minutes into one, and catches up at once after a skip.
@@ -290,6 +300,7 @@ export default function MatchScreen() {
           size never changes. A key moment's game covers the pitch here, and
           the pass picker, skip choices or leave check cover the buttons
           under it, so nothing pops up and nothing pushes the page. */}
+      <LooksContext.Provider value={matchLooks(game, home.colors, away.colors, mySide)}>
       <View style={{ position: 'relative', gap: 10, zIndex: 10 }}>
         {kicked && !live.finished && (
           <View onLayout={(e) => setPitchH(e.nativeEvent.layout.height)}>
@@ -413,6 +424,7 @@ export default function MatchScreen() {
           </View>
         )}
       </View>
+      </LooksContext.Provider>
 
       {!kicked && (
         <>
@@ -1014,9 +1026,8 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
   const [angle] = useState(() => (moment.kind === 'shot' ? getSim()?.shotAngle(moment.actorId) ?? 0 : 0));
   // The keeper, the wall and team-mates as the pitch has them right now.
   const [scene] = useState(() => (moment.kind === 'shot' || moment.kind === 'freekick' ? getSim()?.shotScene(moment.actorId) : undefined));
-  const live = useStore.getState().live!;
-  const kits = matchKits(teamById(game.world, live.home.clubId).colors, teamById(game.world, live.away.clubId).colors);
-  const shotKit = moment.side === 'home' ? { own: kits.homeShirt, opp: kits.awayShirt, keeper: kits.awayKeeper } : { own: kits.awayShirt, opp: kits.homeShirt, keeper: kits.homeKeeper };
+  const looks = useLooks();
+  const shotKit = { own: looks.own, opp: looks.opp, keeper: looks.oppKeeper };
   const names: Record<string, string> = {};
   for (const o of moment.options ?? []) names[o.playerId] = game.world.players[o.playerId].lastName;
   const base = MOMENT_TITLES[moment.kind];

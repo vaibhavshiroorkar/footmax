@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import Svg, { Circle, Ellipse, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Ellipse, Line, Path, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { T } from '../kit';
 import { colors } from '../theme';
 import { Football } from '../football';
+import { Person } from '../rig/Figure';
+import { jump as jumpPose } from '../rig/poses';
 
 const W = 300;
 const H = 160;
@@ -64,8 +66,7 @@ export function HeaderGame({ air, from = 'cross', onDone }: { air: number; from?
             {/* The timing window around your head. */}
             <Rect x={W * (HEAD_X - window)} y={H * 0.3} width={W * window * 2} height={H * 0.5} fill={colors.gold} fillOpacity={0.15} rx={8} />
             <Ellipse cx={W * HEAD_X} cy={H - 14} rx={14} ry={4} fill="#00000044" />
-            <Rect x={W * HEAD_X - 8} y={H * 0.62 + 10 - leap} width={16} height={34} rx={6} fill={colors.gold} />
-            <Circle cx={W * HEAD_X} cy={H * 0.62 - leap} r={10} fill="#f0c8a0" stroke={colors.gold} strokeWidth={2} />
+            <Person side="own" me x={W * HEAD_X} y={H * 0.62 + 30} h={72} pose={done ? jumpPose(1) : undefined} lift={leap} />
             <Football cx={Math.min(W + 10, bx)} cy={Math.min(H - 6, by)} r={7} rot={(bx + by) * 7} />
           </Svg>
         </View>

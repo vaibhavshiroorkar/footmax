@@ -108,6 +108,12 @@ keepers stood up to 8 m outside their posts, and the shot view was a dice roll t
 could disagree with the pitch. Live positions reach the move builder through
 `s.bodies`, which only visuals may read.
 
+### 10. v1.14.0: bodies (2026-11-04)
+
+One jointed rig for every person, solved with two-bone IK. SVG passed the frame
+test, so Skia stayed out. The lesson from measuring: dev builds read far slower than
+production, so judge performance on a production build.
+
 ## Decisions that still hold
 
 | Decision | Why |

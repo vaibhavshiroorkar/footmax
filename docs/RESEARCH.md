@@ -83,6 +83,20 @@ Sources: [The Football Analyst on compactness](https://the-footballanalyst.com/?
 [TeamStats on defensive shape](https://teamstats.net/blog/strengthening-defensive-shape-through-practice),
 [Bundesliga compactness study](https://ucrisportal.univie.ac.at/en/publications/is-a-compact-organization-important-for-defensive-success-in-elit/).
 
+### Rendering the rig (v1.14.0)
+
+Frame rate on the web build, CPU slowed 4x, software rendering (no GPU), so a harsh
+stand-in for a mid-range phone:
+
+| Build | Live pitch | Shot moment |
+| --- | --- | --- |
+| Dev, before memoising | 33 fps | 23 fps |
+| Production, memoised | 59 fps | 44 fps (median frame 16.7 ms) |
+
+SVG meets the target, so Skia and its 2.9 MB download are not needed. To repeat this,
+build with `EXPO_PUBLIC_TEST_HOOK=1`, which keeps the store hook in production. Open:
+nobody has measured it on a real phone yet. That is for v2.0.0.
+
 ## Laws of the Game
 
 Source: IFAB Laws, read 2026-11-04. The 2026/27 Laws took effect on 1 July 2026.

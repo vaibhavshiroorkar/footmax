@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, Ellipse, G, Line, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Button, Row, T } from '../kit';
 import { colors } from '../theme';
 import { Football } from '../football';
+import { Person } from '../rig/Figure';
+import { jump as jumpPose, slide as slidePose } from '../rig/poses';
 
-// Three defending games, all on a top-down pitch with the user in gold and
-// the opponents in red. Each reports a quality from 0 to 1.
+// Three defending games, all on a top-down pitch in this match's kits. Each
+// reports a quality from 0 to 1.
 
 const W = 300;
 const H = 180;
-const RED = '#d94b4b';
+const LINE = '#ff6b6b';
 
 function useFinish(onDone: (q: number, text: string) => void) {
   const [done, setDone] = useState<string | null>(null);
@@ -37,14 +39,6 @@ function Turf({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Man({ x, y, kit, r = 9 }: { x: number; y: number; kit: string; r?: number }) {
-  return (
-    <G>
-      <Ellipse cx={x} cy={y + r * 0.8} rx={r * 0.9} ry={r * 0.35} fill="#00000040" />
-      <Circle cx={x} cy={y} r={r} fill={kit} stroke="#ffffff" strokeWidth={1.5} />
-    </G>
-  );
-}
 
 type Lane = -1 | 0 | 1;
 const LANES: Lane[] = [-1, 0, 1];
@@ -98,11 +92,11 @@ export function InterceptGame({ vision, onDone }: { vision: number; onDone: (q: 
           <Line key={l} x1={passer.x} y1={passer.y} x2={laneX(l)} y2={34} stroke="#ffffff30" strokeWidth={2} strokeDasharray="6 6" />
         ))}
         {LANES.map((l) => (
-          <Man key={l} x={laneX(l)} y={30} kit={RED} />
+          <Person key={l} side="opp" x={laneX(l)} y={26} />
         ))}
-        {looking && <Line x1={passer.x} y1={passer.y} x2={passer.x + (target.x - passer.x) * 0.22} y2={passer.y + (target.y - passer.y) * 0.22} stroke={RED} strokeWidth={4} strokeLinecap="round" />}
-        <Man x={passer.x} y={passer.y} kit={RED} r={10} />
-        <Man x={userX} y={userY} kit={colors.gold} r={10} />
+        {looking && <Line x1={passer.x} y1={passer.y} x2={passer.x + (target.x - passer.x) * 0.22} y2={passer.y + (target.y - passer.y) * 0.22} stroke={LINE} strokeWidth={4} strokeLinecap="round" />}
+        <Person side="opp" x={passer.x} y={passer.y - 8} h={38} />
+        <Person side="own" me x={userX} y={userY - 8} h={38} />
         <Football cx={flying ? ballX : passer.x} cy={flying ? ballY : passer.y - 14} r={5.5} rot={flying ? (ballX + ballY) * 9 : 0} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
@@ -166,8 +160,8 @@ export function BlockGame({ defending, onDone }: { defending: number; onDone: (q
         <Rect x={W / 2 - 60} y={2} width={120} height={10} fill="none" stroke="#ffffff" strokeWidth={3} />
         <Line x1={0} y1={goalY + 30} x2={W} y2={goalY + 30} stroke={colors.pitchLine} strokeWidth={2} />
         {!struck && <Circle cx={shooter.x} cy={shooter.y} r={ring} fill="none" stroke={ring < 16 ? colors.gold : '#ffffff80'} strokeWidth={3} />}
-        <Man x={shooter.x} y={shooter.y} kit={RED} r={10} />
-        {sliding ? <Ellipse cx={user.x} cy={user.y} rx={20} ry={8} fill={colors.gold} stroke="#ffffff" strokeWidth={1.5} /> : <Man x={user.x} y={user.y} kit={colors.gold} r={10} />}
+        <Person side="opp" x={shooter.x} y={shooter.y - 8} h={38} />
+        <Person side="own" me x={user.x} y={user.y - 8} h={38} pose={sliding ? slidePose(setup.side < 0 ? 1 : -1) : undefined} />
         <Football cx={ballX} cy={ballY} r={5.5} rot={(ballX + ballY) * 9} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
@@ -226,8 +220,8 @@ export function ClearGame({ air, onDone }: { air: number; onDone: (q: number, te
         <Rect x={W / 2 - 60} y={2} width={120} height={10} fill="none" stroke="#ffffff" strokeWidth={3} />
         <Rect x={W / 2 - 110} y={12} width={220} height={78} fill="none" stroke={colors.pitchLine} strokeWidth={2} />
         <Circle cx={spot.x} cy={spot.y} r={14} fill="none" stroke={colors.gold} strokeWidth={2.5} strokeDasharray="4 4" />
-        <Man x={spot.x + 14} y={spot.y - 6} kit={RED} r={10} />
-        <Man x={spot.x} y={spot.y - up} kit={colors.gold} r={10 + up / 4} />
+        <Person side="opp" x={spot.x + 18} y={spot.y - 12} h={38} />
+        <Person side="own" me x={spot.x} y={spot.y - 10} h={38} pose={up > 0 ? jumpPose(up / 8) : undefined} lift={up} />
         <Ellipse cx={groundX} cy={groundY + 4} rx={5} ry={2.5} fill="#00000055" />
         <Football cx={bx} cy={by} r={5.5 + z / 14} rot={(bx + by) * 9} />
       </Turf>

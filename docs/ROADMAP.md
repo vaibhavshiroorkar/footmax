@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.13.0. Next: v1.14.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.14.0. Next: v1.15.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -39,7 +39,7 @@ The 41-point request of 2026-11-04, word for word.
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
 | 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done |
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
-| 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | todo |
+| 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | doing |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
 | 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | todo |
 | 6 | make defenders actually stand in the way instead of random | v1.13.0 | done |
@@ -67,7 +67,7 @@ The 41-point request of 2026-11-04, word for word.
 | 28 | maybe add voice of refree shouting PENALTY or saying freekick like that | v1.17.0 | todo |
 | 29 | all the players should remain in context and continuity when any event happens so if 3 players are in front, it should be accurate to ur position if u shoot. | v1.13.0 | done |
 | 30 | rework header interaction, it's mid | v1.18.0 | todo |
-| 31 | show players avatar when interaction mode instead of circles | v1.14.0 | todo |
+| 31 | show players avatar when interaction mode instead of circles | v1.14.0 | done |
 | 32 | keep energy out of 100 | v1.11.0 | done |
 | 33 | keep rest beside defensive intead of below | v1.11.0 | done |
 | 34 | make ovr of play and trian same size, inconsistencies should never happen | v1.11.0 | done |

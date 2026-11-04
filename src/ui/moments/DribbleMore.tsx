@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Svg, { Circle, Line, Rect } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { Icon, IconName, Row, T, haptic } from '../kit';
 import { alpha, colors, fonts } from '../theme';
 import { Football } from '../football';
+import { Person } from '../rig/Figure';
+import { straddle } from '../rig/poses';
 
 type Done = (q: number, text: string) => void;
 
@@ -104,9 +106,7 @@ export function GapDribble({ speed = 0, onDone }: { speed?: number; onDone: Done
         {done ?? 'Tap when his legs are wide open.'}
       </T>
       <Field>
-        <Line x1={150 - spread} y1={110} x2={150} y2={60} stroke="#d94b4b" strokeWidth={9} strokeLinecap="round" />
-        <Line x1={150 + spread} y1={110} x2={150} y2={60} stroke="#d94b4b" strokeWidth={9} strokeLinecap="round" />
-        <Circle cx={150} cy={44} r={14} fill="#d94b4b" stroke="#ffffff" strokeWidth={2} />
+        <Person side="opp" x={150} y={84} h={88} pose={straddle(spread * 0.68)} />
         <Rect x={150 - spread + 6} y={104} width={Math.max(0, spread * 2 - 12)} height={8} rx={4} fill={gap > 0.6 ? colors.accent : '#ffffff22'} />
         <Football cx={150} cy={138} r={7} />
       </Field>

@@ -2,6 +2,14 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.14.0
+
+- Every person in a moment is now a jointed figure with elbows and knees, in
+  this match's kits, and your own player has your look. No more circles.
+- A keeper's dive bends and stretches instead of rotating as one piece.
+- In pass picking, the team-mates you can choose stand up as figures on the
+  pitch.
+
 ## 1.13.0
 
 - Moments now show the real pitch: the keeper where he stands, the men who are

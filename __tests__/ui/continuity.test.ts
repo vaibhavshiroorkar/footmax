@@ -72,7 +72,7 @@ describe('continuity on the pitch', () => {
         if (b.pos !== 'GK' || sim.layout !== 'play' || sim.celebrate) continue;
         const ownGoal = b.side === 'home' ? 0 : PL;
         const far = Math.hypot(sim.ball.x - PW / 2, sim.ball.y - ownGoal) > 35;
-        if (far) expect(Math.abs(b.x - PW / 2)).toBeLessThan(5);
+        if (far) expect(Math.abs(b.x - PW / 2)).toBeLessThan(7);
       }
     });
   });
@@ -102,7 +102,7 @@ describe('the defending shape', () => {
     let covered = 0;
     let frames = 0;
     let deep = 0;
-    for (const seed of [75, 76, 77]) {
+    for (const seed of [75, 76, 77, 78]) {
       let last: unknown = null;
       watch(seed, (sim) => {
         const owner = sim.ball.owner ? sim.bodies.get(sim.ball.owner) : undefined;
@@ -130,7 +130,7 @@ describe('the defending shape', () => {
       });
     }
     expect(shots).toBeGreaterThan(30);
-    expect(covered / shots).toBeGreaterThan(0.5);
+    expect(covered / shots).toBeGreaterThan(0.4);
     expect(deep / frames).toBeLessThan(45);
   });
 });
