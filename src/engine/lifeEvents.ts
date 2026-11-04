@@ -1,4 +1,5 @@
 import { Game } from './types';
+import { nightOutRisk } from './perks';
 import { Rng, clamp } from './rng';
 import { careerPlayer, gainFame } from './careerBase';
 import { addMessage } from './inbox';
@@ -25,6 +26,9 @@ export function endCareer(game: Game, reason: string): void {
 // Arrested after a night out: a fine, a ban and lost fame. A third arrest
 // means jail, and that is the end of the career.
 export function arrest(ctx: { game: Game }): string {
+  // A cool head talks his way out of some of them.
+  const me = ctx.game.world.players[ctx.game.career?.playerId ?? ''];
+  if (me && Math.random() > nightOutRisk(me)) return 'It nearly got out of hand, but you kept your head and walked away.';
   const game = ctx.game;
   const c = game.career!;
   const p = careerPlayer(game);

@@ -77,6 +77,10 @@ export interface Player {
   // players without one are rated by their broad position.
   role?: string;
   secondaryRole?: string;
+  // Positions learned on the ability tree.
+  roles?: string[];
+  // Stat nodes bought on the ability tree.
+  tree?: string[];
   foot?: 'L' | 'R';
   // Weak foot rating, 1..5 stars.
   weakFoot?: number;
@@ -313,6 +317,8 @@ export interface CareerState {
   xp: number;
   level: number;
   skillPoints: number;
+  // A skill move in training, and how long it has left.
+  moveTraining?: { id: string; weeksLeft: number; weeks: number };
   // Set when the player asked to leave; clubs come calling more often.
   wantsMove: boolean;
   // Relationship with clubs, -100..100, from offers, rejections and form.

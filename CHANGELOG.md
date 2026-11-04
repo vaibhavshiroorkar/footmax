@@ -2,6 +2,21 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.21.0
+
+- The ability tree has its own screen: a big map to drag around, with a branch for
+  each kind of player, plus physical, mind, set pieces, positions and weak foot.
+  Your own branch comes first, and about a hundred nodes wait in it.
+- Nodes cost level points and need an attribute. New techniques change the game:
+  Poacher, Long ranger, Target man, Whipped crosses, Cool head, Coach's man, Iron
+  man, Spot kick king, Ball winner, Reads the game and Commands the box.
+- Learn as many positions as you like. Weak foot moved from the creator to the tree.
+- Skill moves are trained now: pay the coach, wait a few weeks, one at a time. They
+  no longer cost level points.
+- Attributes give perks: physical makes training cost less energy, pace brings more
+  fitness back each week, vision offers one more pass, composure keeps you out of
+  trouble, and passing makes skill move training cheaper.
+
 ## 1.20.0
 
 - Twelve formations: 4-1-4-1, 4-4-1-1, 3-4-3, 3-4-2-1, 5-3-2, 5-4-1, 4-3-1-2 and the

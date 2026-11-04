@@ -292,6 +292,17 @@ Sources: [Kwest on substitution timing](https://kwestthoughts.substack.com/p/how
 [FiveThirtyEight on subs when behind](https://fivethirtyeight.com/features/down-at-halftime-in-a-soccer-game-use-your-subs),
 [ESPN on substitutes](https://global.espn.com/football/story/_/id/37505582/premier-league-teams-rarely-use-all-their-substitutes-why-take-advantage-such-fresh-legs).
 
+## Skill tree on a phone (v1.21.0)
+
+Sources are thin. The useful points: keep the tree as data, draw lines so prerequisites
+read at a glance, make state obvious once a tree is big, and zooming out is a known
+pain. There is no sourced guidance on touch targets, so nodes are 50 px, above the
+44 px this app already uses. No gesture library is needed: nested scroll views drag the
+map, and two zoom buttons rescale it.
+
+Sources: [Wayline on data-driven skill trees](https://www.wayline.io/blog/unity-skill-tree-scriptable-objects),
+[itch.io player feedback](https://itch.io/post/15844276).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

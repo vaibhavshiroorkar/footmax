@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { rolesOf } from '../../engine/skillTree';
 import { Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
@@ -49,7 +50,7 @@ export default function Profile() {
           <Fact icon="cash" label="Value" value={formatMoney(marketValue(p))} />
           <Fact icon="eye" label="Scouts" value={potentialLabel(p, ovr)} />
           <Fact icon="flag" label="Nation" value={nationById(game.world, p.nationId)?.name ?? '-'} />
-          <Fact icon="locate" label="Position" value={`${p.role ?? p.position}${p.secondaryRole ? ` / ${p.secondaryRole}` : ''}`} />
+          <Fact icon="locate" label="Position" value={rolesOf(p).join(' / ') || p.position} />
           {p.heightCm ? <Fact icon="body" label="Body" value={`${p.heightCm} cm, ${p.foot === 'L' ? 'left' : 'right'} foot`} /> : null}
           <Fact icon="earth" label="Caps / goals" value={`${p.caps} / ${p.intlGoals}`} />
         </View>

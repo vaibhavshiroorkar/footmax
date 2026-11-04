@@ -37,7 +37,7 @@ moments to play, not a wall of information.
 
 - **Creator:** name, nickname, shirt number; nation picked by
   confederation (a search field with five suggestions); exact position;
-  foot and weak foot; height and build
+  foot; height and build
   (they change stats, shown per stat); a playing style and 40 stat points;
   avatar and goal celebration.
 - **Start at the bottom:** the first club is drawn at random from the
@@ -52,9 +52,14 @@ moments to play, not a wall of information.
   energy) is a tile in the drill grid. Energy shows as a value out of 100. Attributes show
   whole points with a bar filling toward the next one, and a "+1" pops
   when a point lands.
-- **Abilities** (Playmaker, Clinical Finisher...) cost 1 skill point a
-  level and need a minimum attribute. **Skill moves** (nine dribble
-  tricks, six finishing techniques) cost 1 to 5 points.
+- **Abilities** live on the ability tree, below. **Skill moves** (nine dribble
+  tricks, six finishing techniques) are trained: pay the coach (`moveFee`, from $500
+  for one star, four times more per star) and wait stars + 1 weeks, one move at a
+  time (`startMove`, `tickMove`).
+- **Perks** (`src/engine/perks.ts`): physical cuts a session from 28 energy to 22 at
+  90, so energy stays out of 100. Pace returns up to 6 extra fitness a week. Vision
+  of 75 offers one more pass. Composure talks you out of up to half of arrests.
+  Passing makes skill move training up to 25% cheaper.
 - **Levels:** XP from matches, training and rewards fills levels; each
   level gives a skill point.
 - **Rewards to claim:** finished season goals and milestones wait in a
@@ -63,7 +68,7 @@ moments to play, not a wall of information.
 - **Happiness:** a coach bar (his trust, from form and the relationship)
   and a dressing-room bar (team-mates' average morale) on the Play screen.
 - **Win bonus, fame, sponsors, shop, life actions, international call-ups,
-  awards** (Ballon d'Or and others), and a second position at level 6.
+  awards** (Ballon d'Or and others).
 
 ## Matches
 
@@ -387,22 +392,14 @@ contracts, board and federation confidence, sackings and job offers.
   Leaderboard. Nothing pops into Play: rewards and the season review are
   on Me, and there are no week chips.
 - Train: every attribute first, then Training, Abilities and Moves tabs.
-- Abilities is a skill tree per position (`src/engine/skillTree.ts`):
-  three branches, each a chain of nodes joined by a line; a node unlocks
-  only after the one above it. Nodes are levels of the abilities (1 point
-  each, with an attribute needed) and, at the end of some branches, a
-  technique (2 points) that changes a moment:
-  - Fake shot: a Fake button in shot moments sends the keeper the wrong
-    way once and leaves him off balance (less reach);
-  - Curler: curled shots bend further, round defenders and away from the
-    keeper;
-  - Defence splitter: a much wider through-ball window;
-  - Last-ditch: the first defensive mistake each match is not punished;
-  - Sweeper keeper: more time to react in save moments.
-  Forwards: Finishing, Flair, Big games. Midfielders: Playmaking, Engine,
-  Shooting. Defenders: Defending, Physical, Leadership. Keepers: Shot
-  stopping, Distribution, Mind. A panel under the tree shows the chosen
-  node, what it needs and Unlock; it keeps its size, so nothing moves.
+- Ability tree (`/career/tree`, `src/engine/skillTree.ts`): its own screen, a large
+  map you drag around, with chips that jump to each branch and a panel for the
+  chosen node that keeps its size. All plain data. Branches: Striker, Winger,
+  Playmaker, Box to box, Holding, Full-back, Centre-back, Goalkeeper, Physical, Mind,
+  Set pieces, Positions and Weak foot, the ones for your role first. A node costs
+  level points, needs an attribute, and opens once any node above it is owned.
+  Nodes are ability levels, techniques that change a moment, +1 stat gains, weak foot
+  stars, and positions, which fan out from your role.
 - More is gone (`/career/more` redirects to Play). Honours is a tab in
   Awards; Settings is the gear on Me; League is reached from Club.
 - Life: money's home, laid out as a store with four tabs. Each tab is a

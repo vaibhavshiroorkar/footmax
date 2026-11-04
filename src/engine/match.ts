@@ -7,6 +7,7 @@ import { ROLES, isRole, FORMATION_LEAN } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { ShotEnd } from './contact';
+import { EXTRA_PASS_VISION } from './perks';
 import { CARD_PER_MINUTE, FLAG_CALL, FLARE_ODDS, FLARE_UP, FOUL_CALL, HEAT_PER_CARD, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
 import { PlayOutcome, PlayStart, PlayStep, Positions, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
@@ -73,6 +74,8 @@ export function passOptions(rng: Rng, world: World, s: MatchState, side: SideKey
   add(pick(mates.filter((p) => p.position !== 'DEF'), used), 'square', rng.range(0.5, 0.78), rng.range(0.12, 0.2));
   add(pick(mates.filter((p) => p.position !== 'FWD'), used), 'safe', rng.range(0.82, 0.96), rng.range(0.02, 0.06));
   if (tall && !used.includes(tall.id) && rng.chance(0.6)) add(tall, 'cross', rng.range(0.4, 0.65), rng.range(0.15, 0.24));
+  // Great vision sees one more.
+  if ((world.players[actorId]?.attrs.vision ?? 0) >= EXTRA_PASS_VISION) add(pick(mates, used), 'square', rng.range(0.5, 0.72), rng.range(0.1, 0.18));
   return rng.shuffle(out);
 }
 
@@ -992,7 +995,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const rival = world.players[m.attackerId!];
       const walk = (user.fight ?? (q > 0.4 ? 'walk' : 'square')) === 'walk';
       const calm = actor.attrs.composure / 99;
-      const fight = walk ? rng.weighted(['calm', 'booked'] as const, [0.85, 0.15]) : rng.weighted(['calm', 'booked', 'one', 'both'] as const, [0.15 + calm * 0.3, 0.45, 0.25 - calm * 0.15, 0.15 - calm * 0.08]);
+      const fight = walk ? (lvl('coolhead') ? 'calm' : rng.weighted(['calm', 'booked'] as const, [0.85, 0.15])) : rng.weighted(['calm', 'booked', 'one', 'both'] as const, [0.15 + calm * 0.3, 0.45, 0.25 - calm * 0.15, 0.15 - calm * 0.08]);
       if (walk) bump(s, actor.id, 0.1);
       // 'one' is the user: he threw the punch.
       settleFight(rng, world, s, m.side, actor, other(m.side), rival, fight);
@@ -1114,7 +1117,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     // a player of the same quality; playing the mini-game well beats that.
     case 'shot':
       // From distance it takes a real shooter.
-      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher') - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
+      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher') + (m.view === 'box' || m.view === 'oneonone' ? 0.03 * lvl('poacher') : 0) - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
     case 'header': {
       // Height and strength win the ball in the air.
@@ -1241,7 +1244,7 @@ function hookUser(rng: Rng, world: World, s: MatchState, sideKey: SideKey): bool
   const side = s[sideKey];
   const id = s.focus.playerId;
   if (!id || !side.onPitch.includes(id) || world.players[id].position === 'GK') return false;
-  const rating = s.ratings[id] ?? 6;
+  const rating = (s.ratings[id] ?? 6) + (skillLevel(world.players[id], 'trusted') ? 0.4 : 0);
   if (rating >= POOR_RATING || s.goals[id] || s.assists[id]) return false;
   const p = Math.min(0.85, (POOR_RATING - rating) * 1.1 + (s.yellows[id] ? 0.2 : 0) + 0.15);
   if (!rng.chance(p)) return false;
@@ -1989,7 +1992,7 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
       p.morale = clamp(p.morale + result * 4 + (result > 0 ? Math.min(3, leaders) : 0) + (side.usedIds.includes(id) ? 1 : -1), 10, 100);
     }
   }
-  for (const [id, weeks] of Object.entries(s.injuries)) world.players[id].injuryWeeks = Math.max(world.players[id].injuryWeeks, weeks);
+  for (const [id, weeks] of Object.entries(s.injuries)) world.players[id].injuryWeeks = Math.max(world.players[id].injuryWeeks, skillLevel(world.players[id], 'ironman') ? Math.max(1, weeks - 1) : weeks);
   // The week's recovery takes one off straight after this match.
   for (const [id, games] of Object.entries(s.sentOff)) world.players[id].suspendedWeeks = Math.max(world.players[id].suspendedWeeks ?? 0, games + 1);
 }

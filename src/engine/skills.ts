@@ -33,7 +33,7 @@ export const SKILLS: SkillDef[] = [
 
 export const ABILITY_COST = 1;
 
-// Skill moves: tricks the career player unlocks with skill points. Dribble
+// Skill moves: tricks the career player trains for money and time. Dribble
 // moves are picked in a dribble moment for a better chance of beating the
 // man; finishing moves add a little to the shots they suit.
 export interface SkillMove {
@@ -66,22 +66,17 @@ export const SKILL_MOVES: SkillMove[] = [
   { id: 'scissor', label: 'Scissor kick', kind: 'finish', stars: 5, icon: 'rocket', needs: 76, description: 'Acrobatic volleys from crosses.' },
 ];
 
-export function moveCost(m: SkillMove): number {
-  return m.stars;
-}
-
 export function hasMove(p: Player, id: string): boolean {
   return !!p.moves?.includes(id);
 }
 
-export function canLearnMove(p: Player, id: string, points: number): { ok: boolean; reason?: string } {
+export function canLearnMove(p: Player, id: string): { ok: boolean; reason?: string } {
   const m = SKILL_MOVES.find((x) => x.id === id);
   if (!m) return { ok: false, reason: 'Unknown move.' };
   if (hasMove(p, id)) return { ok: false, reason: 'Already learned.' };
   if (p.position === 'GK') return { ok: false, reason: 'Keepers leave the tricks to others.' };
   const attr = m.kind === 'dribble' ? p.attrs.dribbling : p.attrs.shooting;
   if (attr < m.needs) return { ok: false, reason: `Needs ${m.kind === 'dribble' ? 'dribbling' : 'shooting'} ${m.needs}.` };
-  if (points < moveCost(m)) return { ok: false, reason: `Needs ${moveCost(m)} skill point${moveCost(m) > 1 ? 's' : ''}.` };
   return { ok: true };
 }
 

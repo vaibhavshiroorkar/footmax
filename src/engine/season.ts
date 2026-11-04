@@ -7,13 +7,14 @@ import { createPlayer, createYouth, fillSquad, majorNations, newId, nationById, 
 import { quickSim } from './match';
 import { addMessage, expireOffers } from './inbox';
 import { MAX_SQUAD, MIN_SQUAD, inTransferWindow, movePlayer, returnLoans, runAiTransfers, weakestPosition } from './transfers';
-import { careerPlayer } from './career';
+import { careerPlayer, tickMove } from './career';
+import { weeklyFitness } from './perks';
+import { SKILL_MOVES, autoSkills } from './skills';
 import { managerSeasonReview, managerWeekly, nationReview } from './manager';
 import { squad } from './lineup';
 import { playQualifyingBreak, qualifyingLive, startQualifying } from './qualifying';
 import { INTERNATIONAL_BREAKS, advanceTournaments, internationalBreak, startTournaments, tournamentsDone } from './international';
 import { callUpMessage, careerOffers, managerOffers, ownClubRenewal } from './offers';
-import { autoSkills } from './skills';
 import { presentAwards } from './awards';
 import { seasonRollover } from './progress';
 import { lifeWeekly } from './lifeEvents';
@@ -121,6 +122,9 @@ function careerUpkeep(game: Game) {
   c.sponsors = c.sponsors.filter((s) => s.weeksLeft > 0);
   c.energy = 100;
   c.trainedThisWeek = 0;
+  p.fitness = clamp(p.fitness + weeklyFitness(p), 0, 100);
+  const learned = tickMove(game);
+  if (learned) addMessage(game, 'news', 'New skill move', `You have mastered the ${SKILL_MOVES.find((m) => m.id === learned)?.label}.`);
   c.fame = clamp(c.fame - 0.15, 0, 100);
   if (c.items.includes('nutrition')) p.fitness = clamp(p.fitness + 6, 0, 100);
   if (c.items.includes('icebath')) p.fitness = clamp(p.fitness + 3, 0, 100);

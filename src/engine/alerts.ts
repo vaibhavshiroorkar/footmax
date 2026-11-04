@@ -1,8 +1,8 @@
 import { Game, Message } from './types';
 import { SKILL_MOVES, SkillMove, canLearnMove } from './skills';
+import { moveFee } from './perks';
 import { nodeLabel, readyNodes } from './skillTree';
 import { claimables } from './progress';
-import { ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
 
 // The game only nags about things the player has to act on: messages that
 // need an answer and upgrades they can buy right now. News stays quiet.
@@ -17,30 +17,21 @@ export function readyUpgrades(game: Game): { id: string; label: string }[] {
   const c = game.career;
   if (!c || c.retired) return [];
   const p = game.world.players[c.playerId];
-  return readyNodes(p, c.skillPoints).map(({ node }) => ({ id: node.kind === 'skill' ? node.skill : node.tech, label: nodeLabel(node) }));
+  return readyNodes(p, c.skillPoints).map((node) => ({ id: node.id, label: nodeLabel(node) }));
 }
 
-// A second position counts as an upgrade only until one is learned, so
-// the badge does not stay on for good once it is unlocked.
-export function canLearnSecondary(game: Game): boolean {
-  const c = game.career;
-  if (!c || c.retired) return false;
-  const p = game.world.players[c.playerId];
-  return c.level >= SECONDARY_ROLE_LEVEL && c.skillPoints >= SECONDARY_ROLE_COST && !p.secondaryRole && !!p.role && isRole(p.role) && ROLE_NEIGHBOURS[p.role].length > 0;
-}
-
-// Every upgrade costs at least a point, so with one point there is one
-// upgrade to make, however many skills qualify.
+// Skill moves he could start training right now.
 export function readyMoves(game: Game): SkillMove[] {
   const c = game.career;
-  if (!c || c.retired) return [];
+  if (!c || c.retired || c.moveTraining) return [];
   const p = game.world.players[c.playerId];
-  return SKILL_MOVES.filter((m) => canLearnMove(p, m.id, c.skillPoints).ok);
+  return SKILL_MOVES.filter((m) => canLearnMove(p, m.id).ok && c.money >= moveFee(m, p));
 }
 
+// Every node costs at least a point, so with one point there is one upgrade
+// to make, however many qualify. A move to train counts once.
 export function upgradeCount(game: Game): number {
-  const total = readyUpgrades(game).length + readyMoves(game).length + (canLearnSecondary(game) ? 1 : 0);
-  return Math.min(total, game.career?.skillPoints ?? 0);
+  return Math.min(readyUpgrades(game).length, game.career?.skillPoints ?? 0) + (readyMoves(game).length ? 1 : 0);
 }
 
 export function navBadges(game: Game): Record<string, number> {

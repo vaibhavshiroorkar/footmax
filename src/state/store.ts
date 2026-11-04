@@ -244,7 +244,7 @@ export const useStore = create<Store>((set, get) => {
       if (upgrades > upgradesBefore) {
         const names = readyUpgrades(game).map((s) => s.label);
         const sub = names.length ? `You can upgrade ${names.slice(0, 2).join(' and ')}${names.length > 2 ? ` and ${names.length - 2} more` : ''}.` : 'You can learn a second position.';
-        get().celebrate({ title: 'Upgrade ready', sub, icon: 'sparkles', action: { label: 'Open skills', href: '/career/train?tab=skills' } });
+        get().celebrate({ title: 'Upgrade ready', sub, icon: 'sparkles', action: { label: 'Open the tree', href: '/career/train?tab=skills' } });
       }
       return out;
     },

@@ -40,7 +40,7 @@ export function squadStatus(game: Game): string {
   const club = game.world.clubs[p.clubId];
   const slots: Record<Position, number> = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
   const positions: Position[] = [p.position];
-  if (p.secondaryRole && isRole(p.secondaryRole)) positions.push(ROLES[p.secondaryRole].broad);
+  for (const r of [p.secondaryRole, ...(p.roles ?? [])]) if (r && isRole(r)) positions.push(ROLES[r].broad);
   let best = 99;
   let bestPos = p.position;
   for (const pos of positions) {

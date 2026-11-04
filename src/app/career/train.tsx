@@ -10,6 +10,7 @@ import { AttrRow, AttributeGrid } from '../../ui/attributes';
 import { MovesBody } from '../../ui/skillMoves';
 import { alpha, colors, fonts } from '../../ui/theme';
 import { drillsFor, lifeAction, train } from '../../engine/career';
+import { sessionEnergy } from '../../engine/perks';
 import { ATTR_LABELS, overall, weightsFor } from '../../engine/player';
 import { AttrKey } from '../../engine/types';
 import { motionReduced } from '../../state/settings';
@@ -165,7 +166,7 @@ export default function Train() {
 
   const shown = { ...p.attrs, ...(frozen ?? {}) };
   const moves = readyMoves(game).length;
-  const abilities = upgrades - Math.min(upgrades, moves);
+  const abilities = Math.max(0, upgrades - (moves ? 1 : 0));
   return (
     <Screen title="Train" nav="career">
       {/* Every attribute first, always in the same place. */}
@@ -196,7 +197,7 @@ export default function Train() {
         tabs={[
           { key: 'train', label: 'Training' },
           { key: 'abilities', label: abilities ? `Abilities (${abilities})` : 'Abilities' },
-          { key: 'moves', label: moves ? `Moves (${moves})` : 'Moves' },
+          { key: 'moves', label: 'Moves' },
         ]}
         value={tab}
         onChange={setTab}
@@ -209,7 +210,7 @@ export default function Train() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {drills.map((d) => {
               const look = LOOK[d.id];
-              const disabled = c.energy < d.energy || p.injuryWeeks > 0;
+              const disabled = c.energy < sessionEnergy(p, d.energy) || p.injuryWeeks > 0;
               return (
                 <View key={d.id} style={{ flexBasis: '47%', flexGrow: 1, padding: 12, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, opacity: disabled ? 0.55 : 1 }}>
                   <Row gap={10}>

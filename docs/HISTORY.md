@@ -150,6 +150,13 @@ trying. Flare-ups ran hot at first and pushed reds to 0.47 a match; the rate cam
 The shape in a match moved onto the match itself, so half-time changes cannot rewrite
 a club. New games spread clubs across the shapes; old saves keep theirs.
 
+### 17. v1.21.0: ability tree (2026-11-04)
+
+The tree became data with its own screen. Skills and techniques carried over from old
+saves untouched; `secondaryRole` moved to the `roles` list (save version 4). Every new
+technique was wired to a real effect, because a node that changes nothing is clutter.
+Energy stays out of 100, so physical cuts the cost of a session, not the cap.
+
 ## Decisions that still hold
 
 | Decision | Why |

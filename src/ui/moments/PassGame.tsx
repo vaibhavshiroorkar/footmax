@@ -34,7 +34,7 @@ function Bars({ value, color }: { value: number; color: string }) {
 // played there decides whether it arrives and how big the chance is.
 // splitter: the Defence splitter technique, a much wider through-ball window.
 // unhurried: a set piece. There is no clock on the choice.
-export function PassPanel({ options, names, playmaker = 0, passing = 60, vision = 60, splitter = false, unhurried = false, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; passing?: number; vision?: number; splitter?: boolean; unhurried?: boolean; picked?: string | null; onDone: (q: number, text: string, playerId?: string, outcome?: PassOutcome) => void; onShoot?: () => void }) {
+export function PassPanel({ options, names, playmaker = 0, passing = 60, vision = 60, splitter = false, crosser = false, unhurried = false, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; passing?: number; vision?: number; splitter?: boolean; crosser?: boolean; unhurried?: boolean; picked?: string | null; onDone: (q: number, text: string, playerId?: string, outcome?: PassOutcome) => void; onShoot?: () => void }) {
   const LIMIT = BASE_LIMIT + 0.6 * playmaker;
   const [done, setDone] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function PassPanel({ options, names, playmaker = 0, passing = 60, vision 
   if (scene) {
     const end = (q: number, outcome: PassOutcome, text: string) => onDone(clamp(q * (0.85 + 0.15 * scene.quick)), text, scene.o.playerId, outcome);
     const extra = 0.08 * playmaker;
-    return scene.o.kind === 'through' ? <ThroughBallScene passing={passing} vision={vision} window={extra + (splitter ? 0.5 : 0)} onDone={end} /> : <CrossScene crossing={passing} window={extra} onDone={end} />;
+    return scene.o.kind === 'through' ? <ThroughBallScene passing={passing} vision={vision} window={extra + (splitter ? 0.5 : 0)} onDone={end} /> : <CrossScene crossing={passing} window={extra + (crosser ? 0.3 : 0)} onDone={end} />;
   }
 
   const left = unhurried ? 1 : Math.max(0, 1 - t / LIMIT);

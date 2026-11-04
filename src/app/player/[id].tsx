@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { rolesOf } from '../../engine/skillTree';
 import { Pressable, TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useGame, useStore } from '../../state/store';
@@ -85,7 +86,7 @@ export default function PlayerDetail() {
           {p.real && <Pill label="Database player" color={colors.blue} />}
           {p.listed && <Pill label={`Listed for ${p.listed}`} color={colors.gold} />}
         </Row>
-        {p.role && <Field label="Position" value={`${p.role}${p.secondaryRole ? ` / ${p.secondaryRole}` : ''}`} />}
+        {p.role && <Field label="Position" value={rolesOf(p).join(' / ')} />}
         <Field label="Scouts say" value={potentialLabel(p, ovr)} />
         <Field label="Value" value={formatMoney(marketValue(p))} />
         {club && !mine && <Field label="Asking price" value={formatMoney(ask)} />}

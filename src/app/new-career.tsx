@@ -102,7 +102,8 @@ export default function NewCareer() {
   const [broad, setBroad] = useState<Position>('FWD');
   const [role, setRole] = useState<Role>('ST');
   const [foot, setFoot] = useState<'L' | 'R'>('R');
-  const [weakFoot, setWeakFoot] = useState(2);
+  // Everyone starts on two stars; more come from the ability tree.
+  const weakFoot = 2;
   const [height, setHeight] = useState(180);
   const [build, setBuild] = useState<Build>('athletic');
   const [styleId, setStyleId] = useState(STYLE_PRESETS.ST[0].id);
@@ -154,12 +155,7 @@ export default function NewCareer() {
     applyStyle(r, STYLE_PRESETS[r][0].id);
     if (r === 'GK') setNumber(1);
   };
-  const setWF = (wf: number) => {
-    const next = Math.max(1, Math.min(5, wf));
-    setWeakFoot(next);
-    applyStyle(role, styleId, next);
-  };
-  const bump = (k: keyof Allocation, d: number) => {
+    const bump = (k: keyof Allocation, d: number) => {
     const cur = alloc[k] ?? 0;
     const v = cur + d;
     if (v < 0 || v > MAX_PER_ATTR || (d > 0 && spent >= STAT_POINTS)) return;
@@ -299,17 +295,6 @@ export default function NewCareer() {
             <Choice half active={foot === 'L'} label="Left" onPress={() => setFoot('L')} />
             <Choice half active={foot === 'R'} label="Right" onPress={() => setFoot('R')} />
           </Row>
-          <T bold>Weak foot</T>
-          <Row gap={6}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setWF(n)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Weak foot ${n} star${n > 1 ? 's' : ''}`} accessibilityState={{ selected: weakFoot === n }}>
-                <Icon name={n <= weakFoot ? 'star' : 'star-outline'} size={28} color={colors.gold} />
-              </Pressable>
-            ))}
-          </Row>
-          <T muted style={{ fontSize: 12 }}>
-            Shots on your weaker foot lose accuracy. 2 stars is free; each extra star costs 4 stat points ({weakFootCost(weakFoot)} now).
-          </T>
           <Stepper label="Height" value={`${height} cm`} onMinus={() => setHeight(Math.max(160, height - 2))} onPlus={() => setHeight(Math.min(204, height + 2))} />
           <T muted style={{ fontSize: 12 }}>
             Taller: stronger, better in the air{role === 'GK' ? ' and in goal' : ''}, but slower and less nimble. Shorter: the opposite.

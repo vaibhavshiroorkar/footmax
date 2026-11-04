@@ -219,7 +219,7 @@ function ClaimRow({ r }: { r: Claimable }) {
     setTimeout(() => {
       const res = mutate((g) => claimReward(g, r.kind, r.id));
       const lv = useStore.getState().game?.career?.level;
-      if (res.levels > 0) celebrate({ title: 'Level up!', sub: `Level ${lv}. +${res.levels} skill point${res.levels > 1 ? 's' : ''} to spend.`, icon: 'star', action: { label: 'Spend it', href: '/career/train?tab=abilities' } });
+      if (res.levels > 0) celebrate({ title: 'Level up!', sub: `Level ${lv}. +${res.levels} skill point${res.levels > 1 ? 's' : ''} to spend.`, icon: 'star', action: { label: 'Spend it', href: '/career/tree' } });
     }, 650);
   };
   const reward = [r.xp ? `+${r.xp} XP` : '', r.money ? `+${formatMoney(r.money)}` : '', r.fame ? `+${r.fame} fame` : ''].filter(Boolean).join('  ');

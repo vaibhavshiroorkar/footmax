@@ -395,16 +395,17 @@ describe('defensive moments and second positions', () => {
     expect(kinds.has('tackle')).toBe(true);
   });
 
-  it('a second position unlocks at level 6 and widens selection', () => {
-    const { learnSecondary } = require('../../src/engine/career');
+  it('a learned position widens selection', () => {
+    const { unlockNode } = require('../../src/engine/career');
+    const { allNodes } = require('../../src/engine/skillTree');
     const { ratingAt } = require('../../src/engine/lineup');
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'CDM', seed: 33 });
     const p = game.world.players[game.career!.playerId];
     game.career!.skillPoints = 5;
-    expect(learnSecondary(game, 'CB').ok).toBe(false);
-    game.career!.level = 6;
-    expect(learnSecondary(game, 'ST').ok).toBe(false);
-    expect(learnSecondary(game, 'CB').ok).toBe(true);
+    p.attrs.defending = 70;
+    const cb = allNodes(p).find((n: { kind: string; role?: string }) => n.kind === 'position' && n.role === 'CB');
+    expect(ratingAt(p, 'DEF')).toBe(-1);
+    expect(unlockNode(game, cb.id).ok).toBe(true);
     expect(ratingAt(p, 'DEF')).toBeGreaterThan(0);
     expect(ratingAt(p, 'FWD')).toBe(-1);
   });
@@ -500,11 +501,13 @@ describe('alerts and save slots', () => {
     p.attrs.shooting = 90;
     expect(readyUpgrades(game)).toHaveLength(0);
     c.skillPoints = 1;
-    expect(readyUpgrades(game).map((s) => s.id)).toContain('finisher');
+    c.money = 0;
+    expect(readyUpgrades(game).map((s) => s.label)).toContain('Clinical Finisher I');
     // One point buys one upgrade, however many skills qualify.
     expect(navBadges(game)['/career/train']).toBe(1);
     c.skillPoints = 20;
-    expect(navBadges(game)['/career/train']).toBe(readyUpgrades(game).length + readyMoves(game).length);
+    expect(readyMoves(game)).toHaveLength(0);
+    expect(navBadges(game)['/career/train']).toBe(Math.min(20, readyUpgrades(game).length));
   });
 
   it('describes a save slot without loading the game', () => {

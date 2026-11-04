@@ -97,7 +97,7 @@ export interface Slot extends Spot {
 // role, then a neighbouring role, then anything in the same line.
 function fit(p: Player, role: Role): number {
   if (p.role === role) return 4;
-  if (p.secondaryRole === role) return 3;
+  if (p.secondaryRole === role || p.roles?.includes(role)) return 3;
   if (p.role && isRole(p.role) && ROLE_NEIGHBOURS[p.role].includes(role)) return 2;
   if (ROLES[role].broad === p.position) return 1;
   return 0;

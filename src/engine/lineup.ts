@@ -51,9 +51,9 @@ export function formAverage(p: Player): number | null {
 
 export function ratingAt(p: Player, pos: Position): number {
   if (p.position === pos) return matchRating(p) * formFactor(p);
-  if (p.secondaryRole && isRole(p.secondaryRole) && ROLES[p.secondaryRole].broad === pos) {
-    return matchRating(p) * formFactor(p) * (overall({ ...p, role: p.secondaryRole }) / Math.max(1, overall(p))) * 0.97;
-  }
+  // Any position he has learned counts, at a small penalty.
+  const learned = [p.secondaryRole, ...(p.roles ?? [])].find((r) => r && isRole(r) && ROLES[r].broad === pos);
+  if (learned) return matchRating(p) * formFactor(p) * (overall({ ...p, role: learned }) / Math.max(1, overall(p))) * 0.97;
   return -1;
 }
 

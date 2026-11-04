@@ -1,39 +1,42 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useGame, useStore } from '../state/store';
-import { AnimatedNumber, Card, Icon, IconName, Row, SectionLabel, haptic } from './kit';
+import { Card, Icon, IconName, Row, SectionLabel, haptic } from './kit';
 import { alpha, colors, fonts } from './theme';
-import { SKILL_MOVES, SkillMove, canLearnMove, hasMove, moveCost } from '../engine/skills';
-import { learnMove } from '../engine/career';
+import { SKILL_MOVES, SkillMove, canLearnMove, hasMove } from '../engine/skills';
+import { startMove } from '../engine/career';
+import { moveFee, moveWeeks } from '../engine/perks';
+import { formatMoney } from '../engine/player';
 
-// Skill moves: small icon tiles, unlocked with skill points. Dribble moves
+// Skill moves: small icon tiles. You pay the coach and it takes a few weeks, Dribble moves
 // can be picked in a dribble moment; finishing moves help the shots they suit.
 export function MovesBody() {
   const game = useGame();
   const mutate = useStore((s) => s.mutate);
   const showToast = useStore((s) => s.showToast);
-  const celebrate = useStore((s) => s.celebrate);
   if (!game?.career) return null;
   const c = game.career;
   const p = game.world.players[c.playerId];
 
   const tile = (m: SkillMove) => {
     const owned = hasMove(p, m.id);
-    const check = canLearnMove(p, m.id, c.skillPoints);
-    const ready = !owned && check.ok;
+    const check = canLearnMove(p, m.id);
+    const fee = moveFee(m, p);
+    const training = c.moveTraining?.id === m.id;
+    const ready = !owned && check.ok && !c.moveTraining && c.money >= fee;
     const tone = owned ? colors.gold : ready ? colors.accent : colors.faint;
     return (
       <Pressable
         key={m.id}
         accessibilityRole="button"
-        accessibilityLabel={`${m.label}, ${owned ? 'learned' : ready ? `learn for ${moveCost(m)} points` : check.reason}`}
+        accessibilityLabel={`${m.label}, ${owned ? 'learned' : training ? 'in training' : ready ? `train for ${formatMoney(fee)}` : check.reason ?? 'not now'}`}
         onPress={() => {
           if (owned) return showToast(`${m.label}: ${m.description}`);
-          if (!ready) return showToast(check.reason ?? 'Locked.');
-          const r = mutate((g) => learnMove(g, m.id));
-          if (!r.ok) return showToast(r.text);
-          haptic('success');
-          celebrate({ title: m.label, sub: `New skill move. ${m.description}`, icon: m.icon as IconName, duration: 2000 });
+          if (training) return showToast(`${c.moveTraining?.weeksLeft} weeks left on ${m.label}.`);
+          if (!ready) return showToast(check.reason ?? (c.moveTraining ? 'One move at a time.' : `The coach charges ${formatMoney(fee)}.`));
+          const r = mutate((g) => startMove(g, m.id));
+          showToast(r.text);
+          if (r.ok) haptic('success');
         }}
         style={({ pressed }) => ({
           width: '23%',
@@ -54,7 +57,7 @@ export function MovesBody() {
         <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: owned || ready ? colors.text : colors.muted, textAlign: 'center' }} numberOfLines={2}>
           {m.label}
         </Text>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: tone }}>{owned ? 'Learned' : `${moveCost(m)} pt${moveCost(m) > 1 ? 's' : ''}`}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: tone }}>{owned ? 'Learned' : training ? `${c.moveTraining?.weeksLeft} wk left` : `${formatMoney(fee)}, ${moveWeeks(m)} wk`}</Text>
       </Pressable>
     );
   };
@@ -67,8 +70,8 @@ export function MovesBody() {
             <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.text }}>Skill moves</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 }}>POINTS</Text>
-            <AnimatedNumber value={c.skillPoints} style={{ fontFamily: fonts.display, fontSize: 32, color: c.skillPoints ? colors.accent : colors.faint }} />
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 }}>MONEY</Text>
+            <Text style={{ fontFamily: fonts.display, fontSize: 28, color: colors.gold }}>{formatMoney(c.money)}</Text>
           </View>
         </Row>
       </Card>

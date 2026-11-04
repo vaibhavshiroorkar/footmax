@@ -7,7 +7,7 @@ import { colors, fonts } from './theme';
 const TIPS: { icon: IconName; color: string; title: string; text: string }[] = [
   { icon: 'football', color: colors.accent, title: 'Play', text: 'Your big moments are yours to play.' },
   { icon: 'barbell', color: colors.blue, title: 'Train', text: 'Three sessions a week. Play them well for bigger gains.' },
-  { icon: 'sparkles', color: colors.purple, title: 'Level up', text: 'Spend points on abilities and skill moves.' },
+  { icon: 'sparkles', color: colors.purple, title: 'Level up', text: 'Spend level points on the ability tree. Train skill moves for money.' },
 ];
 
 // Shown once on the first visit to the career home screen.

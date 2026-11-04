@@ -38,6 +38,16 @@ export const MIGRATIONS: Record<number, (g: Record<string, unknown>) => void> = 
       p.role = best;
     }
   },
+  // 3 -> 4: the old second position becomes the first entry in the list the
+  // ability tree adds to. Skills and techniques carry straight over.
+  3: (g) => {
+    const world = g.world as { players: Record<string, { secondaryRole?: string; roles?: string[] }> };
+    for (const p of Object.values(world.players)) {
+      if (!p.secondaryRole) continue;
+      p.roles = [p.secondaryRole];
+      delete p.secondaryRole;
+    }
+  },
 };
 
 export type LoadResult = { ok: true; game: Game } | { ok: false; error: 'corrupt' | 'too-new' };

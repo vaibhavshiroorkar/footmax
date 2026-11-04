@@ -63,10 +63,6 @@ export function rolesFor(broad: Position): Role[] {
   return ROLE_LIST.filter((r) => ROLES[r].broad === broad);
 }
 
-// Unlocked by career level.
-export const SECONDARY_ROLE_LEVEL = 6;
-export const SECONDARY_ROLE_COST = 2;
-
 // The named positions in each formation, one row per line from the back,
 // matching the formation string ("4-2-3-1" has four rows). Midfield wide
 // slots are LM/RM so they stay midfielders, as the lineup picks by line.

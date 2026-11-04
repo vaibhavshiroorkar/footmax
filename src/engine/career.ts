@@ -2,12 +2,12 @@ import { AttrKey, Game, Player } from './types';
 import { Rng, clamp } from './rng';
 import { avgRating, formatMoney, overall, seasonRows, weightsFor } from './player';
 import { MatchState } from './match';
-import { ROLES, ROLE_NEIGHBOURS, SECONDARY_ROLE_COST, SECONDARY_ROLE_LEVEL, isRole } from './roles';
-import { ABILITY_COST, SKILL_MOVES, canLearnMove, canUpgrade, moveCost, skillLevel, SKILLS } from './skills';
+import { ABILITY_COST, SKILL_MOVES, canLearnMove, canUpgrade, skillLevel, SKILLS } from './skills';
 import { movePlayer } from './transfers';
 import { recordTraining } from './progress';
 import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
-import { canUnlock, nodeCost, nodeLabel, nodeOwned, treeFor } from './skillTree';
+import { allNodes, applyNode, canUnlock, nodeCost, nodeLabel } from './skillTree';
+import { moveFee, moveWeeks, sessionEnergy } from './perks';
 
 export { addXp, careerPlayer, squadStatus };
 
@@ -96,9 +96,10 @@ export function train(game: Game, drillId: string, score?: number): ActionResult
   const p = careerPlayer(game);
   if (!drill) return { ok: false, text: 'Unknown drill.' };
   if (p.injuryWeeks > 0) return { ok: false, text: 'You are injured. Rest up.' };
-  if (c.energy < drill.energy) return { ok: false, text: 'Not enough energy this week.' };
+  const cost = sessionEnergy(p, drill.energy);
+  if (c.energy < cost) return { ok: false, text: 'Not enough energy this week.' };
   const rng = new Rng(game.world.rngState);
-  c.energy -= drill.energy;
+  c.energy -= cost;
   c.trainedThisWeek++;
   const gain = trainingGain(p, c.items.includes('trainer')) * trainingMult(score);
   const gains: string[] = [];
@@ -137,31 +138,47 @@ export function upgradeSkill(game: Game, skillId: string): ActionResult {
   return { ok: true, text: `${def.label} is now level ${lvl}.` };
 }
 
-// Unlocks the next node of a skill tree branch (see skillTree.ts).
-export function unlockNode(game: Game, branchId: string, index: number): ActionResult {
+// Buys a node of the ability tree (see skillTree.ts).
+export function unlockNode(game: Game, nodeId: string): ActionResult {
   const c = game.career!;
   const p = careerPlayer(game);
-  const branch = treeFor(p).find((b) => b.id === branchId);
-  const node = branch?.nodes[index];
-  if (!branch || !node) return { ok: false, text: 'Not in your tree.' };
-  if (!branch.nodes.slice(0, index).every((n) => nodeOwned(p, n))) return { ok: false, text: 'Unlock the one above it first.' };
-  const check = canUnlock(p, node, c.skillPoints);
+  const nodes = allNodes(p);
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) return { ok: false, text: 'Not in your tree.' };
+  const check = canUnlock(p, node, c.skillPoints, nodes);
   if (!check.ok) return { ok: false, text: check.reason! };
-  if (node.kind === 'skill') return upgradeSkill(game, node.skill);
   c.skillPoints -= nodeCost(node);
-  p.skills = { ...(p.skills ?? {}), [node.tech]: 1 };
+  applyNode(p, node);
   return { ok: true, text: `${nodeLabel(node)} unlocked.` };
 }
 
-export function learnMove(game: Game, moveId: string): ActionResult {
+// Skill moves are trained, not bought with points: pay the coach and it takes
+// a few weeks, one at a time.
+export function startMove(game: Game, moveId: string): ActionResult {
   const c = game.career!;
   const p = careerPlayer(game);
-  const check = canLearnMove(p, moveId, c.skillPoints);
+  if (c.moveTraining) return { ok: false, text: 'You are already working on a move.' };
+  const check = canLearnMove(p, moveId);
   if (!check.ok) return { ok: false, text: check.reason! };
   const m = SKILL_MOVES.find((x) => x.id === moveId)!;
-  c.skillPoints -= moveCost(m);
-  p.moves = [...(p.moves ?? []), m.id];
-  return { ok: true, text: `${m.label} learned.` };
+  const fee = moveFee(m, p);
+  if (c.money < fee) return { ok: false, text: `The coach charges ${formatMoney(fee)}.` };
+  c.money -= fee;
+  c.moveTraining = { id: moveId, weeksLeft: moveWeeks(m), weeks: moveWeeks(m) };
+  return { ok: true, text: `Training ${m.label}: ${moveWeeks(m)} weeks.` };
+}
+
+// A week of move training. Returns the move when it is learned.
+export function tickMove(game: Game): string | null {
+  const c = game.career!;
+  const t = c.moveTraining;
+  if (!t) return null;
+  t.weeksLeft--;
+  if (t.weeksLeft > 0) return null;
+  const p = careerPlayer(game);
+  p.moves = [...(p.moves ?? []), t.id];
+  c.moveTraining = undefined;
+  return t.id;
 }
 
 export function lifeAction(game: Game, actionId: string): ActionResult {
@@ -273,14 +290,3 @@ export function retire(game: Game): void {
 }
 
 
-export function learnSecondary(game: Game, role: string): ActionResult {
-  const c = game.career!;
-  const p = careerPlayer(game);
-  if (c.level < SECONDARY_ROLE_LEVEL) return { ok: false, text: `Unlocks at level ${SECONDARY_ROLE_LEVEL}.` };
-  if (!p.role || !isRole(p.role) || !isRole(role) || !ROLE_NEIGHBOURS[p.role].includes(role)) return { ok: false, text: 'That position does not suit you.' };
-  if (p.secondaryRole === role) return { ok: false, text: 'You already play there.' };
-  if (c.skillPoints < SECONDARY_ROLE_COST) return { ok: false, text: `Needs ${SECONDARY_ROLE_COST} skill points.` };
-  c.skillPoints -= SECONDARY_ROLE_COST;
-  p.secondaryRole = role;
-  return { ok: true, text: `You can now play ${ROLES[role].label}.` };
-}

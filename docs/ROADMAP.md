@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.20.0. Next: v1.21.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.21.0. Next: v1.22.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -72,11 +72,11 @@ The 41-point request of 2026-11-04, word for word.
 | 33 | keep rest beside defensive intead of below | v1.11.0 | done |
 | 34 | make ovr of play and trian same size, inconsistencies should never happen | v1.11.0 | done |
 | 35 | 1x for quick train, 3x for play train | v1.11.0 | done |
-| 36 | ability tree should have it's own navigation with large tree with branches for each role, remove weakfoot from selection screen and make it part of tree, make tree larger with more variety. | v1.21.0 | todo |
-| 37 | alternate position can unlock multiple psoitions | v1.21.0 | todo |
-| 38 | ability tree is based on level point and requirement of attribute level | v1.21.0 | todo |
-| 39 | skill moves can be kept to train and it wiill train in X amount of weeks, it costs money instead of points | v1.21.0 | todo |
-| 40 | increasing physical can make u have more energy for training, add unique stuff like this | v1.21.0 | todo |
+| 36 | ability tree should have it's own navigation with large tree with branches for each role, remove weakfoot from selection screen and make it part of tree, make tree larger with more variety. | v1.21.0 | done |
+| 37 | alternate position can unlock multiple psoitions | v1.21.0 | done |
+| 38 | ability tree is based on level point and requirement of attribute level | v1.21.0 | done |
+| 39 | skill moves can be kept to train and it wiill train in X amount of weeks, it costs money instead of points | v1.21.0 | done |
+| 40 | increasing physical can make u have more energy for training, add unique stuff like this | v1.21.0 | done |
 | 41 | remove done for week button | v1.11.0 | done |
 
 ## Rules changed by the 41-point request

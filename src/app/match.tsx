@@ -401,6 +401,7 @@ export default function MatchScreen() {
             playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
             passing={world.players[live.pending.actorId].attrs.passing + (live.shout?.kind === 'call' && live.minute <= live.shout.until ? CALL_PASSING : 0)}
             splitter={hasTechnique(world.players[live.pending.actorId], 'splitter')}
+            crosser={hasTechnique(world.players[live.pending.actorId], 'crosser')}
             unhurried={!!live.pending.setPiece}
             vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
@@ -1152,19 +1153,19 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
           })}
         </View>
       )}
-      {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
+      {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2 + (hasTechnique(actor, 'target') ? 12 : 0)} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
-      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => passInstead(g.world, m))} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
+      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting + (hasTechnique(actor, 'longrange') ? 22 : 0)} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => passInstead(g.world, m))} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && moment.view !== 'long' && (
-        <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+        <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
-      {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} stat={actor.attrs.defending} onDone={(q) => resolve(q)} />}
-      {moment.kind === 'intercept' && <InterceptGame vision={actor.attrs.vision} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'tackle' && <DribbleGame mode="tackle" speed={skillLevel(actor, 'wall')} stat={actor.attrs.defending + (hasTechnique(actor, 'ballwinner') ? 12 : 0)} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'intercept' && <InterceptGame vision={actor.attrs.vision + (hasTechnique(actor, 'reader') ? 12 : 0)} onDone={(q) => resolve(q)} />}
       {moment.kind === 'block' && <BlockGame defending={actor.attrs.defending} onDone={(q) => resolve(q)} />}
       {moment.kind === 'clear' && <ClearGame air={(actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
-      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper') + (hasTechnique(actor, 'sweeper') ? 2 : 0)} keeping={actor.attrs.goalkeeping} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper') + (hasTechnique(actor, 'sweeper') ? 2 : 0)} keeping={actor.attrs.goalkeeping + (hasTechnique(actor, 'commander') ? 10 : 0)} onDone={(q) => resolve(q)} />}
       <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
     </Card>
   );
