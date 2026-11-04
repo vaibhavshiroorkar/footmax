@@ -434,16 +434,16 @@ contracts, board and federation confidence, sackings and job offers.
   pads (outfield), training top, headband, smart watch; one piece per
   slot. A better piece goes on by itself; spares can be worn or sold. The
   reveal panel keeps its size, so opening a case moves nothing.
-- Club (`/career/clubs`): your club first (team rating, table place, the
-  coach's trust, the dressing room, a link to the league table), then Talk
-  to the club (ask for a raise, to leave or for a loan; one request every
-  6 weeks), then Keen on you or All clubs with a search. Every club shows its team
-  rating (the average of its best eleven), the fame it needs before it
-  listens, the agent's fee to pitch you (none for small clubs, real money
-  for big ones) and its interest. Fame and money gate the Offer button,
-  which says why when it is locked. Clubs that like you also get in touch
-  through the inbox between windows; taking the call grows the
-  relationship, so their offer comes sooner.
+- Club (`/career/clubs`), three tabs:
+  - My club: team rating, table place, the coach's trust, the dressing room, links
+    to the league and Europe, the next four fixtures, and Talk to the club (ask for
+    a raise, to leave or for a loan; one request every 6 weeks).
+  - Squad: everyone by line, best first, and your place in your line.
+  - Transfers: fame and money, then Keen on you or All clubs with a search. Every
+    club shows its team rating, the fame it needs before it listens, the agent's fee
+    and its interest. Fame and money gate the Offer button, which says why when it is
+    locked. Clubs that like you also get in touch through the inbox between windows;
+    taking the call grows the relationship, so their offer comes sooner.
 - Quit to menu is in Settings, which is the gear on Me and on the manager
   home. Play has no home button.
 - Me: Settings gear in the header; ladder; fitness, morale, form and

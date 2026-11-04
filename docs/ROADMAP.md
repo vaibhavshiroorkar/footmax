@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.22.0. Next: v1.23.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.23.0. Next: v2.0.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -48,7 +48,7 @@ The 41-point request of 2026-11-04, word for word.
 | 9 | don't make money and fame clickable in play | v1.11.0 | done |
 | 10 | the card seems too congested, give more space | v1.11.0 | done |
 | 11 | keep home inside setting as quit | v1.11.0 | done |
-| 12 | rework the club page | v1.23.0 | todo |
+| 12 | rework the club page | v1.23.0 | done |
 | 13 | add UCL | v1.22.0 | done |
 | 14 | when you hit play match, it should show u lineups and allow you to go back or kickoff | v1.12.0 | done |
 | 15 | make call for ball have better passing chances, make run have better shooting chances | v1.12.0 | done |

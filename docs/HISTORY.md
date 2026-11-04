@@ -163,6 +163,11 @@ The biggest calendar change: a week can now hold two user matches, so finishing 
 European game no longer advances the week. Old saves join the next season rather than
 drawing a tournament mid-season, and no save migration was needed.
 
+### 19. v1.23.0: club page (2026-11-04)
+
+One long scroll became three tabs, one job each. The roadmap planned a review with the
+user first, but the user said to go ahead, so this is a first cut to judge on the phone.
+
 ## Decisions that still hold
 
 | Decision | Why |

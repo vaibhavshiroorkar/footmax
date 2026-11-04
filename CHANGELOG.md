@@ -2,6 +2,12 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.23.0
+
+- The club page has three tabs. My club: your standing, the coach, the dressing
+  room, what is coming up and talking to the club. Squad: every player by line, and
+  your place among them. Transfers: who is keen and every other club.
+
 ## 1.22.0
 
 - The Champions League. Finish high enough and your club is in, with the format of
