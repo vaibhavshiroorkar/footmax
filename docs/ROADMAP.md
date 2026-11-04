@@ -1,18 +1,19 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.2.0. Next: v2.3.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v2.3.0. Nothing is queued. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Where it stands
 
-All 41 requests are built and live. Four things need a person, not more code:
+All 41 requests and the second list of 20 are built and live. Four things need a
+person, not more code:
 
 | What | Why |
 | --- | --- |
 | Play on a real phone | Every check so far ran in a browser, with a slowed CPU standing in for a phone |
 | Listen to the referee | The clips were checked by their waveforms only |
-| Judge the clock (request 1) | It runs 1.84x with play at 0.75x, short of 2x. See `RESEARCH.md` |
+| Judge the clock (request 1) | It runs about 1.8x with play at 0.75x, short of 2x. See `RESEARCH.md` |
 | Judge the club page (request 12) | Built without the review the plan asked for |
 
 ## Versions at a glance
@@ -49,7 +50,7 @@ The 41-point request of 2026-11-04, word for word.
 | # | Request | Version | Status |
 | --- | --- | --- | --- |
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
-| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done (clock 1.84x, not 2x) |
+| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done (clock about 1.8x, not 2x) |
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
 | 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | done |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
@@ -104,18 +105,18 @@ Sent on 2026-11-04 after playing the live game, to follow v2.0.0, word for word.
 | B5 | defenders should be according to how many players were ahead of you on the pitch | v2.2.0 | done |
 | B6 | defender should put pressure while you are shooting | v2.2.0 | done |
 | B7 | offside gives ball to the other team like the rules | v2.1.0 | done |
-| B8 | et and penalty shootout in KO stage draw | v2.3.0 | todo |
-| B9 | match history | v2.3.0 | todo |
+| B8 | et and penalty shootout in KO stage draw | v2.3.0 | done |
+| B9 | match history | v2.3.0 | done |
 | B10 | ball is teleporting to me for interaction, fix that it should be real | v2.1.0 | done |
 | B11 | higher power is less accurate but faster, goalkeeper has less chance of saving if it's perfectly placed, like real life | v2.2.0 | done |
-| B12 | don't allow skills unless u unlock them for example nutmeg | v2.3.0 | todo |
+| B12 | don't allow skills unless u unlock them for example nutmeg | v2.3.0 | done |
 | B13 | game slows down and pauses glitch fix | v2.1.0 | done |
-| B14 | keep passing more commonly the better option than shooting spam | v2.3.0 | todo |
+| B14 | keep passing more commonly the better option than shooting spam | v2.3.0 | done |
 | B15 | defender should move in the interaction screen and there can be more than 1 depending on who is in front on the pitch | v2.2.0 | done |
 | B16 | give joint to defender and players | v2.2.0 | done |
 | B17 | make player face towards them instead of the camera when interaction | v2.2.0 | done |
 | B18 | show a faint arrow at the start to signify direction of your attack | v2.2.0 | done |
-| B19 | make morale and fitness more affected, low morale can put you into depression and make you retire etc | v2.3.0 | todo |
+| B19 | make morale and fitness more affected, low morale can put you into depression and make you retire etc | v2.3.0 | done |
 | B20 | make power dynamic, holding to charge instead of fixed for shooting and passing both | v2.2.0 | done |
 
 - **v2.1.0, the pitch feels right:** B2, B3, B7, B10, B13. Bugs you can see in play come

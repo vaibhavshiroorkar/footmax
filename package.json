@@ -1,6 +1,6 @@
 {
   "name": "footmax",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/big-shoulders-display": "^0.2.3",

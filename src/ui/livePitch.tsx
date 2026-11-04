@@ -292,6 +292,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // The break: both teams line up again.
   useEffect(() => {
     if (live.half === 2 && live.minute <= 46) sim.halfTime('away');
+    if (live.half === 3 && live.minute <= 91) sim.halfTime('home');
   }, [live.half, live.minute, sim]);
 
   useEffect(() => {

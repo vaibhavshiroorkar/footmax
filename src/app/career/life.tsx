@@ -11,7 +11,7 @@ import { Game } from '../../engine/types';
 
 type Tab = 'week' | 'shop' | 'cases' | 'kit';
 
-const ACTION_ICONS: Record<string, IconName> = { post: 'phone-portrait', charity: 'heart', night: 'moon', video: 'videocam' };
+const ACTION_ICONS: Record<string, IconName> = { post: 'phone-portrait', charity: 'heart', night: 'moon', therapy: 'chatbubbles', video: 'videocam' };
 const SHOP_ICONS: Record<string, IconName> = { icebath: 'snow', media: 'mic', nutrition: 'nutrition', physio: 'medkit', trainer: 'barbell', agent: 'briefcase', car: 'car-sport', house: 'home' };
 const CASE_COLORS: Record<string, string> = { bronze: '#c58a52', silver: '#cbd5e1', gold: colors.gold };
 
@@ -130,10 +130,17 @@ function WeekTab({ game }: { game: Game }) {
   const toast = useStore((s) => s.showToast);
   const c = game.career!;
   const list = LIFE_ACTIONS.filter((a) => a.id !== 'rest');
-  const [pick, setPick] = useState(list[0].id);
+  const [pick, setPick] = useState(c.depressed ? 'therapy' : list[0].id);
   const a = list.find((x) => x.id === pick) ?? list[0];
   return (
     <>
+      {c.depressed && (
+        <Panel icon="heart" color={colors.red} title="You are struggling">
+          <T muted style={{ fontSize: 13 }}>
+            This will not lift by itself. Talking to someone helps, and better days help too.
+          </T>
+        </Panel>
+      )}
       <Panel icon={ACTION_ICONS[a.id] ?? 'star'} color={colors.blue} title={a.label}>
         <T muted style={{ fontSize: 13 }}>
           {a.description}

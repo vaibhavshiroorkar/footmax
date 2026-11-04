@@ -351,6 +351,9 @@ export interface CareerState {
   // What life off the pitch has left behind: arrests, bribes taken (each
   // one can come out later), a partner.
   life?: { arrests: number; bribes: number; partner?: string };
+  // Weeks of low morale in a row, and whether it has become depression.
+  lowWeeks?: number;
+  depressed?: boolean;
   // Why the career ended, when it did not end by choice.
   endReason?: string;
   // Equipment from cases, and which piece is on in each slot.
@@ -412,6 +415,26 @@ export interface Negotiation {
 
 export type GameMode = 'career' | 'manager';
 
+// One finished match of the user's team. The last three are for the career
+// player, when he took part.
+export interface MatchRecord {
+  // Which side was the user's.
+  teamId: string;
+  season: number;
+  week: number;
+  comp: string;
+  homeId: string;
+  awayId: string;
+  homeGoals: number;
+  awayGoals: number;
+  penaltyWinner?: string;
+  pens?: [number, number];
+  extraTime?: boolean;
+  rating?: number;
+  goals?: number;
+  assists?: number;
+}
+
 export interface Game {
   version: number;
   mode: GameMode;
@@ -420,4 +443,5 @@ export interface Game {
   manager: ManagerState | null;
   inbox: Message[];
   negotiations: Record<string, Negotiation>;
+  matchLog?: MatchRecord[];
 }

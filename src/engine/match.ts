@@ -3,6 +3,7 @@ import { Rng, clamp } from './rng';
 import { matchRating, shortName } from './player';
 import { bench, startingXI, teamById } from './lineup';
 import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
+import { formShift } from './mood';
 import { ROLES, isRole, FORMATION_LEAN } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
@@ -120,6 +121,8 @@ export interface KeyMoment {
   // A pass from deep: arriving keeps the move going but only sometimes
   // makes a chance.
   deep?: boolean;
+  // His kick in a penalty shoot-out, which adds to no score but that one.
+  shootout?: boolean;
   // A free kick the user takes: shoot it, or cross it into the box.
   setPiece?: boolean;
 }
@@ -181,8 +184,14 @@ export interface MatchState {
   fixtureId: string;
   minute: number;
   endMinute: number;
-  half: 1 | 2;
+  // 3 is extra time.
+  half: 1 | 2 | 3;
   finished: boolean;
+  extraTime?: boolean;
+  // The penalties so far: round counts completed pairs of kicks.
+  shootout?: { h: number; a: number; round: number; homeTaken: boolean };
+  // Shots the user has taken since his last completed pass. See spamCost.
+  spam?: number;
   // Manager mode stops at half time so the user can change things.
   pausedAtHalf: boolean;
   home: MatchSide;
@@ -615,7 +624,7 @@ function buildMoment(rng: Rng, world: World, s: MatchState, sideKey: SideKey, sh
   // Open play often hands the user the decision first.
   const mates = players(world, s[sideKey].onPitch).filter((p) => p.id !== shooter.id && p.position !== 'GK');
   let choices: MomentKind[] | undefined;
-  if (shooter.id === focusId && (kind === 'shot' || kind === 'dribble') && rng.chance(0.6)) {
+  if (shooter.id === focusId && (kind === 'shot' || kind === 'dribble') && rng.chance(0.75)) {
     choices = mates.length ? ['shot', 'dribble', 'pass'] : ['shot', 'dribble'];
     kind = 'choice';
   }
@@ -859,10 +868,21 @@ export function shootInstead(s: MatchState): void {
 }
 
 // What the sim would do with a choice: the option that suits the player.
+// Shot after shot with no pass and the defence reads it: they sit on the shooter
+// and the keeper is set. A completed pass moves them and clears it.
+export function spamCost(s: MatchState): number {
+  return Math.min(0.15, 0.05 * (s.spam ?? 0));
+}
+
+// True when a pass is the better idea than a shot here, so the choice can say so.
+export function passIsBetter(s: MatchState, m: KeyMoment): boolean {
+  return !!m.choices?.includes('pass') && m.view !== 'oneonone' && (m.view === 'outside' || !!m.weakFoot || (s.spam ?? 0) > 0);
+}
+
 function autoChoice(world: World, m: KeyMoment): MomentKind {
   const p = world.players[m.actorId];
   const opts = m.choices ?? ['shot'];
-  const score = (k: MomentKind) => (k === 'shot' ? p.attrs.shooting + 4 : k === 'dribble' ? p.attrs.dribbling : (p.attrs.passing + p.attrs.vision) / 2 - 2);
+  const score = (k: MomentKind) => (k === 'shot' ? p.attrs.shooting - (m.view === 'outside' ? 10 : 0) : k === 'dribble' ? p.attrs.dribbling : (p.attrs.passing + p.attrs.vision) / 2 + 6);
   return [...opts].sort((a, b) => score(b) - score(a))[0];
 }
 
@@ -930,6 +950,11 @@ export interface Played {
 export function resolveMoment(world: World, s: MatchState, quality: number | null, chosenPlayerId?: string, moveId?: string, played: Played = {}): void {
   let m = s.pending;
   if (!m) return;
+  if (m.shootout) {
+    s.pending = null;
+    userKick(world, s, m, played);
+    return;
+  }
   if (m.kind === 'choice') {
     chooseMoment(world, s, autoChoice(world, m));
     m = s.pending!;
@@ -951,7 +976,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
   const lvl = (id: string) => skillLevel(actor, id);
   const keeper = world.players[m.keeperId];
   const side = s[m.side];
-  const skill = (v: number) => 0.55 + (0.45 * v) / 99;
+  const skill = (v: number) => 0.55 + (0.45 * (v + formShift(actor))) / 99;
   const keeperPenalty = ((keeper.attrs.goalkeeping - 50) / 99) * 0.12;
 
   const finish = (pGoal: number, kind: LineKind, missKind: LineKind, assistId?: string) => {
@@ -1134,7 +1159,8 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         break;
       }
       // From distance it takes a real shooter.
-      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher') + (m.view === 'box' || m.view === 'oneonone' ? 0.03 * lvl('poacher') : 0) - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
+      if (actor.id === s.focus.playerId) s.spam = (s.spam ?? 0) + 1;
+      finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus - (actor.id === s.focus.playerId ? spamCost(s) - 0.05 : 0) + 0.025 * lvl('finisher') + (m.view === 'box' || m.view === 'oneonone' ? 0.03 * lvl('poacher') : 0) - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
     case 'header': {
       // Height and strength win the ball in the air.
@@ -1191,6 +1217,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
           ? rng.chance(clamp(0.35 + 0.6 * q + 0.15 * ((actor.attrs.passing - 50) / 50) + 0.04 * lvl('playmaker'), 0.1, 0.96))
           : rng.chance(clamp(0.25 + 0.65 * q * (target.openness ?? 0.5) * skill(actor.attrs.passing) + 0.04 * lvl('playmaker'), 0.05, 0.95)));
       const focused = actor.id === s.focus.playerId;
+      if (ok && focused) s.spam = 0;
       if (target) s.lastPass = { to: target.playerId, ok: !!ok, kind: target.kind, offside: passed === 'offside' || undefined };
       if (ok && target && target.kind === 'safe' && focused && !m.deep && (m.chain ?? 0) < 2) {
         // A one-two: the ball comes back and the user goes again, a little
@@ -1198,7 +1225,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         bump(s, actor.id, 0.1);
         const mate = world.players[target.playerId];
         push(s, s.minute, m.side, 'info', `${shortName(actor)} plays a one-two with ${shortName(mate)}.`, actor.id, played);
-        s.pending = { ...m, kind: 'choice', choices: ['shot', 'dribble', 'pass'], options: undefined, assistId: mate.id, bonus: m.bonus + 0.04, chain: (m.chain ?? 0) + 1 };
+        s.pending = { ...m, kind: 'choice', choices: ['shot', 'dribble', 'pass'], options: undefined, assistId: mate.id, bonus: m.bonus + 0.09, chain: (m.chain ?? 0) + 1 };
       } else if (ok && target) {
         // A ball played well in its scene is a big chance: up to 1.4 times
         // the danger. A poor one, still arriving, is worth less.
@@ -1554,7 +1581,8 @@ export function stepMinute(world: World, s: MatchState): void {
     return;
   }
   if (s.minute > s.endMinute) {
-    finishMatch(world, s, rng);
+    if (!s.extraTime && stillLevel(world, s)) startExtraTime(rng, world, s);
+    else finishMatch(world, s, rng);
     return;
   }
   const short = tooFew(s);
@@ -1678,10 +1706,12 @@ export function stepMinute(world: World, s: MatchState): void {
     if (rng.chance(s.heat * FLARE_UP)) flare = flareUp(rng, world, s, defKey, p);
   }
   s.heat *= 0.985;
-  if (rng.chance(0.0012)) {
-    const sideKey: SideKey = rng.chance(0.5) ? 'home' : 'away';
+  const sideKey: SideKey = rng.chance(0.5) ? 'home' : 'away';
+  const hurt = rng.chance(0.002) ? world.players[rng.pick(s[sideKey].onPitch)] : undefined;
+  // Tired legs go first.
+  if (hurt && rng.chance(hurt.fitness < 60 ? 1 : 0.6)) {
     const side = s[sideKey];
-    const p = world.players[rng.pick(side.onPitch)];
+    const p = hurt;
     incident = { kind: 'injury', id: p.id, side: sideKey };
     s.injuries[p.id] = rng.int(1, 6);
     push(s, s.minute, sideKey, 'injury', line(rng, 'injury', { p: shortName(p) }), p.id);
@@ -1907,40 +1937,109 @@ function finishMatch(world: World, s: MatchState, rng: Rng) {
       if (s.minutes[id] === undefined) s.minutes[id] = s.endMinute;
     }
   }
-  push(s, s.endMinute, null, 'full', `Full time: ${teamById(world, s.home.clubId).name} ${s.home.goals}-${s.away.goals} ${teamById(world, s.away.clubId).name}.`);
-  // A second leg is level on aggregate, not on the night. Away goals settle it
-  // until 2020/21.
+  push(s, s.endMinute, null, 'full', `${s.extraTime ? 'After extra time' : 'Full time'}: ${teamById(world, s.home.clubId).name} ${s.home.goals}-${s.away.goals} ${teamById(world, s.away.clubId).name}.`);
+  if (stillLevel(world, s)) {
+    s.finished = false;
+    s.shootout = { h: 0, a: 0, round: 0, homeTaken: false };
+    runShootout(world, s, rng);
+  }
+  s.rngState = rng.state;
+}
+
+// A knockout tie with nothing between the sides. A second leg is level on
+// aggregate, not on the night. Away goals settle it until 2020/21.
+function stillLevel(world: World, s: MatchState): boolean {
   const leg = s.firstLeg;
   const homeTotal = s.home.goals + (leg?.awayGoals ?? 0);
   const awayTotal = s.away.goals + (leg?.homeGoals ?? 0);
   const awayGoalsDecide = !!leg && world.season <= 2020 && s.away.goals !== leg.awayGoals;
-  if (s.knockout && homeTotal === awayTotal && !awayGoalsDecide) shootout(world, s, rng);
+  return s.knockout && homeTotal === awayTotal && !awayGoalsDecide;
+}
+
+// Thirty more minutes, with one more substitute each.
+function startExtraTime(rng: Rng, world: World, s: MatchState) {
+  push(s, s.endMinute, null, 'half', `Full time: ${s.home.goals}-${s.away.goals}. Extra time.`);
+  s.extraTime = true;
+  s.half = 3;
+  s.minute = 90;
+  s.endMinute = 120 + rng.int(0, 2);
+  s.laws = { ...s.laws, maxSubs: s.laws.maxSubs + 1 };
+  s.kickoff = 'home';
+  s.play = undefined;
+  s.rebound = undefined;
+  coachReacts(rng, world, s, 'home');
+  coachReacts(rng, world, s, 'away');
+  if (s.focus.clubId) s.pausedAtHalf = true;
   s.rngState = rng.state;
 }
 
-// Five kicks each, then sudden death. Takers are the best finishers on the pitch.
-function shootout(world: World, s: MatchState, rng: Rng) {
-  const takers = (side: MatchSide) =>
-    players(world, side.onPitch)
-      .filter((p) => p.position !== 'GK')
-      .sort((a, b) => b.attrs.composure + b.attrs.shooting - a.attrs.composure - a.attrs.shooting);
-  const kick = (taker: Player, keeper: Player) =>
-    rng.chance(clamp(0.74 + (taker.attrs.composure - keeper.attrs.goalkeeping) / 400 + 0.03 * skillLevel(taker, 'setpiece'), 0.5, 0.92));
-  const ht = takers(s.home);
-  const at = takers(s.away);
-  const hk = keeperOf(world, s.home);
-  const ak = keeperOf(world, s.away);
-  let h = 0;
-  let a = 0;
-  for (let i = 0; i < 30; i++) {
-    if (kick(ht[i % ht.length], ak)) h++;
-    if (kick(at[i % at.length], hk)) a++;
-    if (i >= 4 && h !== a) break;
+// The order of a side's kicks: its best finishers. The user's player always
+// takes one of the first five, third, so a shoot-out rarely ends before him.
+function shootoutOrder(world: World, s: MatchState, side: MatchSide): Player[] {
+  const order = players(world, side.onPitch)
+    .filter((p) => p.position !== 'GK')
+    .sort((a, b) => b.attrs.composure + b.attrs.shooting - a.attrs.composure - a.attrs.shooting);
+  const at = order.findIndex((p) => p.id === s.focus.playerId);
+  if (at > 2) order.splice(2, 0, ...order.splice(at, 1));
+  return order.length ? order : players(world, side.onPitch);
+}
+
+// Decided: one side cannot be caught, or sudden death has a winner.
+function shootoutOver(so: NonNullable<MatchState['shootout']>): boolean {
+  if (so.round >= 30) return !so.homeTaken;
+  if (so.round >= 5) return !so.homeTaken && so.h !== so.a;
+  const homeLeft = 5 - so.round - (so.homeTaken ? 1 : 0);
+  const awayLeft = 5 - so.round;
+  return so.h > so.a + awayLeft || so.a > so.h + homeLeft;
+}
+
+function recordKick(s: MatchState, side: SideKey, taker: Player, scored: boolean, played?: boolean) {
+  const so = s.shootout!;
+  if (side === 'home') {
+    if (scored) so.h++;
+    so.homeTaken = true;
+  } else {
+    if (scored) so.a++;
+    so.homeTaken = false;
+    so.round++;
   }
-  const homeWins = h > a;
+  push(s, s.minute, side, 'info', `${shortName(taker)} ${scored ? 'scores' : 'misses'}. Penalties: ${so.h}-${so.a}.`, taker.id, played);
+}
+
+const kickGoes = (rng: Rng, taker: Player, keeper: Player) => rng.chance(clamp(0.74 + (taker.attrs.composure - keeper.attrs.goalkeeping) / 400 + 0.03 * skillLevel(taker, 'setpiece'), 0.5, 0.92));
+
+// Five kicks each, then sudden death. It stops when the user's player is up,
+// and carries on from his kick.
+function runShootout(world: World, s: MatchState, rng: Rng) {
+  const so = s.shootout!;
+  while (!shootoutOver(so)) {
+    const key: SideKey = so.homeTaken ? 'away' : 'home';
+    const order = shootoutOrder(world, s, s[key]);
+    const taker = order[so.round % order.length];
+    const keeper = keeperOf(world, s[other(key)]);
+    if (taker.id === s.focus.playerId) {
+      s.pending = { side: key, minute: s.minute, keeperId: keeper.id, bonus: 0, kind: 'penalty', actorId: taker.id, shootout: true };
+      if (s.visual) {
+        const spot = toPitch(key, { depth: 0.895, lat: 0.5 });
+        s.play = [{ ...spot, carrier: taker.id, side: key, act: 'start', restart: 'penalty' }, { ...spot, carrier: taker.id, side: key, act: 'moment' }];
+      }
+      return;
+    }
+    recordKick(s, key, taker, kickGoes(rng, taker, keeper));
+  }
+  const homeWins = so.h > so.a;
   s.penaltyWinner = homeWins ? s.home.clubId : s.away.clubId;
-  const winner = teamById(world, s.penaltyWinner).name;
-  push(s, s.endMinute, homeWins ? 'home' : 'away', 'goal', `${winner} win ${Math.max(h, a)}-${Math.min(h, a)} on penalties!`);
+  s.finished = true;
+  push(s, s.endMinute, homeWins ? 'home' : 'away', 'goal', `${teamById(world, s.penaltyWinner).name} win ${Math.max(so.h, so.a)}-${Math.min(so.h, so.a)} on penalties!`);
+}
+
+function userKick(world: World, s: MatchState, m: KeyMoment, played: Played) {
+  const rng = new Rng(s.rngState);
+  const taker = world.players[m.actorId];
+  const scored = played.forced ? played.forced === 'goal' : kickGoes(rng, taker, world.players[m.keeperId]);
+  recordKick(s, m.side, taker, scored, true);
+  runShootout(world, s, rng);
+  s.rngState = rng.state;
 }
 
 export function resumeFromHalf(s: MatchState): void {
@@ -2016,17 +2115,21 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
       }
       const played = (s.minutes[id] ?? 90) - (s.cameOn[id] ?? 0);
       const engine = 1 - 0.15 * skillLevel(p, 'engine');
-      if (!quiet) p.fitness = clamp(p.fitness - (played / 90) * (side.style === 'press' ? 24 : 18) * engine, 30, 100);
+      if (!quiet) p.fitness = clamp(p.fitness - (played / 90) * (side.style === 'press' ? 28 : 22) * engine, 30, 100);
     }
     if (international) continue;
     const leaders = side.usedIds.reduce((n, id) => n + skillLevel(world.players[id], 'leader'), 0);
     for (const id of teamById(world, side.clubId).playerIds) {
       const p = world.players[id];
-      p.morale = clamp(p.morale + result * 4 + (result > 0 ? Math.min(3, leaders) : 0) + (side.usedIds.includes(id) ? 1 : -1), 10, 100);
+      p.morale = clamp(p.morale + result * 5 + (result > 0 ? Math.min(3, leaders) : 0) + (side.usedIds.includes(id) ? 1 : -2), 10, 100);
     }
   }
   if (quiet) return;
-  for (const [id, weeks] of Object.entries(s.injuries)) world.players[id].injuryWeeks = Math.max(world.players[id].injuryWeeks, skillLevel(world.players[id], 'ironman') ? Math.max(1, weeks - 1) : weeks);
+  for (const [id, weeks] of Object.entries(s.injuries)) {
+    const p = world.players[id];
+    p.injuryWeeks = Math.max(p.injuryWeeks, skillLevel(p, 'ironman') ? Math.max(1, weeks - 1) : weeks);
+    p.morale = clamp(p.morale - 2 * weeks, 10, 100);
+  }
   // The week's recovery takes one off straight after a league match. After a
   // midweek game the league match that week is the first he misses.
   if (!international) for (const [id, games] of Object.entries(s.sentOff)) world.players[id].suspendedWeeks = Math.max(world.players[id].suspendedWeeks ?? 0, games + (fixture.europe ? 0 : 1));

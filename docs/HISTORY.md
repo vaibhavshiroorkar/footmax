@@ -198,6 +198,16 @@ Trap: `setPieceSpot` skips keepers unless the caller lets them in. Two flaky tes
 too: the arrest test rolled `Math.random`, and free kicks were taken with men still 5 m
 off the ball because the wait stopped at 2.2 s (now 3.2 s).
 
+### 23. v2.3.0: the game around it (2026-11-04)
+
+Extra time and a shoot-out with the user's own kick, match history, moves that need
+learning, passing that pays, and morale and fitness with real consequences. That ends
+the second request list.
+
+Trap: a shoot-out can end on the user's kick. Nothing ticks after that, so the result
+was never saved until an effect took over from the minute tick. The history page being
+empty is what showed it. `committed` stops a double save.
+
 ## Decisions that still hold
 
 | Decision | Why |

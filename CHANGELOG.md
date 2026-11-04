@@ -2,6 +2,21 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.3.0
+
+- Knockout games level at full time now go to extra time, with one more substitute
+  each, then a shoot-out. You take your own kick, third in the order, and the board
+  shows the penalty score.
+- Match history: every game your team plays, season by season, with your rating,
+  goals and assists. Open it from your profile, or the manager hub.
+- Skill moves need learning. The nutmeg game no longer appears unless you know it.
+- Passing pays: a one-two is worth more, and shot after shot with no pass makes
+  each one harder. The choice says when a pass is the better option.
+- Morale and fitness bite. Low morale and tired legs cost you in every moment, and
+  matches, stinkers, injuries and the bench all move morale further.
+- Weeks of low morale become depression. See a therapist on the Life tab, or it can
+  end the career.
+
 ## 2.2.0
 
 - Hold to charge: shots, long shots and passes now fill while you hold and strike

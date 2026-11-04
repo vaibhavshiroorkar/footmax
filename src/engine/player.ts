@@ -36,7 +36,8 @@ export function overall(p: Pick<Player, 'attrs' | 'position'> & { role?: string 
 // Effective rating on match day: tired or unhappy players play below their overall.
 export function matchRating(p: Player): number {
   const fit = 0.75 + 0.25 * (p.fitness / 100);
-  const mor = 0.95 + 0.1 * (p.morale / 100);
+  // Level at settled morale (70), and a real drag on a low player.
+  const mor = 0.9 + (p.morale / 100) / 7;
   return overall(p) * fit * mor;
 }
 

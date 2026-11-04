@@ -10,6 +10,8 @@ import { MAX_SQUAD, MIN_SQUAD, inTransferWindow, movePlayer, returnLoans, runAiT
 import { careerPlayer, tickMove } from './career';
 import { weeklyFitness } from './perks';
 import { SKILL_MOVES, autoSkills } from './skills';
+import { logMatch } from './matchLog';
+import { SETTLED_MORALE } from './mood';
 import { managerSeasonReview, managerWeekly, nationReview } from './manager';
 import { squad } from './lineup';
 import { playQualifyingBreak, qualifyingLive, startQualifying } from './qualifying';
@@ -64,7 +66,9 @@ export function advanceWeek(game: Game): WeekResult {
     for (const f of league.fixtures) {
       if (f.week !== world.week) continue;
       if (f.homeId === myClub) homeGame = true;
-      if (!f.played) quickSim(world, f, rng.int(1, 2 ** 31));
+      if (f.played) continue;
+      const s = quickSim(world, f, rng.int(1, 2 ** 31));
+      if (myClub && (f.homeId === myClub || f.awayId === myClub)) logMatch(game, f, s, myClub);
     }
   }
 
@@ -108,10 +112,13 @@ export function advanceWeek(game: Game): WeekResult {
 }
 
 function weeklyRecovery(game: Game) {
+  const depressedId = game.career?.depressed ? game.career.playerId : null;
   for (const p of Object.values(game.world.players)) {
     if (p.injuryWeeks > 0) p.injuryWeeks--;
     if ((p.suspendedWeeks ?? 0) > 0) p.suspendedWeeks = p.suspendedWeeks! - 1;
     p.fitness = clamp(p.fitness + 20, 0, 100);
+    // Time heals, slowly. Depression does not lift this way (see mood.ts).
+    if (p.id !== depressedId) p.morale += (SETTLED_MORALE - p.morale) * 0.03;
   }
 }
 

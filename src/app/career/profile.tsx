@@ -70,6 +70,7 @@ export default function Profile() {
           ))}
         </Card>
       )}
+      <Button label="Match history" icon="list" variant="secondary" onPress={() => router.push('/matches')} />
       {p.age >= 30 && !confirm && <Button label="Retire" variant="danger" onPress={() => setConfirm(true)} />}
       {confirm && (
         <Card>

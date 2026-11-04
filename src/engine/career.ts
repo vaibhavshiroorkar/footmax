@@ -67,6 +67,7 @@ export const LIFE_ACTIONS: LifeAction[] = [
   { id: 'charity', label: 'Charity visit', energy: 20, description: 'Fame and morale up. Costs $1K.' },
   { id: 'night', label: 'Night out', energy: 15, description: 'Morale up, fitness down.' },
   { id: 'video', label: 'Video analysis', energy: 15, description: '+15 XP toward your next skill point.' },
+  { id: 'therapy', label: 'See a therapist', energy: 20, description: 'Talk it through. Morale up, and the hard weeks ease. Costs $2K.' },
 ];
 
 
@@ -188,6 +189,7 @@ export function lifeAction(game: Game, actionId: string): ActionResult {
   if (!a) return { ok: false, text: 'Unknown action.' };
   if (c.energy < a.energy) return { ok: false, text: 'Not enough energy this week.' };
   if (a.id === 'charity' && c.money < 1000) return { ok: false, text: 'You need $1K for the charity visit.' };
+  if (a.id === 'therapy' && c.money < 2000) return { ok: false, text: 'You need $2K for a session.' };
   const rng = new Rng(game.world.rngState);
   c.energy -= a.energy;
   let text = '';
@@ -208,6 +210,12 @@ export function lifeAction(game: Game, actionId: string): ActionResult {
       p.morale = clamp(p.morale + 10, 0, 100);
       p.fitness = clamp(p.fitness - 10, 0, 100);
       text = 'A fun night out. Morale up, legs heavy.';
+      break;
+    case 'therapy':
+      c.money -= 2000;
+      p.morale = clamp(p.morale + 14, 0, 100);
+      c.lowWeeks = Math.max(0, (c.lowWeeks ?? 0) - 3);
+      text = 'An hour that helps. Morale up.';
       break;
     case 'rest':
       p.fitness = clamp(p.fitness + 20, 0, 100);
@@ -247,11 +255,13 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const theirs = homeSide ? s.away : s.home;
   const result: 'W' | 'D' | 'L' = mine.goals > theirs.goals || s.penaltyWinner === mine.clubId ? 'W' : mine.goals < theirs.goals || s.penaltyWinner ? 'L' : 'D';
   if (!played) {
-    p.morale = clamp(p.morale - 3, 0, 100);
+    p.morale = clamp(p.morale - 4, 0, 100);
     c.lastMatch = { fixtureId: s.fixtureId, played: false, result, rating: 0, goals: 0, assists: 0, xp: 0, fame: 0, money: 0, levels: 0, motm: false };
     return null;
   }
   const rating = s.ratings[p.id] ?? 6;
+  // A big game lifts him; a stinker stays with him.
+  p.morale = clamp(p.morale + (rating >= 8 ? 3 : rating <= 5.5 ? -4 : 0), 0, 100);
   const goals = s.goals[p.id] ?? 0;
   const assists = s.assists[p.id] ?? 0;
   const homeTeam = game.world.clubs[s.home.clubId] ?? game.world.nationalTeams[s.home.clubId];

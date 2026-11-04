@@ -32,6 +32,7 @@ export default function ManagerHub() {
     { label: 'Inbox', sub: 'Bids, demands, jobs', href: '/inbox', badge: inboxBadge(game), icon: 'mail', color: colors.pink },
     { label: 'League', sub: 'Tables and results', href: '/league', icon: 'podium', color: colors.blue },
     { label: 'Internationals', sub: 'Tournaments', href: '/tournaments', icon: 'earth', color: colors.purple },
+    { label: 'Matches', sub: 'Every game you have played', href: '/matches', icon: 'list', color: colors.blue },
     { label: 'Awards', sub: "Ballon d'Or race", href: '/awards', icon: 'medal', color: colors.gold },
     { label: 'Honours', sub: 'Trophy history', href: '/honours', icon: 'trophy', color: colors.gold },
     { label: 'Leaderboards', sub: 'Best managers online', href: '/leaderboards', icon: 'stats-chart', color: colors.accent },

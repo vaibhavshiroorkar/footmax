@@ -52,7 +52,7 @@ all. Median caption 1.62 s, 4% under a second (goals cutting in).
 
 ### Result in v2.0.0
 
-Across all versions: 166 s of pitch time a match (v2.2.0), so the clock runs 1.84 times faster
+Across all versions: 166 to 172 s of pitch time a match (v2.3.0), so the clock runs about 1.8 times faster
 than v1.10.0 with play at 0.75x. The referee scenes cost about 15 s on top of v1.12.0's
 171 s. Median caption 1.62 s, 3% under a second. No wrong-goal shots.
 

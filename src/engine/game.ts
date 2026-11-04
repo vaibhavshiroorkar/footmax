@@ -1,4 +1,5 @@
 import { Build, Confederation, Fixture, Game, Look, Nation, Position, World } from './types';
+import { logMatch } from './matchLog';
 import { Rng } from './rng';
 import { createPlayer, ensureDomesticLeague, generateWorld, majorNations, nationById } from './generator';
 import { fixtureFor } from './league';
@@ -246,6 +247,10 @@ export function finishUserMatch(game: Game, s: MatchState): FinishResult {
   if (f && f.id === s.fixtureId) {
     if (!s.finished) simToEnd(game.world, s);
     commitMatch(game.world, s, f);
+    const teamId = userTeamId(game);
+    const id = game.career?.playerId;
+    const onHome = id ? s.home.usedIds.includes(id) || s.home.bench.includes(id) : teamId === f.homeId;
+    logMatch(game, f, s, onHome ? f.homeId : f.awayId);
     if (game.mode === 'career' && game.career) {
       levelUp = afterCareerMatch(game, s);
       if (!teamIsNational(game, f.homeId)) {

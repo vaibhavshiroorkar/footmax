@@ -1,4 +1,5 @@
 import { Game } from './types';
+import { moodWeekly } from './mood';
 import { nightOutRisk } from './perks';
 import { Rng, clamp } from './rng';
 import { careerPlayer, gainFame } from './careerBase';
@@ -52,6 +53,8 @@ export function lifeWeekly(game: Game, rng: Rng): void {
   if (!c || c.retired) return;
   const p = careerPlayer(game);
   const life = lifeOf(game);
+  moodWeekly(game, rng);
+  if (c.retired) return;
   if (life.bribes > 0 && rng.chance(0.015 * life.bribes)) {
     if (life.bribes >= 3) {
       endCareer(game, 'Banned for life for match fixing.');

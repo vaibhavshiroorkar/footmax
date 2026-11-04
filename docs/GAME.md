@@ -374,6 +374,32 @@ moments to play, not a wall of information.
   turn it off. The referee shouts his calls (`ref-*.wav`, built by
   `scripts/makeRefVoice.py`), with its own setting, and stays quiet at 4x.
 
+### Knockouts
+
+A knockout game level at full time, or a tie level on aggregate, goes to 30 minutes of
+extra time with one more substitute each. Still level, it goes to penalties: five
+each, then sudden death, stopping once a side cannot be caught. The career player
+always kicks third and plays that kick. Shoot-out kicks add to no score but their own.
+
+### Passing or shooting
+
+A shot costs `spamCost`: 0.05 per shot since your last completed pass, up to 0.15, on
+the keeper's reach and the sim's chance. A one-two adds 0.09 to the next chance. The
+choice marks a pass as the better option from far out, on the weaker foot, or after
+a shot. Always passing scored 1.72 team goals a game in a probe, always shooting 1.30.
+
+### Morale and fitness
+
+`formShift` (`src/engine/mood.ts`) adds up to 6 to, or takes up to 16 off, your
+attributes in a moment. `matchRating` is level at morale 70 and falls about 9% at 10.
+Results move morale by 5, the bench by 2 more, and an 8 or a 5.5 rating by 3 or 4.
+Injuries cost 2 per week out. Morale drifts 3% a week back to 70. A match costs 22
+fitness (28 pressing), and tired players get hurt more.
+
+Four weeks under 30 is depression: no drift back, and morale slips 1 a week. From 12
+low weeks, there is a 10% chance a week of the career ending. A therapist (Life tab,
+$2K) gives 14 morale and takes 3 low weeks off. Morale 45 ends it.
+
 ## Champions League
 
 `src/engine/europe.ts`, shown on `/europe`, linked from Tournaments.
