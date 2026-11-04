@@ -27,7 +27,9 @@ export type PlayAct =
   // The referee shows a card to carrier; a sent-off player walks.
   | 'card'
   // carrier goes down injured.
-  | 'injury';
+  | 'injury'
+  // carrier and other square up (see fight).
+  | 'brawl';
 
 // How play restarts after a stoppage.
 export type Restart = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'freekick' | 'penalty';
@@ -73,6 +75,8 @@ export interface PlayStep {
   advantage?: boolean;
   // A foul that was a handball.
   handball?: boolean;
+  // A 'brawl' step: how it ended. 'one' sends off carrier only.
+  fight?: 'calm' | 'booked' | 'one' | 'both';
   // A 'card' step: which one.
   card?: 'yellow' | 'red';
 }

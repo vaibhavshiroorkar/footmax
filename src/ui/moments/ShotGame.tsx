@@ -102,6 +102,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const longWeak = kind === 'shot' && (outside || range > 0) ? (1 - shooting / 99) * (0.6 + range * 0.6) : 0;
   // How far out he is, and how long a shot of this power takes to get there.
   const metres = kind === 'penalty' ? 11 : kind === 'freekick' ? 24 : outside ? 19 + range * 24 : oneOnOne ? 9 : 14;
+  // Stray grows exponentially with distance, as the chance of a goal falls.
+  const longStray = Math.exp(0.05 * Math.max(0, metres - 20));
   const flightAt = (p: number) => metres / ((p < bands.low ? 15 : p <= bands.mid ? 22 : 29) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));
   // The goal he can cover for that shot: the bar under him shows the truth.
   const reachAt = (p: number) => coverageShare(keeper, flightAt(p), rush) * (fooled ? 0.82 : 1);
@@ -143,7 +145,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       // A low shot cannot go over: struck too hard it drags wide instead.
       const dragged = shape === 'low' && power > bands.high;
       const spread = 0.015 + (1 - (composure + shooting) / 198) * 0.15 + longWeak * 0.1 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + (power > bands.mid ? 0.025 : power > bands.low ? -0.01 : 0) + (shape === 'curl' ? 0.012 : 0) + (dragged ? 0.08 : 0);
-      const x = aim + setup.stray * spread;
+      const x = aim + setup.stray * spread * longStray;
       const strayed = Math.abs(x - aim) > 0.06;
       if (dragged) power = bands.high;
       // Into a defender's body: blocked. A curler passes him wide of where it

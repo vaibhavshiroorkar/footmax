@@ -65,6 +65,8 @@ export interface Callout {
   // A goal: who scored and how he celebrates.
   scorer?: string | null;
   style?: string;
+  // A flare-up: the two men, and how it ended.
+  fight?: { a: 'home' | 'away'; ending: 'calm' | 'booked' | 'one' | 'both' };
 }
 
 // The referee's voice: one of the ref-* clips.
@@ -642,6 +644,22 @@ export class PitchSim {
         this.ball = { ...this.ball, owner: null, vx: 0, vy: 0 };
         this.caption = step.card === 'red' ? `Red card! ${who} is sent off` : `${who} is booked`;
         break;
+      case 'brawl': {
+        this.ball = { ...this.ball, owner: null, vx: 0, vy: 0, flight: null };
+        const ending = step.fight ?? 'calm';
+        const a2 = step.carrier ? this.bodies.get(step.carrier) : undefined;
+        this.caption = `Tempers flare between ${who} and ${this.name(step.other)}`;
+        this.callout = {
+          text: ending === 'both' ? 'BOTH SENT OFF!' : ending === 'one' ? 'SENT OFF!' : ending === 'booked' ? 'BOTH BOOKED' : 'TEMPERS FLARE',
+          sub: [who, this.name(step.other)].filter(Boolean).join(' and '),
+          tone: ending === 'both' || ending === 'one' ? 'red' : ending === 'booked' ? 'yellow' : 'stop',
+          fight: { a: a2?.side ?? step.side, ending },
+          until: this.clock + 4.4,
+        };
+        this.hooks.onSound?.('whistle', 1);
+        if (ending === 'both' || ending === 'one') this.hooks.onSound?.('ref-off', 0.9);
+        break;
+      }
       case 'injury': {
         const hurt = step.carrier ? this.bodies.get(step.carrier) : undefined;
         if (hurt) hurt.down = 3.5;
@@ -944,6 +962,8 @@ export class PitchSim {
         }
         return done();
       }
+      case 'brawl':
+        return pause(3.6);
       case 'card': {
         // The referee runs over, then out comes the card.
         if (a.stage === 0) {

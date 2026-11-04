@@ -23,6 +23,8 @@ import { LivePitch, PitchTarget } from '../ui/livePitch';
 import { PL, PW, PitchSim } from '../ui/pitchSim';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
+import { LongShotGame } from '../ui/moments/LongShotGame';
+import { FightGame } from '../ui/moments/FightGame';
 import { SetPiece, SetPieceIntro } from '../ui/stage/SetPieceIntro';
 import { matchKits } from '../ui/moments/Keeper';
 import { LooksContext, MatchLooks, useLooks } from '../ui/rig/Figure';
@@ -1028,6 +1030,7 @@ function userSide(game: Game, s: MatchState): SideKey {
 }
 
 const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }> = {
+  fight: { title: 'Tempers flare', icon: 'flame' },
   shot: { title: 'Chance to shoot!', icon: 'football' },
   dribble: { title: 'One on one', icon: 'flash' },
   pass: { title: 'Pick the pass', icon: 'git-branch' },
@@ -1060,7 +1063,11 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
   const base = MOMENT_TITLES[moment.kind];
   // The same kind of moment reads differently by where it is on the pitch.
   const head =
-    moment.kind === 'shot' && moment.view === 'outside'
+    moment.kind === 'fight'
+      ? { title: 'Tempers flare', icon: 'flame' as IconName }
+      : moment.kind === 'shot' && moment.view === 'long'
+      ? { title: 'From way out?', icon: base.icon }
+      : moment.kind === 'shot' && moment.view === 'outside'
       ? { title: 'Shot from distance', icon: base.icon }
       : moment.kind === 'shot' && moment.view === 'oneonone'
         ? { title: 'One on one!', icon: base.icon }
@@ -1088,7 +1095,9 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       </Row>
       <T muted>
         {moment.attackerId
-          ? moment.kind === 'intercept'
+          ? moment.kind === 'fight'
+            ? 'It has all kicked off. The referee steps in.'
+            : moment.kind === 'intercept'
             ? `${fullName(game.world.players[moment.attackerId])} is looking for a pass.`
             : moment.kind === 'block'
               ? `${fullName(game.world.players[moment.attackerId])} shapes to shoot.`
@@ -1131,7 +1140,9 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
         </View>
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
-      {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
+      {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
+      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => passInstead(g.world, m))} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
+      {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && moment.view !== 'long' && (
         <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}

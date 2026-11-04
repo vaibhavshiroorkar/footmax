@@ -232,6 +232,16 @@ moments to play, not a wall of information.
     a clear sight of goal, free in the box), and the user's rating drops
     more, and more again if it goes in. A lost duel in midfield can still
     end in a shot.
+- **Long shots:** the chance of a goal falls exponentially with distance
+  (`distanceChance`), about 1 in 600 from halfway for an average shooter, and
+  stray grows the same way. From 35 m a side-on scene opens (`LongShotGame`):
+  read how far off his line the keeper is, choose lob or driven, and stop the bar
+  in a window that narrows with distance. A keeper off his line is the real chance.
+- **Tempers:** each booking raises the match's heat, and a hot match can flare up
+  (`flareUp`). Most calm down; some end with both booked, one off or both off,
+  which is violent conduct and a three-game ban. Composure helps. If the user is
+  in it he chooses: walk away, which nearly always ends it, or square up, where a
+  cool head might get away with it. A scene shows both men and the referee.
 - **Shooting:** two taps. First pick how to strike it, free for everyone:
   Driven (hard and true), Curl (bends in from outside the post: round a
   defender, into the corners, but slower, so a curler at the keeper gives

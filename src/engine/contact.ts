@@ -88,6 +88,38 @@ export function judgeHeader(h: { timing: number; window: number; rightLane: bool
   return { contact: true, quality, text: quality > 0.7 ? 'Bullet header!' : 'Good contact.' };
 }
 
+// How likely a shot is to score from d metres, for an average shooter: it falls
+// exponentially, fitted to published figures of about 0.10 at 16.5 m and 0.03
+// at 27 m. That gives about 0.0016 from halfway, which is our own extension.
+export function distanceChance(metres: number): number {
+  return 0.1 * Math.exp(-0.115 * (metres - 16.5));
+}
+
+export type LongKind = 'lob' | 'driven';
+
+export interface LongRun {
+  outcome: 'goal' | 'save' | 'miss';
+  end: 'net' | 'held' | 'wide' | 'over';
+}
+
+// Half the width of the power window, as a share of the bar. It narrows
+// exponentially with distance; a good shooter gets more of it.
+export function longWindow(metres: number, shooting: number): number {
+  return Math.max(0.012, 0.11 * Math.exp(-0.035 * (metres - 30)) * (0.55 + (shooting / 99) * 0.75));
+}
+
+// A shot from a long way out. error: how far off the window centre, where 1 is
+// its edge. A keeper off his line is the real chance, for a lob most of all.
+export function longShot(s: { metres: number; shooting: number; keeperOut: number; kind: LongKind; error: number; rand: () => number }): LongRun {
+  if (s.error > 1) return s.rand() < 0.55 ? { outcome: 'miss', end: 'over' } : { outcome: 'miss', end: 'wide' };
+  const clean = 1 - s.error * 0.7;
+  const exposed = s.kind === 'lob' ? 1 + (s.keeperOut / 3.2) ** 2 : 1 + s.keeperOut / 12;
+  const p = Math.min(0.8, distanceChance(s.metres) * (0.5 + (s.shooting / 99) * 1.1) * 9 * clean * clean * exposed);
+  if (s.rand() < p) return { outcome: 'goal', end: 'net' };
+  // On target, but it is a long way: he has time.
+  return s.rand() < 0.6 ? { outcome: 'save', end: 'held' } : { outcome: 'miss', end: s.kind === 'lob' ? 'over' : 'wide' };
+}
+
 function normal(rand: () => number): number {
   return Math.sqrt(-2 * Math.log(rand() + 1e-9)) * Math.cos(2 * Math.PI * rand());
 }

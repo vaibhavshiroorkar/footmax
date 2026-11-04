@@ -18,14 +18,21 @@ export function lawsFor(season: number, nationId?: string): Laws {
 
 // Rates per match minute and per chance, tuned to real league numbers: about
 // 4.2 yellows, 0.14 reds and 0.3 penalties a match.
-export const CARD_PER_MINUTE = 0.047;
-export const STRAIGHT_RED = 0.02;
+export const CARD_PER_MINUTE = 0.043;
+export const STRAIGHT_RED = 0.011;
 export const PENALTY_PER_CHANCE = 0.018;
 // Fouling to stop a sure goal without trying for the ball is a red.
-export const PENALTY_RED = 0.14;
+export const PENALTY_RED = 0.1;
 
 // Games a red card costs: one for two yellows, three for a straight red.
 export const banFor = (straight: boolean) => (straight ? 3 : 1);
+
+// Tempers. Each booking raises the heat, and hot matches boil over. Most
+// flare-ups calm down; a few end with one man off, or both.
+export const HEAT_PER_CARD = 0.34;
+export const FLARE_UP = 0.03;
+// Calm, both booked, one sent off, both sent off.
+export const FLARE_ODDS = [0.5, 0.3, 0.14, 0.06];
 
 // How a goal can be taken away before it counts.
 export const FLAG_CALL = 0.022;

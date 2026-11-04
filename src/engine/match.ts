@@ -7,7 +7,7 @@ import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { ShotEnd } from './contact';
-import { CARD_PER_MINUTE, FLAG_CALL, FOUL_CALL, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
+import { CARD_PER_MINUTE, FLAG_CALL, FLARE_ODDS, FLARE_UP, FOUL_CALL, HEAT_PER_CARD, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
 import { PlayOutcome, PlayStart, PlayStep, Positions, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
 
@@ -16,7 +16,7 @@ export type SideKey = 'home' | 'away';
 // matching mini-game; 'header' meets a cross.
 // 'intercept', 'block' and 'clear' are the defending moments: read a pass,
 // throw yourself in front of a shot, head a cross away.
-export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle' | 'header' | 'choice' | 'intercept' | 'block' | 'clear';
+export type MomentKind = 'shot' | 'dribble' | 'pass' | 'penalty' | 'freekick' | 'save' | 'tackle' | 'header' | 'choice' | 'intercept' | 'block' | 'clear' | 'fight';
 
 // Where the career player plays in a match. It decides which moments come
 // to him: shots and men to beat up front, passes, long shots and
@@ -99,7 +99,9 @@ export interface KeyMoment {
   // Men the user has beaten on this run (dribbles in a row).
   beaten?: number;
   // Where a shot or header comes from, for how the moment looks.
-  view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
+  view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner' | 'long';
+  // A shot: how far out he is, in metres.
+  metres?: number;
   // A corner: the user takes it, or picks where to be for it.
   corner?: boolean;
   // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
@@ -192,6 +194,8 @@ export interface MatchState {
   // Bookings so far, and everyone sent off with their ban in games.
   yellows: Record<string, number>;
   sentOff: Record<string, number>;
+  // How hot the match is, from 0. Bookings raise it and it cools with time.
+  heat: number;
   // Knockout games go to penalties when level.
   knockout: boolean;
   penaltyWinner?: string;
@@ -221,6 +225,8 @@ export interface MatchState {
   // arrived. The pitch draws exactly that pass: a cross as a cross, and an
   // offside flag when the pass scene called it.
   lastPass?: { to: string; ok: boolean; kind?: PassKind; offside?: boolean; cutBy?: string };
+  // How the user's flare-up ended, for the pitch.
+  fightShown?: NonNullable<PlayStep['fight']>;
   // A ball left alive near goal: this side is first to it next minute.
   rebound?: SideKey;
   // The Last-ditch technique was used this match (it saves one mistake).
@@ -288,6 +294,7 @@ export function createMatch(world: World, fixture: Fixture, focus: MatchFocus, s
     laws: lawsFor(world.season, teamById(world, fixture.homeId).nationId),
     yellows: {},
     sentOff: {},
+    heat: 0,
     knockout: !!fixture.stage && fixture.stage !== 'Group',
     moments: 0,
     focus,
@@ -793,10 +800,13 @@ export function takeAction(world: World, s: MatchState, kind: 'shot' | 'pass' | 
   const base = { side, minute: s.minute, keeperId: keeperOf(world, s[other(side)]).id, actorId: id, bonus: 0 };
   if (kind === 'pass') s.pending = { ...base, kind: 'pass', options: passOptions(rng, world, s, side, id) };
   else if (kind === 'dribble') s.pending = { ...base, kind: 'dribble' };
-  else s.pending = { ...base, kind: 'shot', view: depth > 0.82 ? 'box' : 'outside', range: clamp((0.82 - depth) / 0.4, 0, 1) };
+  else s.pending = { ...base, kind: 'shot', view: (1 - depth) * 105 >= LONG_RANGE ? 'long' : depth > 0.82 ? 'box' : 'outside', metres: (1 - depth) * 105, range: clamp((0.82 - depth) / 0.4, 0, 1) };
   s.rngState = rng.state;
   return true;
 }
+
+// From here on a shot opens the long range scene.
+export const LONG_RANGE = 35;
 
 // A moment opens where the ball really is on the pitch. A shot's view and
 // range come from there, not from a roll, so the game matches what you see.
@@ -806,7 +816,8 @@ export function placeMoment(s: MatchState, ball: { x: number; y: number }): void
   if (!m || m.setPiece || (m.kind !== 'shot' && m.kind !== 'choice' && m.kind !== 'dribble')) return;
   const depth = m.side === 'home' ? s.ball.y : 1 - s.ball.y;
   const far = depth <= 0.82;
-  m.view = far ? 'outside' : m.view === 'oneonone' ? 'oneonone' : 'box';
+  m.metres = (1 - depth) * 105;
+  m.view = m.metres >= LONG_RANGE ? 'long' : far ? 'outside' : m.view === 'oneonone' ? 'oneonone' : 'box';
   m.range = far ? clamp((0.82 - depth) / 0.4, 0, 1) : 0;
 }
 
@@ -883,6 +894,8 @@ export type ShotShape = 'driven' | 'curl' | 'low';
 // the goal (see PlayStep.aim). blocker: the defender a missed shot hit.
 // passed: what a pass scene showed. shape: how the shot was struck.
 export interface Played {
+  // A flare-up: walk away or square up.
+  fight?: 'walk' | 'square';
   forced?: 'goal' | 'save' | 'miss';
   // How the shot ended, from the contact model (see contact.ts).
   end?: ShotEnd;
@@ -969,6 +982,19 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
   };
 
   switch (m.kind) {
+    case 'fight': {
+      // Walking away nearly always ends it. Squaring up needs a cool head.
+      const rival = world.players[m.attackerId!];
+      const walk = (user.fight ?? (q > 0.4 ? 'walk' : 'square')) === 'walk';
+      const calm = actor.attrs.composure / 99;
+      const fight = walk ? rng.weighted(['calm', 'booked'] as const, [0.85, 0.15]) : rng.weighted(['calm', 'booked', 'one', 'both'] as const, [0.15 + calm * 0.3, 0.45, 0.25 - calm * 0.15, 0.15 - calm * 0.08]);
+      if (walk) bump(s, actor.id, 0.1);
+      // 'one' is the user: he threw the punch.
+      settleFight(rng, world, s, m.side, actor, other(m.side), rival, fight);
+      s.fightShown = fight;
+      s.rngState = rng.state;
+      break;
+    }
     case 'save': {
       const attSide = other(m.side);
       const shooter = world.players[m.attackerId!];
@@ -1353,6 +1379,12 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.6, lat: 0.5 };
     return toPitch(attKey, { depth: Math.min(0.9, slot.depth + 0.22), lat: slot.lat });
   };
+  if (m.kind === 'fight') {
+    const end = { ...start, carrier: m.actorId, other: m.attackerId, side: m.side, act: 'brawl' as const, fight: s.fightShown ?? ('calm' as const) };
+    s.fightShown = undefined;
+    s.play = [end];
+    return;
+  }
   const duel = m.kind === 'tackle' || m.kind === 'intercept' || m.kind === 'block' || m.kind === 'clear';
   const won = s.lastWon;
   s.lastWon = undefined;
@@ -1548,13 +1580,17 @@ export function stepMinute(world: World, s: MatchState): void {
 
   // Cards and injuries. The pitch shows each one (see withIncident).
   let incident: Incident | null = null;
+  let flare: { a: string; b: string; fight: NonNullable<PlayStep['fight']>; side: SideKey } | 'user' | null = null;
   // A bookable foul is committed by the side without the ball.
   if (rng.chance(CARD_PER_MINUTE) && s[defKey].onPitch.length) {
     const pool = players(world, s[defKey].onPitch);
     // A booked player backs off.
-    const p = rng.weighted(pool, pool.map((x) => FOUL_WEIGHT[x.position] * (s.yellows[x.id] ? 0.2 : 1)));
+    const p = rng.weighted(pool, pool.map((x) => FOUL_WEIGHT[x.position] * (s.yellows[x.id] ? 0.1 : 1)));
     incident = caution(rng, world, s, defKey, p, rng.chance(STRAIGHT_RED));
+    s.heat += HEAT_PER_CARD;
+    if (rng.chance(s.heat * FLARE_UP)) flare = flareUp(rng, world, s, defKey, p);
   }
+  s.heat *= 0.985;
   if (rng.chance(0.0012)) {
     const sideKey: SideKey = rng.chance(0.5) ? 'home' : 'away';
     const side = s[sideKey];
@@ -1573,9 +1609,53 @@ export function stepMinute(world: World, s: MatchState): void {
   s.rngState = rng.state;
   visualize(world, s, attKey, start, outcome, inv);
   if (incident && s.visual && s.play) s.play = withIncident(world, s, s.play, incident);
+  if (flare && s.visual && s.play) {
+    const end = s.play[s.play.length - 1];
+    const at = { x: clamp(end?.x ?? 0.5, 0.05, 0.95), y: clamp(end?.y ?? 0.5, 0.05, 0.95) };
+    if (flare === 'user') s.play.push({ ...at, carrier: s.focus.playerId ?? null, side: end?.side ?? attKey, act: 'moment' });
+    else s.play.push({ ...at, carrier: flare.a, other: flare.b, side: flare.side, act: 'brawl', fight: flare.fight });
+  }
 }
 
 type Incident = { kind: 'card'; id: string; side: SideKey; red: boolean } | { kind: 'injury'; id: string; side: SideKey };
+
+// The man fouled turns on the man who did it. If the user is in it, it is
+// his call; otherwise it plays out by the numbers.
+function flareUp(rng: Rng, world: World, s: MatchState, foulSide: SideKey, fouler: Player): { a: string; b: string; fight: NonNullable<PlayStep['fight']>; side: SideKey } | 'user' | null {
+  const otherSide = other(foulSide);
+  const pool = players(world, s[otherSide].onPitch).filter((p) => p.position !== 'GK');
+  if (!pool.length || !s[foulSide].onPitch.includes(fouler.id)) return null;
+  const me = s.focus.playerId;
+  const victim = me && pool.some((p) => p.id === me) && rng.chance(0.3) ? world.players[me] : rng.pick(pool);
+  if (me && (victim.id === me || fouler.id === me) && s.moments < MAX_MOMENTS) {
+    const rival = victim.id === me ? fouler : victim;
+    const mySide = victim.id === me ? otherSide : foulSide;
+    s.pending = { side: mySide, minute: s.minute, keeperId: keeperOf(world, s[other(mySide)]).id, actorId: me, bonus: 0, kind: 'fight', attackerId: rival.id };
+    s.moments++;
+    return 'user';
+  }
+  // Cool heads calm it; hot ones do not.
+  const calm = (fouler.attrs.composure + victim.attrs.composure) / 198;
+  const odds = [FLARE_ODDS[0] * (0.6 + calm * 0.8), FLARE_ODDS[1], FLARE_ODDS[2], FLARE_ODDS[3]];
+  const fight = rng.weighted(['calm', 'booked', 'one', 'both'] as const, odds);
+  settleFight(rng, world, s, foulSide, fouler, otherSide, victim, fight);
+  return { a: fouler.id, b: victim.id, fight, side: foulSide };
+}
+
+// The referee's verdict. 'one' sends off a, who started it.
+function settleFight(rng: Rng, world: World, s: MatchState, aSide: SideKey, a: Player, bSide: SideKey, b: Player, fight: NonNullable<PlayStep['fight']>) {
+  const names = `${shortName(a)} and ${shortName(b)}`;
+  if (fight === 'calm') push(s, s.minute, null, 'info', `${names} square up, but team-mates pull them apart.`);
+  else if (fight === 'booked') {
+    push(s, s.minute, null, 'info', `${names} go head to head. The referee books them both.`);
+    caution(rng, world, s, aSide, a, false);
+    caution(rng, world, s, bSide, b, false);
+  } else {
+    push(s, s.minute, null, 'info', fight === 'both' ? `${names} come to blows. Both are sent off!` : `${shortName(a)} lashes out at ${shortName(b)}. Violent conduct.`);
+    if (s[aSide].onPitch.includes(a.id)) sendOff(rng, world, s, aSide, a, true);
+    if (fight === 'both' && s[bSide].onPitch.includes(b.id)) sendOff(rng, world, s, bSide, b, true);
+  }
+}
 
 // Who gives away fouls: defenders and midfielders far more than keepers.
 const FOUL_WEIGHT: Record<Position, number> = { GK: 0.1, DEF: 3, MID: 3, FWD: 1.2 };

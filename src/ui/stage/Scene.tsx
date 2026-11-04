@@ -50,6 +50,35 @@ export function RefScene({ c }: { c: Callout }) {
   );
 }
 
+// Two men square up, the referee between them.
+export function FightScene({ c, aKit, bKit }: { c: Callout; aKit: string; bKit: string }) {
+  const pop = usePop();
+  const t = useTicker(!motionReduced());
+  const ending = c.fight?.ending ?? 'calm';
+  const shove = motionReduced() ? 0 : Math.sin(t * 7) * 2.5;
+  const card = c.tone === 'yellow' ? 'yellow' : c.tone === 'red' ? 'red' : undefined;
+  const lean = (dir: number) => ({ hip: { x: 0, y: -26 }, lean: dir * 0.2, handL: { x: dir * 12 - 12, y: -44 }, handR: { x: dir * 12 + 12, y: -44 }, footL: { x: -7, y: 0 }, footR: { x: 7, y: 0 } });
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.dim]}>
+      <Animated.View style={{ alignItems: 'center', opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }) }] }}>
+        <Svg width={210} height={104} viewBox="-70 -84 140 90">
+          <RigFigure x={-36 - shove} ground={0} h={60} pose={lean(1)} kit={aKit} />
+          <RigFigure x={36 + shove} ground={0} h={60} pose={lean(-1)} kit={bKit} />
+          <RefereeFigure x={0} ground={2} h={56} pose={card ? armUp(1) : playOn()} card={card} />
+        </Svg>
+        <Text style={[styles.call, shadow, { fontSize: ending === 'both' ? 30 : 32 }]} numberOfLines={1} adjustsFontSizeToFit>
+          {c.text}
+        </Text>
+        {!!c.sub && (
+          <Text style={[styles.sub, shadow, { textAlign: 'center' }]} numberOfLines={1}>
+            {c.sub}
+          </Text>
+        )}
+      </Animated.View>
+    </View>
+  );
+}
+
 // The scorer in the middle of the screen, doing his celebration.
 export function GoalScene({ c, kit, skin, hair, boots, tint }: { c: Callout; kit: string; skin?: string; hair?: string | null; boots?: string; tint: string }) {
   const pop = usePop();

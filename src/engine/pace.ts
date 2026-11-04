@@ -16,7 +16,7 @@ const MAX_FOLD = 6;
 const TAIL = 2;
 const QUIET_TAIL = 1;
 
-const BIG: PlayAct[] = ['goal', 'save', 'miss', 'moment', 'card', 'injury'];
+const BIG: PlayAct[] = ['goal', 'save', 'miss', 'moment', 'card', 'injury', 'brawl'];
 
 // A chance or a card, or the ball ending at the user's feet, where he can act.
 function matters(s: MatchState, steps: PlayStep[]): boolean {

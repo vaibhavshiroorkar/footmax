@@ -14,7 +14,7 @@ import { motionReduced, useSettings } from '../state/settings';
 import { matchKits } from './moments/Keeper';
 import { FootballIcon } from './football';
 import { RigFigure, useLooks } from './rig/Figure';
-import { GoalScene, RefScene } from './stage/Scene';
+import { FightScene, GoalScene, RefScene } from './stage/Scene';
 import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
@@ -158,6 +158,11 @@ function CalloutView({ c, home, away, focusId }: { c: Callout; home: Club; away:
   }, [pop]);
   const big = c.tone === 'goal';
   const color = big ? (c.side === 'home' ? home.colors[0] : away.colors[0]) : colors.gold;
+  if (c.fight) {
+    const kits = matchKits(home.colors, away.colors);
+    const homeFirst = c.fight.a === 'home';
+    return <FightScene c={c} aKit={homeFirst ? kits.homeShirt : kits.awayShirt} bKit={homeFirst ? kits.awayShirt : kits.homeShirt} />;
+  }
   if (c.signal) return <RefScene c={c} />;
   if (big) {
     const kits = matchKits(home.colors, away.colors);

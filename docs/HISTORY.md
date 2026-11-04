@@ -139,6 +139,12 @@ One flow for all three: the stoppage, a scene, the setup by the laws, then the
 user's decision with no clock. The header became three parts in two inputs, where
 one tap both times the jump and aims it, to keep it quick on a phone.
 
+### 15. v1.19.0: long shots and tempers (2026-11-04)
+
+Distance difficulty uses one exponential curve for both the chance and the stray. The
+side-on scene exists because a keeper's position is what makes a halfway shot worth
+trying. Flare-ups ran hot at first and pushed reds to 0.47 a match; the rate came down.
+
 ## Decisions that still hold
 
 | Decision | Why |

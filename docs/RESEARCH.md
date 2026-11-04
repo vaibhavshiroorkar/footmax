@@ -267,6 +267,19 @@ by delivery type, so the game does not favour one by data.
 Sources: [Guide to Football on corner routines](https://guidetofootball.com/tactics/corner-routines/),
 [Left Back Football on short corners](https://leftbackfootball.com/home/2022/2/1/short-corner-routines-from-around-world-football).
 
+## Long shots and tempers (v1.19.0)
+
+Premier League goals from a player's own half are rare and famous: Beckham, Alonso,
+Rooney twice, Charlie Adam and a handful of keepers. No source gave a total, so the
+1 in 600 from halfway stays our own extension of the curve. The scene rewards a keeper
+off his line because the famous examples turn on that.
+
+The three-game ban for violent conduct and the rate of flare-ups are our judgement,
+not checked figures. Red cards stay near the real level.
+
+Sources: [FourFourTwo on own-half goals](https://www.fourfourtwo.com/features/players-who-scored-from-inside-their-own-half),
+[Sportskeeda on halfway goals](https://www.sportskeeda.com/slideshow/top-5-goals-from-behind-the-half-way-line-in-premier-league-history).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

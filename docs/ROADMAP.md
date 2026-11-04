@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.18.1. Next: v1.19.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.19.0. Next: v1.20.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -52,8 +52,8 @@ The 41-point request of 2026-11-04, word for word.
 | 13 | add UCL | v1.22.0 | todo |
 | 14 | when you hit play match, it should show u lineups and allow you to go back or kickoff | v1.12.0 | done |
 | 15 | make call for ball have better passing chances, make run have better shooting chances | v1.12.0 | done |
-| 16 | make shooting from longer distance exponentially harder like halfway line with new interaction scene | v1.19.0 | todo |
-| 17 | players can get angry at each other and commit red card or both commit red card onto each other (during match scene with popup on the screen with models) | v1.19.0 | todo |
+| 16 | make shooting from longer distance exponentially harder like halfway line with new interaction scene | v1.19.0 | done |
+| 17 | players can get angry at each other and commit red card or both commit red card onto each other (during match scene with popup on the screen with models) | v1.19.0 | done |
 | 18 | more formation, coaches can dynamically change it in career mode at HT, manager mode user can change | v1.20.0 | todo |
 | 19 | coach can sub you off if you perform poor | v1.20.0 | todo |
 | 20 | make goalkeeper rush you faster | v1.11.0 | done |

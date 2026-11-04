@@ -2,6 +2,15 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.19.0
+
+- Long shots get exponentially harder the further out you are. From 35 metres a new
+  scene opens side on: read how far off his line the keeper is, choose to lob him or
+  drive it, and hit a narrow window. From halfway it almost never goes in, unless
+  he has wandered out.
+- Tempers: players can square up. Most of it calms down, but it can end in cards,
+  one man off, or both. If it is you, walk away or square up.
+
 ## 1.18.1
 
 - Fixed: on an attack down the wing, keepers wandered far outside their posts.
