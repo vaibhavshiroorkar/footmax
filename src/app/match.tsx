@@ -1,18 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { CALL_PASSING, placeMoment, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { CALL_PASSING, placeMoment, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
-import { teamById } from '../engine/lineup';
+import { FORMATIONS, teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
 import { groupTable } from '../engine/international';
 import { useResultFeedback } from '../ui/shared';
 import { formatMoney, fullName, shortName } from '../engine/player';
-import { Club, Game, MatchReward, Player, Style } from '../engine/types';
+import { Club, Formation, Game, MatchReward, Player, Style } from '../engine/types';
 import { SKILL_MOVES, skillLevel, xpForLevel } from '../engine/skills';
 import { hasTechnique } from '../engine/skillTree';
 import { ShotGame } from '../ui/moments/ShotGame';
@@ -182,6 +182,19 @@ export default function MatchScreen() {
     // liveRev: the match changes in place; each change schedules the next minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, liveRev, pace, watching]);
+
+  // News from the touchline, for the user.
+  const hooked = !!live?.hooked;
+  const myShape = live ? live[userSide(game!, live)].formation : undefined;
+  const lastShape = useRef(myShape);
+  const showToast = useStore((st) => st.showToast);
+  useEffect(() => {
+    if (hooked) showToast('The coach has seen enough. You are coming off.');
+  }, [hooked, showToast]);
+  useEffect(() => {
+    if (myShape && lastShape.current && myShape !== lastShape.current && game?.mode === 'career') showToast(`The coach changes to ${myShape}.`);
+    lastShape.current = myShape;
+  }, [myShape, showToast, game?.mode]);
 
   // The crowd murmurs while the ball is in play.
   const inPlay = kicked && !!live && !live.finished;
@@ -940,7 +953,7 @@ function ShoutBar({ game, live, onSkip }: { game: Game; live: MatchState; onSkip
             On the bench
           </Text>
         </Row>
-        <Button label="Skip to when I come on" icon="play-forward" small variant="secondary" onPress={onSkip} />
+        <Button label={live.hooked ? 'Skip to full time' : 'Skip to when I come on'} icon="play-forward" small variant="secondary" onPress={onSkip} />
       </View>
     );
   }
@@ -1186,7 +1199,15 @@ function HalfTimePanel({ game, live, side, title = 'Half time team talk', doneLa
         <Icon name="chatbubbles" size={20} color={colors.blue} />
         <H2>{title}</H2>
       </Row>
-      <T muted>Change your approach or make substitutions ({live.laws.maxSubs - me.subsUsed} left).</T>
+      <T muted>Change your shape, your approach, or make substitutions ({live.laws.maxSubs - me.subsUsed} left).</T>
+      <Text style={styles.colHead}>SHAPE</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        {(Object.keys(FORMATIONS) as Formation[]).map((f) => (
+          <Pressable key={f} onPress={() => mutateLive((m, g) => setFormation(g.world, m, side, f))} accessibilityRole="button" accessibilityState={{ selected: me.formation === f }} accessibilityLabel={`Formation ${f}`} style={{ height: 40, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: me.formation === f ? colors.accent : colors.border, backgroundColor: me.formation === f ? alpha(colors.accent, 0.14) : colors.bgElev }}>
+            <Text style={{ fontFamily: fonts.display, fontSize: 16, color: me.formation === f ? colors.accent : colors.text }}>{f}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {STYLES.map((s) => (
           <Choice key={s.key} half active={me.style === s.key} label={s.label} sub={s.hint} onPress={() => mutateLive((m) => (m[side].style = s.key))} />

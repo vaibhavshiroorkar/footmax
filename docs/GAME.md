@@ -149,7 +149,13 @@ moments to play, not a wall of information.
     an injured player stays down first.
 - **Positions:** each formation has named slots (4-3-3 is GK, LB CB CB RB,
   CM CDM CM, LW ST RW); players fill the slot that suits them and stand
-  there on the pitch and in the lineups.
+  there on the pitch and in the lineups. There are twelve shapes.
+- **Shape in a match:** it lives on `MatchSide.formation`, so a change does not
+  rewrite the club. Attacking shapes make a few more chances for both sides. At
+  half time a coach chases the game when behind and tightens up when two ahead or
+  a man down (`coachReacts`). Managers change it at half time or from the touchline.
+- **Taken off:** at each sub window, a user's player rated under 5.8 with no goal or
+  assist can be hooked (`hookUser`); a booking raises the risk. It costs 4 morale.
 - **Defending shape:** the side without the ball moves as a block, about 32 m
   deep and 38 m wide, sliding toward the ball and narrowing near goal.
   Defenders stay goal-side of it. The nearest man presses; the next stands on

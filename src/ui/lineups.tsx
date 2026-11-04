@@ -26,7 +26,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
   const column = (side: SideKey) => {
     const team = teamById(game.world, live[side].clubId);
     // The XI in formation order: keeper, then each line from the back, left to right.
-    const slots = assignSlots(game.world, team, live[side].onPitch);
+    const slots = assignSlots(game.world, { ...team, formation: live[side].formation }, live[side].onPitch);
     const ids = [...live[side].onPitch].sort((a, b) => (slots[a]?.depth ?? 0.5) - (slots[b]?.depth ?? 0.5) || (slots[a]?.lat ?? 0.5) - (slots[b]?.lat ?? 0.5));
     const row = (id: string, bench: boolean) => {
       const p = P[id];
@@ -54,7 +54,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
       <View style={{ gap: 2 }}>
         <Row gap={8} style={{ paddingHorizontal: 6, marginBottom: 2 }}>
           <Text style={[headStyle, { flex: 1 }]}>
-            {team.formation}  |  {live[side].style.toUpperCase()}
+            {live[side].formation}  |  {live[side].style.toUpperCase()}
           </Text>
           <Text style={[headStyle, { width: 28, textAlign: 'right' }]}>OVR</Text>
           <Text style={[headStyle, { width: 32, textAlign: 'right' }]}>RAT</Text>
@@ -126,7 +126,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
 // their slots.
 function FormationBoard({ game, live, side, focusId }: { game: Game; live: MatchState; side: SideKey; focusId?: string }) {
   const team = teamById(game.world, live[side].clubId);
-  const slots = assignSlots(game.world, team, live[side].onPitch);
+  const slots = assignSlots(game.world, { ...team, formation: live[side].formation }, live[side].onPitch);
   return (
     <View style={{ height: 300, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.pitch, borderWidth: 1, borderColor: colors.border }}>
       <View style={{ position: 'absolute', left: '22%', right: '22%', bottom: 0, height: '17%', borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.28)' }} />

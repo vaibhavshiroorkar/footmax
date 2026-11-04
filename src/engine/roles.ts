@@ -92,6 +92,68 @@ export const FORMATION_SLOTS: Record<Formation, Role[][]> = {
     ['LW', 'CAM', 'RW'],
     ['ST'],
   ],
+  '4-1-4-1': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['ST'],
+  ],
+  '4-4-1-1': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['CF'],
+    ['ST'],
+  ],
+  '3-4-3': [
+    ['CB', 'CB', 'CB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['LW', 'ST', 'RW'],
+  ],
+  '3-4-2-1': [
+    ['CB', 'CB', 'CB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['CAM', 'CAM'],
+    ['ST'],
+  ],
+  '5-3-2': [
+    ['LWB', 'CB', 'CB', 'CB', 'RWB'],
+    ['CM', 'CDM', 'CM'],
+    ['ST', 'ST'],
+  ],
+  '5-4-1': [
+    ['LWB', 'CB', 'CB', 'CB', 'RWB'],
+    ['LM', 'CM', 'CM', 'RM'],
+    ['ST'],
+  ],
+  '4-3-1-2': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CM', 'CDM', 'CM'],
+    ['CAM'],
+    ['ST', 'ST'],
+  ],
+  '4-1-2-1-2': [
+    ['LB', 'CB', 'CB', 'RB'],
+    ['CDM'],
+    ['CM', 'CM'],
+    ['CAM'],
+    ['ST', 'ST'],
+  ],
+};
+
+// How each shape leans, from defending deep (-) to going for it (+).
+export const FORMATION_LEAN: Record<Formation, number> = {
+  '5-4-1': -2,
+  '5-3-2': -1.5,
+  '4-1-4-1': -1,
+  '4-4-1-1': -0.5,
+  '4-2-3-1': 0,
+  '4-4-2': 0,
+  '4-1-2-1-2': 0.5,
+  '4-3-3': 0.5,
+  '3-5-2': 0.5,
+  '4-3-1-2': 1,
+  '3-4-2-1': 1,
+  '3-4-3': 2,
 };
 
 // How common each role is among generated players of a broad position.

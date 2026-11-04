@@ -90,7 +90,7 @@ export interface Player {
   form?: number[];
 }
 
-export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1';
+export type Formation = '4-4-2' | '4-3-3' | '3-5-2' | '4-2-3-1' | '4-1-4-1' | '4-4-1-1' | '3-4-3' | '3-4-2-1' | '5-3-2' | '5-4-1' | '4-3-1-2' | '4-1-2-1-2';
 export type Style = 'balanced' | 'possession' | 'counter' | 'press';
 
 export interface Club {

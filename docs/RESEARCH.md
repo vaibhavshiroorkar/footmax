@@ -280,6 +280,18 @@ not checked figures. Red cards stay near the real level.
 Sources: [FourFourTwo on own-half goals](https://www.fourfourtwo.com/features/players-who-scored-from-inside-their-own-half),
 [Sportskeeda on halfway goals](https://www.sportskeeda.com/slideshow/top-5-goals-from-behind-the-half-way-line-in-premier-league-history).
 
+## Tactics (v1.20.0)
+
+The first substitution comes around the 60th minute and barely moves year to year,
+which is why the sub windows stay at 60, 70 and 80. Research suggests trailing sides
+should change by 58, 73 and 79 minutes. No reliable figure exists for how often
+coaches change shape, so the 45% chance at half time is our judgement. The formation
+research stayed thin: the shapes are standard, and their slots follow common use.
+
+Sources: [Kwest on substitution timing](https://kwestthoughts.substack.com/p/how-effective-are-managers-substitutions),
+[FiveThirtyEight on subs when behind](https://fivethirtyeight.com/features/down-at-halftime-in-a-soccer-game-use-your-subs),
+[ESPN on substitutes](https://global.espn.com/football/story/_/id/37505582/premier-league-teams-rarely-use-all-their-substitutes-why-take-advantage-such-fresh-legs).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

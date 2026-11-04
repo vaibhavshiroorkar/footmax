@@ -1,4 +1,4 @@
-import { Club, League, Nation, Player, Position, World } from './types';
+import { Club, League, Nation, Player, Position, World, Formation } from './types';
 import { Rng, clamp } from './rng';
 import { clubBudget, emptyStats, fairWage, makeAttributes, overall, splitName } from './player';
 import { makeFixtures, SEASON_WEEKS } from './league';
@@ -147,6 +147,8 @@ export function createYouth(world: World, rng: Rng, club: Club, position?: Posit
   return p;
 }
 
+const SHAPES: Formation[] = ['4-3-3', '4-3-3', '4-3-3', '4-2-3-1', '4-2-3-1', '4-2-3-1', '4-4-2', '4-4-2', '4-1-4-1', '3-4-3', '3-5-2', '5-3-2', '4-4-1-1', '3-4-2-1'];
+
 function makeClub(world: World, seed: ClubSeed, nationId: string, leagueId: string | null): Club {
   const club: Club = {
     id: newId(world, 'c'),
@@ -158,7 +160,8 @@ function makeClub(world: World, seed: ClubSeed, nationId: string, leagueId: stri
     budget: clubBudget(seed.rep),
     colors: seed.colors,
     playerIds: [],
-    formation: '4-3-3',
+    // Most clubs use the common shapes, and a few go their own way.
+    formation: SHAPES[[...seed.name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % SHAPES.length],
     style: 'balanced',
     lineup: null,
   };

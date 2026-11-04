@@ -79,7 +79,7 @@ describe('continuity on the pitch', () => {
 
   it('draws the shot from the pitch: the keeper where he stands, the men in the way', () => {
     let checked = 0;
-    watch(74, () => undefined, (sim, actor) => {
+    for (const seed of [74, 79, 80, 81]) if (!checked) watch(seed, () => undefined, (sim, actor) => {
       const scene = sim.shotScene(actor);
       expect(scene.keeper).toBeGreaterThanOrEqual(0.12);
       expect(scene.keeper).toBeLessThanOrEqual(0.88);

@@ -258,12 +258,12 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   }, [sim]);
 
   // Players on the pitch: who, where they stand in the shape, how fast.
-  const ids = `${live.home.onPitch.join(',')}|${live.away.onPitch.join(',')}|${home.formation}|${away.formation}`;
+  const ids = `${live.home.onPitch.join(',')}|${live.away.onPitch.join(',')}|${live.home.formation}|${live.away.formation}`;
   useEffect(() => {
     const infos: BodyInfo[] = [];
     for (const side of ['home', 'away'] as SideKey[]) {
       const team = side === 'home' ? home : away;
-      const spots = formationSpots(world, team, live[side].onPitch);
+      const spots = formationSpots(world, { ...team, formation: live[side].formation }, live[side].onPitch);
       for (const id of live[side].onPitch) {
         const p = world.players[id];
         if (!p) continue;

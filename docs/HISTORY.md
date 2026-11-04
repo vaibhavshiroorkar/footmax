@@ -145,6 +145,11 @@ Distance difficulty uses one exponential curve for both the chance and the stray
 side-on scene exists because a keeper's position is what makes a halfway shot worth
 trying. Flare-ups ran hot at first and pushed reds to 0.47 a match; the rate came down.
 
+### 16. v1.20.0: tactics (2026-11-04)
+
+The shape in a match moved onto the match itself, so half-time changes cannot rewrite
+a club. New games spread clubs across the shapes; old saves keep theirs.
+
 ## Decisions that still hold
 
 | Decision | Why |

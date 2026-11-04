@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.20.0
+
+- Twelve formations: 4-1-4-1, 4-4-1-1, 3-4-3, 3-4-2-1, 5-3-2, 5-4-1, 4-3-1-2 and the
+  diamond join the old four. Clubs now use different shapes.
+- Coaches react at half time: chasing the game when behind, tightening up when well
+  ahead or a man down. You are told when your coach changes shape.
+- Managers can change shape at half time and from the touchline. The change lasts
+  for that match.
+- Play badly and the coach can take you off, around the hour. A goal or an assist
+  keeps you on. It costs a little morale.
+
 ## 1.19.0
 
 - Long shots get exponentially harder the further out you are. From 35 metres a new

@@ -1,9 +1,9 @@
-import { Fixture, Player, Position, Style, World } from './types';
+import { Fixture, Player, Position, Style, World, Formation, Club } from './types';
 import { Rng, clamp } from './rng';
 import { matchRating, shortName } from './player';
 import { bench, startingXI, teamById } from './lineup';
 import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
-import { ROLES, isRole } from './roles';
+import { ROLES, isRole, FORMATION_LEAN } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { ShotEnd } from './contact';
@@ -145,6 +145,8 @@ export interface MatchEvent {
 
 export interface MatchSide {
   clubId: string;
+  // The shape for this match. A change at half time stays in the match.
+  formation: Formation;
   // An outfield player in goal, after the keeper was sent off with no sub left.
   standIn?: string;
   onPitch: string[];
@@ -225,6 +227,8 @@ export interface MatchState {
   // arrived. The pitch draws exactly that pass: a cross as a cross, and an
   // offside flag when the pass scene called it.
   lastPass?: { to: string; ok: boolean; kind?: PassKind; offside?: boolean; cutBy?: string };
+  // The coach took the user's player off for playing badly.
+  hooked?: boolean;
   // How the user's flare-up ended, for the pitch.
   fightShown?: NonNullable<PlayStep['fight']>;
   // A ball left alive near goal: this side is first to it next minute.
@@ -262,6 +266,7 @@ export function createMatch(world: World, fixture: Fixture, focus: MatchFocus, s
     }
     return {
       clubId,
+      formation: club.formation,
       onPitch: xi,
       bench: subs,
       usedIds: [...xi],
@@ -712,7 +717,7 @@ function zoneMoment(rng: Rng, world: World, s: MatchState, attKey: SideKey, star
 // it about, then it reaches whoever the moment is about.
 function leadIn(world: World, s: MatchState, attKey: SideKey, start: PlayStart, m: KeyMoment, depth?: number) {
   const slotSpot = (id: string, d?: number) => {
-    const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.5, lat: 0.5 };
+    const slot = assignSlots(world, matchTeam(world, s[attKey]), s[attKey].onPitch)[id] ?? { depth: 0.5, lat: 0.5 };
     return toPitch(attKey, { depth: d ?? clamp(slot.depth + 0.1, 0.25, 0.75), lat: clamp(slot.lat, 0.1, 0.9) });
   };
   const holder = m.attackerId ?? m.actorId;
@@ -1228,10 +1233,36 @@ export function makeSub(world: World, s: MatchState, sideKey: SideKey, outId: st
   return true;
 }
 
+// The coach has seen enough. Below this rating the user's player can come off,
+// more likely the worse he has been, and more likely still on a booking.
+export const POOR_RATING = 5.8;
+
+function hookUser(rng: Rng, world: World, s: MatchState, sideKey: SideKey): boolean {
+  const side = s[sideKey];
+  const id = s.focus.playerId;
+  if (!id || !side.onPitch.includes(id) || world.players[id].position === 'GK') return false;
+  const rating = s.ratings[id] ?? 6;
+  if (rating >= POOR_RATING || s.goals[id] || s.assists[id]) return false;
+  const p = Math.min(0.85, (POOR_RATING - rating) * 1.1 + (s.yellows[id] ? 0.2 : 0) + 0.15);
+  if (!rng.chance(p)) return false;
+  const me = world.players[id];
+  const incoming = players(world, side.bench).filter((b) => b.position !== 'GK').sort((a, b) => (b.position === me.position ? 1 : 0) - (a.position === me.position ? 1 : 0) || matchRating(b) - matchRating(a))[0];
+  if (!incoming) return false;
+  s.rngState = rng.state;
+  const done = makeSub(world, s, sideKey, id, incoming.id);
+  rng.state = s.rngState;
+  if (done) {
+    s.hooked = true;
+    push(s, s.minute, sideKey, 'info', `The coach has seen enough. ${shortName(me)} is taken off.`, id, true);
+  }
+  return done;
+}
+
 function aiSubs(rng: Rng, world: World, s: MatchState, sideKey: SideKey) {
   const side = s[sideKey];
   if (s.focus.clubId === side.clubId) return;
   if (!SUB_MINUTES.includes(s.minute) || !side.bench.length) return;
+  if (hookUser(rng, world, s, sideKey)) return;
   const onPitch = players(world, side.onPitch).filter((p) => p.position !== 'GK');
   const focusId = s.focus.playerId;
   // The user's player on the bench gets a fair shot at coming on.
@@ -1254,11 +1285,39 @@ function aiSubs(rng: Rng, world: World, s: MatchState, sideKey: SideKey) {
   }
 }
 
+// A manager changes the shape: at half time or at any stoppage.
+export function setFormation(world: World, s: MatchState, sideKey: SideKey, f: Formation): void {
+  if (s[sideKey].formation === f) return;
+  s[sideKey].formation = f;
+  push(s, s.minute, sideKey, 'info', `${teamById(world, s[sideKey].clubId).name} change to ${f}.`);
+}
+
+// At half time a coach looks at the score. Behind, he goes for it. Well ahead,
+// or a man down, he shuts up shop. Otherwise he usually leaves it alone. The
+// user's own side in manager mode is the user's call.
+function coachReacts(rng: Rng, world: World, s: MatchState, sideKey: SideKey) {
+  const side = s[sideKey];
+  if (s.focus.clubId === side.clubId) return;
+  const lead = side.goals - s[other(sideKey)].goals;
+  const short = side.onPitch.length < 11;
+  const want = short || lead >= 2 ? -1 : lead < 0 ? 1 : 0;
+  if (!want || !rng.chance(short ? 0.8 : 0.45)) return;
+  const now = FORMATION_LEAN[side.formation];
+  const options = (Object.keys(FORMATION_LEAN) as Formation[]).filter((f) => (want > 0 ? FORMATION_LEAN[f] > now : FORMATION_LEAN[f] < now));
+  if (!options.length) return;
+  setFormation(world, s, sideKey, options.sort((a, b) => Math.abs(FORMATION_LEAN[a] - now) - Math.abs(FORMATION_LEAN[b] - now))[0]);
+}
+
 // --- Live pitch ------------------------------------------------------------
+
+// The team as it lines up in this match, in today's shape.
+export function matchTeam(world: World, side: MatchSide): Club {
+  return { ...teamById(world, side.clubId), formation: side.formation };
+}
 
 function playSide(world: World, s: MatchState, key: SideKey) {
   const side = s[key];
-  return { key, team: teamById(world, side.clubId), ids: side.onPitch, keeperId: side.onPitch.length ? keeperOf(world, side).id : undefined };
+  return { key, team: matchTeam(world, side), ids: side.onPitch, keeperId: side.onPitch.length ? keeperOf(world, side).id : undefined };
 }
 
 // Where this minute's move starts: the centre spot after a goal or the
@@ -1337,7 +1396,7 @@ function withUser(world: World, s: MatchState, attKey: SideKey, steps: PlayStep[
   }
   if (last.carrier === inv.id) return kept;
   const zone = zoneOf(world, s);
-  const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[inv.id] ?? { depth: 0.5, lat: 0.5 };
+  const slot = assignSlots(world, matchTeam(world, s[attKey]), s[attKey].onPitch)[inv.id] ?? { depth: 0.5, lat: 0.5 };
   const lastDepth = attKey === 'home' ? last.y : 1 - last.y;
   const at =
     inv.kind === 'through'
@@ -1376,7 +1435,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
   const pass = m.kind === 'pass' && s.lastPass && s[attKey].onPitch.includes(s.lastPass.to) ? s.lastPass : undefined;
   s.lastPass = undefined;
   const mateSpot = (id: string) => {
-    const slot = assignSlots(world, teamById(world, s[attKey].clubId), s[attKey].onPitch)[id] ?? { depth: 0.6, lat: 0.5 };
+    const slot = assignSlots(world, matchTeam(world, s[attKey]), s[attKey].onPitch)[id] ?? { depth: 0.6, lat: 0.5 };
     return toPitch(attKey, { depth: Math.min(0.9, slot.depth + 0.22), lat: slot.lat });
   };
   if (m.kind === 'fight') {
@@ -1466,6 +1525,8 @@ export function stepMinute(world: World, s: MatchState): void {
     s.kickoff = 'away';
     s.play = undefined;
     push(s, 45, null, 'half', `Half time: ${s.home.goals}-${s.away.goals}.`);
+    coachReacts(rng, world, s, 'home');
+    coachReacts(rng, world, s, 'away');
     if (s.focus.clubId) s.pausedAtHalf = true;
     s.rngState = rng.state;
     return;
@@ -1522,6 +1583,7 @@ export function stepMinute(world: World, s: MatchState): void {
     (1 - 0.02 * walls) *
     shoutMod *
     (firstThere ? 1.8 : 1) *
+    (1 + 0.035 * FORMATION_LEAN[s[attKey].formation] + 0.025 * FORMATION_LEAN[s[defKey].formation]) *
     BASE_CHANCE * (att.attack / def.defense) ** 1.6 * STYLE_MOD[s[attKey].style].chance * STYLE_MOD[s[defKey].style].concede;
 
   const chance = rng.chance(chanceP);
@@ -1893,6 +1955,7 @@ export function possessionPct(s: MatchState): [number, number] {
 
 // Writes a finished match back into the world: result, stats, fitness, injuries.
 export function commitMatch(world: World, s: MatchState, fixture: Fixture): void {
+  if (s.hooked && s.focus.playerId) world.players[s.focus.playerId].morale = clamp(world.players[s.focus.playerId].morale - 4, 0, 100);
   fixture.played = true;
   fixture.homeGoals = s.home.goals;
   fixture.awayGoals = s.away.goals;
