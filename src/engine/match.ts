@@ -100,6 +100,8 @@ export interface KeyMoment {
   beaten?: number;
   // Where a shot or header comes from, for how the moment looks.
   view?: 'box' | 'outside' | 'oneonone' | 'cross' | 'corner';
+  // A corner: the user takes it, or picks where to be for it.
+  corner?: boolean;
   // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
   range?: number;
   // A defending moment in open play with no chance behind it: losing it
@@ -742,9 +744,39 @@ export function chooseMoment(world: World, s: MatchState, kind: MomentKind): voi
     const options = passOptions(rng, world, s, m.side, m.actorId).map((o) => (m.setPiece ? { ...o, kind: 'cross' as PassKind, threat: (o.threat ?? 0.12) + 0.05 } : o));
     s.pending = { ...m, kind: 'pass', options, assistId: undefined, choices: undefined };
   } else {
-    s.pending = { ...m, kind, choices: undefined, assistId: kind === 'shot' ? m.assistId : undefined };
+    // At a corner he waits on the edge of the box for it to drop to him.
+    const edge = m.corner && kind === 'shot' ? { view: 'outside' as const, range: 0.12 } : {};
+    s.pending = { ...m, kind, choices: undefined, assistId: kind === 'shot' || m.corner ? m.assistId : undefined, ...edge };
   }
   s.rngState = rng.state;
+}
+
+// A corner for the user's side. If he takes them he swings it in; if not he
+// picks where to be: attack it, or wait on the edge of the box.
+function cornerMoment(rng: Rng, world: World, s: MatchState, start: PlayStart): boolean {
+  const id = s.focus.playerId;
+  if (!id || start.restart !== 'corner' || !start.restartSide || s.moments >= MAX_MOMENTS) return false;
+  const side = start.restartSide;
+  const me = world.players[id];
+  if (!s[side].onPitch.includes(id) || me.position === 'GK' || !rng.chance(0.65)) return false;
+  const mates = players(world, s[side].onPitch).filter((p) => p.position !== 'GK');
+  const taker = [...mates].sort((a, b) => b.attrs.passing - a.attrs.passing)[0];
+  if (!taker) return false;
+  const base = { side, minute: s.minute, keeperId: keeperOf(world, s[other(side)]).id, actorId: id, bonus: 0.03, setPiece: true, corner: true };
+  s.pending =
+    taker.id === id
+      ? { ...base, kind: 'pass', options: passOptions(rng, world, s, side, id).map((o) => ({ ...o, kind: 'cross' as PassKind, threat: (o.threat ?? 0.12) + 0.05 })) }
+      : { ...base, kind: 'choice', choices: ['header', 'shot'], view: 'corner', assistId: taker.id };
+  s.moments++;
+  if (s.visual) {
+    const at = { x: start.x, y: start.y };
+    s.play = [
+      { ...at, carrier: taker.id, side, act: 'start', restart: 'corner' },
+      { ...at, carrier: taker.id, side, act: 'moment' },
+    ];
+    s.ball = { ...at };
+  }
+  return true;
 }
 
 // The user's player has the ball on the live pitch and acts on his own:
@@ -1435,6 +1467,10 @@ export function stepMinute(world: World, s: MatchState): void {
   const defKey = other(attKey);
   s[attKey].possession++;
   const start = moveStart(s);
+  if (cornerMoment(rng, world, s, start)) {
+    s.rngState = rng.state;
+    return;
+  }
   const before = s.events.length;
   // Move the ball into the attacking half of whoever has it. The live pitch
   // replaces this with the real move (see visualize).

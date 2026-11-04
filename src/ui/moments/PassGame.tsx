@@ -33,7 +33,8 @@ function Bars({ value, color }: { value: number; color: string }) {
 // A through ball or a cross opens its scene (see PassScenes): how well it is
 // played there decides whether it arrives and how big the chance is.
 // splitter: the Defence splitter technique, a much wider through-ball window.
-export function PassPanel({ options, names, playmaker = 0, passing = 60, vision = 60, splitter = false, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; passing?: number; vision?: number; splitter?: boolean; picked?: string | null; onDone: (q: number, text: string, playerId?: string, outcome?: PassOutcome) => void; onShoot?: () => void }) {
+// unhurried: a set piece. There is no clock on the choice.
+export function PassPanel({ options, names, playmaker = 0, passing = 60, vision = 60, splitter = false, unhurried = false, picked, onDone, onShoot }: { options: PassOption[]; names: Record<string, string>; playmaker?: number; passing?: number; vision?: number; splitter?: boolean; unhurried?: boolean; picked?: string | null; onDone: (q: number, text: string, playerId?: string, outcome?: PassOutcome) => void; onShoot?: () => void }) {
   const LIMIT = BASE_LIMIT + 0.6 * playmaker;
   const [done, setDone] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export function PassPanel({ options, names, playmaker = 0, passing = 60, vision 
     if (picked && !done) setTimeout(() => choose(options.find((o) => o.playerId === picked)), 0);
   });
   useEffect(() => {
-    if (t >= LIMIT && !done) setTimeout(() => choose([...options].sort((a, b) => a.openness - b.openness)[0], true), 0);
+    if (!unhurried && t >= LIMIT && !done) setTimeout(() => choose([...options].sort((a, b) => a.openness - b.openness)[0], true), 0);
   });
 
   if (scene) {
@@ -72,7 +73,7 @@ export function PassPanel({ options, names, playmaker = 0, passing = 60, vision 
     return scene.o.kind === 'through' ? <ThroughBallScene passing={passing} vision={vision} window={extra + (splitter ? 0.5 : 0)} onDone={end} /> : <CrossScene crossing={passing} window={extra} onDone={end} />;
   }
 
-  const left = Math.max(0, 1 - t / LIMIT);
+  const left = unhurried ? 1 : Math.max(0, 1 - t / LIMIT);
   return (
     <View style={{ gap: 8 }}>
       <View style={{ height: 8, backgroundColor: colors.bg, borderRadius: 4, overflow: 'hidden' }}>

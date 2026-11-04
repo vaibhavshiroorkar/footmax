@@ -133,6 +133,12 @@ Scenes reuse the callout layer, which already sat over the pitch, so layout neve
 changes. The "no pop-up after goals" rule gave way to the user's request for the
 scorer in the middle of the screen. The voice clips are checked by waveform only.
 
+### 14. v1.18.0: set pieces (2026-11-04)
+
+One flow for all three: the stoppage, a scene, the setup by the laws, then the
+user's decision with no clock. The header became three parts in two inputs, where
+one tap both times the jump and aims it, to keep it quick on a phone.
+
 ## Decisions that still hold
 
 | Decision | Why |

@@ -2,6 +2,18 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.18.0
+
+- Set pieces have a short scene and then no clock on your decision. For a penalty
+  the players clear the box. For a free kick the wall forms and the referee marks
+  the distance. For a corner both teams crowd the box.
+- Free kicks: shoot it or cross it, in your own time.
+- Corners are yours to play. If you take them, pick your man and swing it in. If
+  not, attack the ball, or wait on the edge of the box for it to drop.
+- Headers are reworked. Read the ball's shadow and pick your run: near post,
+  penalty spot or far post. Then one tap does the rest: when you tap times the
+  jump, and where you tap aims it. A marker goes up with you.
+
 ## 1.17.0
 
 - Goals put the scorer in the middle of the screen doing their celebration, in

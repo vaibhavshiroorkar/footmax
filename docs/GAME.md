@@ -186,7 +186,16 @@ moments to play, not a wall of information.
   - penalties, and free kicks with a choice: shoot it, or cross it into
     the box (the pass options become crosses); both start from a foul on
     the user shown on the pitch;
-  - headers from crosses and corners;
+  - corners (`cornerMoment`): the best passer takes them. If that is the user he
+    picks his man and delivers it; otherwise he attacks the ball or waits on the
+    edge of the box for a shot;
+  - every set piece opens with a short scene (`src/ui/stage/SetPieceIntro.tsx`,
+    about 2.6 s, tap to skip), then there is no clock on the decision;
+  - headers (`HeaderGame`): pick a run (near post, penalty spot, far post) by
+    reading the ball's shadow, then one tap times the jump and aims it (left,
+    middle or right of the goal). A marker goes up too: `judgeHeader` weighs the
+    jump, the run, height and strength against him. A won header is played
+    out against the keeper by `flyShot`, as a shot is;
   - passes picked on the pitch, where options light up as rings, safe to
     dangerous, with a Shoot button too; a safe ball arrives about 85% of
     the time, a through ball about 65%, better passers more; a safe pass

@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.17.0. Next: v1.18.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.18.0. Next: v1.19.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -41,7 +41,7 @@ The 41-point request of 2026-11-04, word for word.
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
 | 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | done |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
-| 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | todo |
+| 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | done |
 | 6 | make defenders actually stand in the way instead of random | v1.13.0 | done |
 | 7 | apply proper rules and constraints of football | v1.16.0 | done |
 | 8 | show avatar when celebrating like in the middle of the screen, same for referee calls, make a model for referee | v1.17.0 | done |
@@ -57,16 +57,16 @@ The 41-point request of 2026-11-04, word for word.
 | 18 | more formation, coaches can dynamically change it in career mode at HT, manager mode user can change | v1.20.0 | todo |
 | 19 | coach can sub you off if you perform poor | v1.20.0 | todo |
 | 20 | make goalkeeper rush you faster | v1.11.0 | done |
-| 21 | show proper penalty winning moment and everyone on the pitch standing outside like a short cutscene before you switch to the penalty spot and take your time to take the shot | v1.18.0 | todo |
-| 22 | freekick should be pass or shoot and also short cutscene and take your time | v1.18.0 | todo |
-| 23 | same for corner like the other 2 setpiece, short cutscene and user interaction | v1.18.0 | todo |
+| 21 | show proper penalty winning moment and everyone on the pitch standing outside like a short cutscene before you switch to the penalty spot and take your time to take the shot | v1.18.0 | done |
+| 22 | freekick should be pass or shoot and also short cutscene and take your time | v1.18.0 | done |
+| 23 | same for corner like the other 2 setpiece, short cutscene and user interaction | v1.18.0 | done |
 | 24 | sometimes let a goal happen and it gets called for VAR or offside or ref sees foul, etc | v1.16.0 | done |
 | 25 | make sure the rules apply to all players properly, constraints should always apply | v1.16.0 | done |
 | 26 | the ball should touch the model and deflect, it cant be saved if it doesnt touch but make sure this doesnt mean the ball always goes in, it should make keeper model actually interact properly instead of static rotation of keeper body | v1.15.0 | done |
 | 27 | the ball can deflect out for corner or something as well | v1.15.0 | done |
 | 28 | maybe add voice of refree shouting PENALTY or saying freekick like that | v1.17.0 | done |
 | 29 | all the players should remain in context and continuity when any event happens so if 3 players are in front, it should be accurate to ur position if u shoot. | v1.13.0 | done |
-| 30 | rework header interaction, it's mid | v1.18.0 | todo |
+| 30 | rework header interaction, it's mid | v1.18.0 | done |
 | 31 | show players avatar when interaction mode instead of circles | v1.14.0 | done |
 | 32 | keep energy out of 100 | v1.11.0 | done |
 | 33 | keep rest beside defensive intead of below | v1.11.0 | done |

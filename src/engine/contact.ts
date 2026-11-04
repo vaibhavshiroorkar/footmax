@@ -73,6 +73,21 @@ export function coverage(skill: number, flight: number, rush = 0): number {
 // The goal width he covers, as a share, for the bar under him in the shot game.
 export const coverageShare = (skill: number, flight: number, rush = 0) => coverage(skill, flight, rush) / GOAL_W;
 
+// Going up for a header. timing: how far off the jump was, as a share of the
+// ball's swing. window: how much leeway height and strength give. marker: how
+// strong the man going up with him is, 0 to 1.
+export function judgeHeader(h: { timing: number; window: number; rightLane: boolean; air: number; marker: number; rand: () => number }): { contact: boolean; quality: number; text: string } {
+  if (h.timing > h.window * 2) return { contact: false, quality: 0, text: 'Mistimed. It goes over your head.' };
+  const timing = Math.max(0, 1 - h.timing / (h.window * 2));
+  // In the wrong place he can only stretch for it.
+  const quality = timing * (h.rightLane ? 1 : 0.4);
+  // The marker goes up too: the better jump wins it.
+  const strength = Math.max(0, Math.min(1, h.air / 99));
+  const won = quality + strength * 0.5 + h.rand() * 0.25 > h.marker + 0.25;
+  if (!won) return { contact: false, quality: 0, text: h.rightLane ? 'The marker gets there first.' : 'Wrong run. The marker has it.' };
+  return { contact: true, quality, text: quality > 0.7 ? 'Bullet header!' : 'Good contact.' };
+}
+
 function normal(rand: () => number): number {
   return Math.sqrt(-2 * Math.log(rand() + 1e-9)) * Math.cos(2 * Math.PI * rand());
 }

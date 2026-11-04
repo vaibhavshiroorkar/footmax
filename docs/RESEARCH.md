@@ -258,6 +258,15 @@ checked by their waveforms only, so a person should judge how they sound.
 Sources: [norman model card](https://huggingface.co/rhasspy/piper-voices/raw/main/en/en_US/norman/medium/MODEL_CARD),
 [Piper](https://github.com/OHF-Voice/piper1-gpl).
 
+## Corners (v1.18.0)
+
+Near-post flick-ons, far-post deliveries with delayed runs and short corners are the
+standard routines, and sources agree on them. No reliable public figures split goals
+by delivery type, so the game does not favour one by data.
+
+Sources: [Guide to Football on corner routines](https://guidetofootball.com/tactics/corner-routines/),
+[Left Back Football on short corners](https://leftbackfootball.com/home/2022/2/1/short-corner-routines-from-around-world-football).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

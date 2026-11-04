@@ -23,6 +23,7 @@ import { LivePitch, PitchTarget } from '../ui/livePitch';
 import { PL, PW, PitchSim } from '../ui/pitchSim';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
+import { SetPiece, SetPieceIntro } from '../ui/stage/SetPieceIntro';
 import { matchKits } from '../ui/moments/Keeper';
 import { LooksContext, MatchLooks, useLooks } from '../ui/rig/Figure';
 import { HAIR_COLORS, HAIR_STYLES, BOOT_COLORS, SKINS } from '../ui/avatar';
@@ -40,6 +41,18 @@ const SPEEDS = [
   { key: '4', label: '4x', ms: 120, mult: 4 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
+
+// Which set piece a moment is, if any.
+function setPieceOf(m: KeyMoment): SetPiece | null {
+  if (m.kind === 'penalty') return 'penalty';
+  if (m.corner) return 'corner';
+  return m.setPiece || m.kind === 'freekick' ? 'freekick' : null;
+}
+
+function introLine(kind: SetPiece, game: Game, m: KeyMoment, club: string): string {
+  const who = shortName(game.world.players[m.actorId]);
+  return kind === 'penalty' ? `Penalty to ${club}. ${who} steps up.` : kind === 'freekick' ? `Free kick. ${who} stands over it.` : `Corner to ${club}.`;
+}
 
 // Who wears what in this match, for every moment game, from the user's side.
 function matchLooks(game: Game, home: [string, string], away: [string, string], side: SideKey): MatchLooks {
@@ -179,7 +192,10 @@ export default function MatchScreen() {
   // A key moment opens when the move that led to it reaches the player.
   // Nothing opens before kick-off.
   const momentOpen = kicked && !!pendingKey && (!watching || readyMoment === pendingKey);
-  const passing = momentOpen && !autoMoments && live?.pending?.kind === 'pass';
+  // A set piece opens with its short scene, once.
+  const [introSeen, setIntroSeen] = useState<string | null>(null);
+  const intro = momentOpen && !autoMoments && !!live?.pending && setPieceOf(live.pending) && introSeen !== pendingKey ? setPieceOf(live.pending) : null;
+  const passing = momentOpen && !intro && !autoMoments && live?.pending?.kind === 'pass';
   const [passPick, setPassPick] = useState<string | null>(null);
   const onMomentReady = () => {
     const sim = simRef.current;
@@ -342,7 +358,14 @@ export default function MatchScreen() {
             <Touchline live={live} side={mySide} onChanges={() => setChanging(true)} />
           )}
         </View>
-        {momentOpen && !autoMoments && !passing && live.pending && (
+        {intro && live.pending && (
+          <View style={[styles.overlay, { top: 0 }]}>
+            <Card glow={colors.gold}>
+              <SetPieceIntro kind={intro} line={introLine(intro, game, live.pending, teamById(world, live[live.pending.side].clubId).name)} onDone={() => setIntroSeen(pendingKey)} />
+            </Card>
+          </View>
+        )}
+        {momentOpen && !intro && !autoMoments && !passing && live.pending && (
           <View style={[styles.overlay, { top: 0 }]}>
             <MomentPanel key={pendingKey} game={game} moment={live.pending} getSim={() => simRef.current} />
           </View>
@@ -363,6 +386,7 @@ export default function MatchScreen() {
             playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
             passing={world.players[live.pending.actorId].attrs.passing + (live.shout?.kind === 'call' && live.minute <= live.shout.until ? CALL_PASSING : 0)}
             splitter={hasTechnique(world.players[live.pending.actorId], 'splitter')}
+            unhurried={!!live.pending.setPiece}
             vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
             onShoot={() => {
@@ -989,7 +1013,10 @@ const CHOICES: Record<string, { label: string; hint: string; icon: IconName }> =
   dribble: { label: 'Take him on', hint: 'Beat your man, then choose', icon: 'flash' },
   pass: { label: 'Pass', hint: 'Find a team-mate', icon: 'git-branch' },
   freekick: { label: 'Shoot it', hint: 'Over or round the wall', icon: 'football' },
+  header: { label: 'Attack the ball', hint: 'Into the box for a header', icon: 'arrow-up-circle' },
 };
+// At a corner a shot means waiting on the edge of the box.
+const CORNER_EDGE = { label: 'Edge of the box', hint: 'Wait for it to drop', icon: 'locate' as IconName };
 // A free kick's pass is a ball into the box.
 const SET_PIECE_PASS = { label: 'Cross it in', hint: 'Pick a man in the box', icon: 'arrow-redo' as IconName };
 
@@ -1039,7 +1066,9 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
         ? { title: 'One on one!', icon: base.icon }
         : moment.kind === 'header' && moment.view === 'corner'
           ? { title: 'Corner!', icon: 'flag' as IconName }
-          : moment.setPiece && moment.kind === 'choice'
+          : moment.corner && moment.kind === 'choice'
+            ? { title: 'Corner!', icon: 'flag' as IconName }
+            : moment.setPiece && moment.kind === 'choice'
             ? { title: 'Free kick', icon: 'navigate' as IconName }
             : moment.kind === 'choice' && moment.beaten
               ? { title: moment.beaten > 1 ? 'Two men down!' : 'Past him!', icon: 'flash' as IconName }
@@ -1076,7 +1105,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       {moment.kind === 'choice' && (
         <View style={{ gap: 8 }}>
           {(moment.choices ?? []).map((k: MomentKind) => {
-            const c = moment.setPiece && k === 'pass' ? SET_PIECE_PASS : CHOICES[k];
+            const c = moment.corner && k === 'shot' ? CORNER_EDGE : moment.setPiece && k === 'pass' ? SET_PIECE_PASS : CHOICES[k];
             return (
               <Pressable
                 key={k}
@@ -1101,7 +1130,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
           })}
         </View>
       )}
-      {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
+      {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
         <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
