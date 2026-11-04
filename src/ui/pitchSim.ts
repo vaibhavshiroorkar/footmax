@@ -130,7 +130,7 @@ export class PitchSim {
   ref = { x: PW / 2 + 10, y: PL / 2 - 4, vx: 0, vy: 0 };
   // A dead-ball restart being set up: who takes it, where, and (free kicks
   // near goal) who stands in the wall.
-  setPiece: { kind: Restart; side: 'home' | 'away'; x: number; y: number; wall: string[] } | null = null;
+  setPiece: { kind: Restart; side: 'home' | 'away'; x: number; y: number; wall: string[]; taker?: string | null } | null = null;
   private prevStep: PlayStep | null = null;
   // Each side's offside line this frame (depth in metres from its own goal).
   offsideLine = { home: PL, away: PL };
@@ -283,6 +283,11 @@ export class PitchSim {
   restartClear(step: PlayStep): boolean {
     const opp = this.active().filter((b) => b.side !== step.side && b.pos !== 'GK' && b.down <= 0);
     if (step.restart === 'goalkick') return opp.every((b) => !inBox(b, step.side));
+    if (step.restart === 'penalty') {
+      // Everyone but the kicker and the keeper out of the box and off the mark.
+      const defSide = step.side === 'home' ? 'away' : 'home';
+      return this.active().every((b) => b.id === step.carrier || b.pos === 'GK' || b.down > 0 || (!inBox(b, defSide) && dist(b.x, b.y, this.ball.x, this.ball.y) >= FK_DISTANCE - 0.3));
+    }
     const need = step.restart === 'throw' ? 2 : FK_DISTANCE - 0.3;
     return opp.every((b) => dist(b.x, b.y, this.ball.x, this.ball.y) >= need);
   }
@@ -419,8 +424,8 @@ export class PitchSim {
               .slice(0, 4)
               .map((b) => b.id)
           : [];
-      this.setPiece = { kind: step.restart, side: step.side, x: target.x, y: target.y, wall };
-    } else if (step.act !== 'start' && !(prev?.act === 'start' && prev.restart)) this.setPiece = null;
+      this.setPiece = { kind: step.restart, side: step.side, x: target.x, y: target.y, wall, taker: step.carrier };
+    } else if (step.restart === 'kickoff' || (step.act !== 'start' && !(prev?.act === 'start' && prev.restart))) this.setPiece = null;
     switch (step.act) {
       case 'start':
         if (step.restart) {
@@ -433,7 +438,7 @@ export class PitchSim {
             this.layout = 'kickoff';
             this.kickoffSide = step.side;
           }
-          this.caption = { kickoff: 'Kick off', throw: `Throw-in, ${who} takes it`, corner: `Corner, ${who} to take`, goalkick: 'Goal kick', freekick: `Free kick, ${who} over the ball` }[step.restart];
+          this.caption = { kickoff: 'Kick off', throw: `Throw-in, ${who} takes it`, corner: `Corner, ${who} to take`, goalkick: 'Goal kick', freekick: `Free kick, ${who} over the ball`, penalty: `Penalty! ${who} steps up` }[step.restart];
         } else if (owner !== step.carrier) this.caption = `${who} picks it up`;
         break;
       case 'run':
@@ -743,6 +748,14 @@ export class PitchSim {
         if (!carrier) return done();
         if (this.ball.flight) return;
         const loser = step.other ? this.bodies.get(step.other) : undefined;
+        if (step.advantage) {
+          // He rides it: the referee's arms go out and the attack goes on.
+          if (a.t < 0.3) return;
+          this.callout = { text: 'PLAY ON', sub: 'Advantage', tone: 'stop', until: this.clock + 1.1 };
+          this.caption = `Advantage! ${loser?.name ?? ''} stays on his feet`;
+          this.hooks.onSound?.('whistle', 0.2);
+          return done();
+        }
         // He has to get there: a tackle from afar waits for him to arrive.
         if (dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2 || a.t > 3.6) {
           if (step.act === 'foul') {
@@ -750,9 +763,10 @@ export class PitchSim {
             this.ball.owner = null;
             this.ball.vx = 0;
             this.ball.vy = 0;
-            this.callout = { text: 'FOUL', tone: 'stop', until: this.clock + 1.3 };
-            this.hooks.onSound?.('whistle', 0.8);
-            this.caption = `Foul by ${carrier.name}. Free kick.`;
+            const pen = step.restart === 'penalty';
+            this.callout = { text: pen ? 'PENALTY!' : step.handball ? 'HANDBALL' : 'FOUL', tone: 'stop', until: this.clock + (pen ? 1.9 : 1.3) };
+            this.hooks.onSound?.('whistle', pen ? 1 : 0.8);
+            this.caption = pen ? `Penalty! ${carrier.name} brings him down` : step.handball ? `Handball by ${carrier.name}. Free kick.` : `Foul by ${carrier.name}. Free kick.`;
             return pause(1.0);
           }
           if (loser && step.act === 'tackle') loser.down = 0.7;
@@ -777,6 +791,9 @@ export class PitchSim {
       case 'offside': {
         if (this.ball.flight) return;
         if (!a.stage) {
+          // The flag goes up once he is past the line.
+          const man = step.other ? this.bodies.get(step.other) : undefined;
+          if (man && a.t < 4 && (man.side === 'home' ? man.y : PL - man.y) <= this.offsideLine[man.side]) return;
           a.stage = 1;
           this.ball.vx = 0;
           this.ball.vy = 0;
@@ -791,6 +808,26 @@ export class PitchSim {
       case 'save':
       case 'miss': {
         if (this.ball.flight) return;
+        // In the net, but the flag is up or the whistle had gone.
+        if (step.act === 'goal' && step.call) {
+          if (a.stage === 0) {
+            a.stage = 6;
+            a.t = 0;
+            this.ball.owner = null;
+            this.caption = `${this.name(a.from)} puts it away...`;
+            this.hooks.onSound?.('goal', 0.5);
+            return;
+          }
+          if (a.stage === 6) {
+            if (a.t < 0.9) return;
+            a.stage = 1;
+            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', until: this.clock + 1.6 * HOLD };
+            this.caption = step.call === 'flag' ? 'The flag is up. No goal.' : 'The referee had blown. No goal.';
+            this.hooks.onSound?.('whistle', 0.9);
+            return pause(1.4);
+          }
+          return done();
+        }
         // VAR: hold play while the referee checks the monitor, then call it.
         if (step.act === 'goal' && step.var && a.stage === 0) {
           a.stage = 5;
@@ -1174,6 +1211,8 @@ export class PitchSim {
       if (me && me.side !== this.attacking && dist(me.x, me.y, ball.x, ball.y) < 22) pressing.set(me.id, Math.max(pressing.get(me.id) ?? 0, 0.7));
     }
     const attackers = live.filter((b) => b.side === this.attacking);
+    // The man the next offside call is for.
+    const flagged = [this.act?.step, this.queue[0]].find((st) => st?.act === 'offside')?.other;
     for (const b of list) {
       if (b.leaving && !this.referenced(b.id)) {
         // Off the pitch at the nearest touchline, at a walk.
@@ -1228,9 +1267,28 @@ export class PitchSim {
           t = { x: t.x * 0.5 + mark.x * 0.5, y: t.y * 0.5 + gy * 0.5 };
         }
       }
+      // The taker stands behind the ball, which stays on its spot.
+      if (restarting && sp && sp.kind !== 'throw' && b.id === sp.taker) {
+        t = { x: sp.x, y: sp.y + (sp.side === 'home' ? -0.9 : 0.9) };
+        urgency = 0.7;
+      }
+      // A penalty: everyone but the kicker and the keeper outside the box,
+      // behind the mark, 9.15 m from it. The keeper stands on his line.
+      if (restarting && sp?.kind === 'penalty') {
+        const defSide = sp.side === 'home' ? 'away' : 'home';
+        if (b.pos === 'GK' && b.side === defSide) {
+          t = { x: PW / 2, y: defSide === 'home' ? 0.4 : PL - 0.4 };
+          urgency = 0.9;
+        } else if (b.pos !== 'GK' && b.id !== sp.taker) {
+          // Past the D: outside the box and 9.15 m from the mark.
+          const off = BOX_DEPTH + 4;
+          t = { x: t.x, y: defSide === 'home' ? Math.max(t.y, off) : Math.min(t.y, PL - off) };
+          urgency = 0.9;
+        }
+      }
       // The laws: at a restart the other side stand off the ball (9.15 m
       // at free kicks and corners, out of the box at goal kicks).
-      if (restarting && sp && b.side !== sp.side && !job && b.pos !== 'GK') {
+      if (restarting && sp && sp.kind !== 'penalty' && b.side !== sp.side && !job && b.pos !== 'GK') {
         if (sp.kind === 'goalkick') t = outOfBox(t, sp.side);
         else t = pushOut(t, ball, sp.kind === 'throw' ? 2.5 : FK_DISTANCE + 0.4);
         // Too close: hurry back so the kick can be taken.
@@ -1238,10 +1296,21 @@ export class PitchSim {
       }
       // Offside: off the ball, attackers stay level with the line. Not at a
       // corner, where nobody can be offside.
-      if (this.layout === 'play' && !this.celebrate && this.attacking === b.side && !job && ball.owner !== b.id && b.pos !== 'GK' && !(sp && sp.kind === 'corner')) {
+      // The line holds as he strays, which is what catches him.
+      if (flagged && b.pos !== 'GK' && b.side !== this.attacking) t = { x: t.x, y: b.y };
+      if (b.id === flagged) {
+        // He has strayed: past the line as the ball is played.
+        const beyond = line[b.side] + 1.6;
+        t = { x: t.x, y: b.side === 'home' ? beyond : PL - beyond };
+        urgency = 0.95;
+      } else if (this.layout === 'play' && !this.celebrate && this.attacking === b.side && !job && ball.owner !== b.id && b.pos !== 'GK' && !(sp && sp.kind === 'corner')) {
         const lim = line[b.side] - 0.6;
         const d = b.side === 'home' ? t.y : PL - t.y;
-        if (d > lim) t = { x: t.x, y: b.side === 'home' ? lim : PL - lim };
+        if (d > lim) {
+          t = { x: t.x, y: b.side === 'home' ? lim : PL - lim };
+          // Caught by a line stepping up: he hurries back onside.
+          if ((b.side === 'home' ? b.y : PL - b.y) > lim) urgency = 0.95;
+        }
       }
       // A call is a sprint, not a stroll.
       if (!job && this.focus?.id === b.id && this.focus.shout && this.layout === 'play') urgency = Math.max(urgency, 0.92);

@@ -2,6 +2,18 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.16.0
+
+- The laws, for everyone. Cards come from real fouls, a second yellow is a red, and
+  a red means a ban. Every side can win penalties, and players clear the box for
+  them. If a keeper is sent off, a sub or an outfield player goes in goal. Too few
+  players ends the match.
+- Goals can be taken away: the flag goes up or the referee had already blown. You
+  see the ball go in first.
+- Advantage: the referee can wave play on. Some fouls are handball.
+- The man called offside really is offside.
+- Rules follow the season: VAR only in its own era, and three subs before 2022/23.
+
 ## 1.15.0
 
 - Keepers have to reach the ball. A save only happens if the ball touches

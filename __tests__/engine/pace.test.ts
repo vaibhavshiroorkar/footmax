@@ -119,10 +119,10 @@ describe('calls', () => {
   };
 
   it('Call for it brings more passes, Make a run more shots', () => {
+    const none = count(null);
     const call = count('call');
     const run = count('run');
-    expect(call.pass ?? 0).toBeGreaterThan(run.pass ?? 0);
-    const attacking = (c: typeof run) => (c.shot ?? 0) + (c.header ?? 0) + (c.dribble ?? 0);
-    expect(attacking(run)).toBeGreaterThan(attacking(call));
+    expect(call.pass ?? 0).toBeGreaterThan(none.pass ?? 0);
+    expect(run.shot ?? 0).toBeGreaterThan(none.shot ?? 0);
   });
 });

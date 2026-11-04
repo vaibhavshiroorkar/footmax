@@ -30,7 +30,7 @@ export type PlayAct =
   | 'injury';
 
 // How play restarts after a stoppage.
-export type Restart = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'freekick';
+export type Restart = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'freekick' | 'penalty';
 
 export interface PlayStep {
   // Ball position: x across (0..1), y from the home goal (0) to the away goal (1).
@@ -67,6 +67,12 @@ export interface PlayStep {
   // A goal VAR checks before it counts, and what it decides.
   var?: 'stands' | 'overturned';
   varReason?: string;
+  // Ruled out on the spot with no review.
+  call?: 'flag' | 'foul';
+  // A foul the referee lets go, because the attack carries on.
+  advantage?: boolean;
+  // A foul that was a handball.
+  handball?: boolean;
   // A 'card' step: which one.
   card?: 'yellow' | 'red';
 }
@@ -394,7 +400,9 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
   } else if (ending === 'tackle' && defender) {
     add(near(), defender, 'tackle', { other: holder }, def.key);
   } else if (ending === 'foul' && defender) {
-    add(near(), defender, 'foul', { other: holder, restart: 'freekick' }, att.key);
+    // In their half with the attack still on, the referee waves play on.
+    if (depth > 0.45 && rng.chance(0.3)) add(here(), defender, 'foul', { other: holder, advantage: true }, att.key);
+    else add(near(), defender, 'foul', { other: holder, restart: 'freekick', handball: rng.chance(0.08) || undefined }, att.key);
   } else if (ending === 'offside') {
     const runner = outfield.filter((id) => role(id) === 'FWD')[0] ?? outfield[0];
     if (runner) add(pos(rng.range(0.84, 0.9), clamp((spots[runner]?.lat ?? 0.5) + rng.range(-0.1, 0.1), 0.2, 0.8)), null, 'offside', { other: runner, restart: 'freekick' }, def.key);
@@ -425,7 +433,7 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
     steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var, shotBy: side });
   } else if (facts?.var === 'overturned') {
     // In the net, then VAR rules it out: a free kick to the defenders.
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, restart: 'freekick', shotBy: side });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, call: facts.call, restart: 'freekick', shotBy: side });
   } else if (result === 'save') {
     // About a third are tipped round the post or over: a corner.
     const tipped = facts ? !!facts.tipped : rng.chance(0.33);

@@ -254,7 +254,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       for (const id of live[side].onPitch) {
         const p = world.players[id];
         if (!p) continue;
-        infos.push({ id, side, spot: spots[id] ?? { depth: 0.5, lat: 0.5 }, pos: p.position, pace: p.attrs.pace, name: `#${live.numbers?.[id] ?? ''} ${shortName(p)}` });
+        infos.push({ id, side, spot: spots[id] ?? { depth: 0.5, lat: 0.5 }, pos: id === live[side].standIn ? 'GK' : p.position, pace: p.attrs.pace, name: `#${live.numbers?.[id] ?? ''} ${shortName(p)}` });
       }
     }
     sim.sync(infos);

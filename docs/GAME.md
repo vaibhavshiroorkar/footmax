@@ -101,6 +101,26 @@ moments to play, not a wall of information.
     skeleton with two-bone IK, so a hand goes to a target or stops at full
     stretch, and elbows and knees only bend away from the body. The user's
     figure has their look. `LooksContext` carries who wears what.
+- **Laws by season** (`src/engine/laws.ts`): VAR exists only from the season each
+  league brought it in (2017/18 Serie A and Bundesliga, 2018/19 LaLiga and Ligue
+  1, 2019/20 elsewhere). Subs are 3 a match before 2022/23 and 5 after.
+- **Fouls and cards:** the side without the ball commits them, mostly defenders and
+  midfielders, and a booked man backs off. A second yellow is a red. A straight red
+  bans for three games, two yellows for one; the ban is served, and sent-off
+  players cannot return. If a keeper goes, a sub keeper comes on if one can, or the
+  best outfield player goes in goal. A side down to six is abandoned: the other
+  side wins by at least 3-0.
+- **Penalties:** any side can win one. The best taker takes it, which is the user if
+  he is the best; a genuine attempt at the ball is a yellow, anything else a red.
+  Everyone but the kicker and keeper leaves the box, stands 9.15 m from the mark,
+  and the keeper stands on his line.
+- **Advantage and handball:** a foul in their half with the attack on can be waved
+  on (PLAY ON). Some fouls are handball.
+- **Offside on the pitch:** off the ball, attackers hold the line. The man the
+  engine calls offside really does stray past it first.
+- **Goals taken away:** a goal can be ruled out on the spot by the flag or because
+  the referee had blown (about 4% of goals), in any season. The ball goes in, the
+  crowd rises, then NO GOAL.
 - **VAR:** about 8% of goals (not penalties) are checked. The ball goes
   in, play holds, VAR CHECK shows and the referee goes to a monitor at the
   touchline. Then GOAL (it stands, the celebration plays and the feed says

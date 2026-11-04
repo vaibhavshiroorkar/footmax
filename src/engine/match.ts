@@ -7,6 +7,7 @@ import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { ShotEnd } from './contact';
+import { CARD_PER_MINUTE, FLAG_CALL, FOUL_CALL, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
 import { PlayOutcome, PlayStart, PlayStep, Positions, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
 
@@ -140,6 +141,8 @@ export interface MatchEvent {
 
 export interface MatchSide {
   clubId: string;
+  // An outfield player in goal, after the keeper was sent off with no sub left.
+  standIn?: string;
   onPitch: string[];
   bench: string[];
   usedIds: string[];
@@ -182,6 +185,11 @@ export interface MatchState {
   minutes: Record<string, number>;
   cameOn: Record<string, number>;
   pending: KeyMoment | null;
+  // The laws of this season (see laws.ts).
+  laws: Laws;
+  // Bookings so far, and everyone sent off with their ban in games.
+  yellows: Record<string, number>;
+  sentOff: Record<string, number>;
   // Knockout games go to penalties when level.
   knockout: boolean;
   penaltyWinner?: string;
@@ -224,7 +232,7 @@ export interface MatchState {
 }
 
 const MAX_MOMENTS = 12;
-const BASE_CHANCE = 0.215;
+const BASE_CHANCE = 0.197;
 const SUB_MINUTES = [60, 70, 80];
 
 const STYLE_MOD: Record<Style, { mid: number; chance: number; concede: number; finish: number }> = {
@@ -275,6 +283,9 @@ export function createMatch(world: World, fixture: Fixture, focus: MatchFocus, s
     minutes: {},
     cameOn: {},
     pending: null,
+    laws: lawsFor(world.season, teamById(world, fixture.homeId).nationId),
+    yellows: {},
+    sentOff: {},
     knockout: !!fixture.stage && fixture.stage !== 'Group',
     moments: 0,
     focus,
@@ -335,6 +346,7 @@ export function sideStrength(world: World, side: MatchSide) {
 }
 
 function keeperOf(world: World, side: MatchSide): Player {
+  if (side.standIn && side.onPitch.includes(side.standIn)) return world.players[side.standIn];
   const ps = players(world, side.onPitch);
   return ps.find((p) => p.position === 'GK') ?? ps.sort((a, b) => b.attrs.goalkeeping - a.attrs.goalkeeping)[0];
 }
@@ -412,10 +424,22 @@ function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Play
   const keeper = keeperOf(world, s[other(sideKey)]);
   if (s.visual && facts && kind !== 'penaltyGoal') {
     const vr = new Rng(s.rngState);
-    const review = vr.chance(VAR_REVIEW);
+    // The officials can take it away on the spot, in any season.
+    const roll = vr.next();
+    const call = roll < FLAG_CALL ? 'flag' : roll < FLAG_CALL + FOUL_CALL ? 'foul' : undefined;
+    // VAR only exists in its own era.
+    const review = !call && s.laws.var && vr.chance(VAR_REVIEW);
     const out = review && vr.chance(VAR_OVERTURN);
     const reason = vr.pick(VAR_REASONS);
     s.rngState = vr.state;
+    if (call) {
+      side.onTarget++;
+      bump(s, shooter.id, -0.1);
+      const why = call === 'flag' ? 'Offside' : 'A foul by the attacker';
+      push(s, s.minute, sideKey, 'miss', call === 'flag' ? `The flag is up. ${shortName(shooter)}'s goal is ruled out for offside.` : `The referee had blown for a foul. ${shortName(shooter)}'s goal does not count.`, shooter.id, played);
+      s.events[s.events.length - 1].shot = { ...facts, var: 'overturned', varReason: why, call };
+      return;
+    }
     if (out) {
       // In the net, but it does not count. The pitch shows the check and
       // the decision; the event is a miss with the reason.
@@ -1132,7 +1156,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
 
 export function makeSub(world: World, s: MatchState, sideKey: SideKey, outId: string, inId: string): boolean {
   const side = s[sideKey];
-  if (side.subsUsed >= 5 || !side.onPitch.includes(outId) || !side.bench.includes(inId)) return false;
+  if (side.subsUsed >= s.laws.maxSubs || !side.onPitch.includes(outId) || !side.bench.includes(inId)) return false;
   side.onPitch = side.onPitch.map((id) => (id === outId ? inId : id));
   side.bench = side.bench.filter((id) => id !== inId);
   side.usedIds.push(inId);
@@ -1386,6 +1410,14 @@ export function stepMinute(world: World, s: MatchState): void {
     finishMatch(world, s, rng);
     return;
   }
+  const short = tooFew(s);
+  if (short) {
+    const win = other(short);
+    s[win].goals = Math.max(s[win].goals, s[short].goals + 3);
+    push(s, s.minute, null, 'info', `The referee abandons the match: ${teamById(world, s[short].clubId).name} are down to too few players.`);
+    finishMatch(world, s, rng);
+    return;
+  }
 
   aiSubs(rng, world, s, 'home');
   aiSubs(rng, world, s, 'away');
@@ -1424,7 +1456,23 @@ export function stepMinute(world: World, s: MatchState): void {
     (firstThere ? 1.8 : 1) *
     BASE_CHANCE * (att.attack / def.defense) ** 1.6 * STYLE_MOD[s[attKey].style].chance * STYLE_MOD[s[defKey].style].concede;
 
-  if (rng.chance(chanceP)) {
+  const chance = rng.chance(chanceP);
+  if (chance && rng.chance(PENALTY_PER_CHANCE) && s[defKey].onPitch.length) {
+    // Brought down in the box: a penalty, whoever it is for.
+    const taker = penaltyTaker(world, s[attKey]);
+    const fouler = concedePenalty(rng, world, s, defKey);
+    if (taker.id === s.focus.playerId && s.moments < MAX_MOMENTS) {
+      s.pending = { side: attKey, minute: s.minute, keeperId: keeperOf(world, s[defKey]).id, bonus: 0, kind: 'penalty', actorId: taker.id };
+      s.moments++;
+      s.rngState = rng.state;
+      visualize(world, s, attKey, start, { result: 'moment', shooterId: taker.id });
+      setPieceLead(world, s, attKey, s.pending);
+      return;
+    }
+    autoPenalty(rng, world, s, attKey, taker, fouler.id);
+    s.rngState = rng.state;
+    return;
+  } else if (chance) {
     s.ball = { x: rng.range(0.3, 0.7), y: forward(rng.range(0.84, 0.92)) };
     const shooter = pickShooter(rng, world, s, s[attKey]);
     const assister = pickAssister(rng, world, s, s[attKey], shooter);
@@ -1464,21 +1512,12 @@ export function stepMinute(world: World, s: MatchState): void {
 
   // Cards and injuries. The pitch shows each one (see withIncident).
   let incident: Incident | null = null;
-  if (rng.chance(0.035)) {
-    const side = s[rng.chance(0.5) ? 'home' : 'away'];
-    const sideKey: SideKey = side === s.home ? 'home' : 'away';
-    const p = world.players[rng.pick(side.onPitch)];
-    const red = rng.chance(0.05);
-    incident = { kind: 'card', id: p.id, side: sideKey, red };
-    if (red) {
-      side.onPitch = side.onPitch.filter((id) => id !== p.id);
-      s.minutes[p.id] = s.minute;
-      bump(s, p.id, -1.5);
-      push(s, s.minute, sideKey, 'red', line(rng, 'red', { p: shortName(p) }), p.id);
-    } else {
-      bump(s, p.id, -0.2);
-      push(s, s.minute, sideKey, 'card', line(rng, 'yellow', { p: shortName(p) }), p.id);
-    }
+  // A bookable foul is committed by the side without the ball.
+  if (rng.chance(CARD_PER_MINUTE) && s[defKey].onPitch.length) {
+    const pool = players(world, s[defKey].onPitch);
+    // A booked player backs off.
+    const p = rng.weighted(pool, pool.map((x) => FOUL_WEIGHT[x.position] * (s.yellows[x.id] ? 0.2 : 1)));
+    incident = caution(rng, world, s, defKey, p, rng.chance(STRAIGHT_RED));
   }
   if (rng.chance(0.0012)) {
     const sideKey: SideKey = rng.chance(0.5) ? 'home' : 'away';
@@ -1501,6 +1540,103 @@ export function stepMinute(world: World, s: MatchState): void {
 }
 
 type Incident = { kind: 'card'; id: string; side: SideKey; red: boolean } | { kind: 'injury'; id: string; side: SideKey };
+
+// Who gives away fouls: defenders and midfielders far more than keepers.
+const FOUL_WEIGHT: Record<Position, number> = { GK: 0.1, DEF: 3, MID: 3, FWD: 1.2 };
+
+// Books a player, or sends him off for a straight red or a second yellow.
+function caution(rng: Rng, world: World, s: MatchState, sideKey: SideKey, p: Player, straight: boolean): Incident {
+  const yellows = (s.yellows[p.id] ?? 0) + (straight ? 0 : 1);
+  s.yellows[p.id] = yellows;
+  if (straight || yellows >= 2) {
+    sendOff(rng, world, s, sideKey, p, straight, !straight);
+    return { kind: 'card', id: p.id, side: sideKey, red: true };
+  }
+  bump(s, p.id, -0.2);
+  push(s, s.minute, sideKey, 'card', line(rng, 'yellow', { p: shortName(p) }), p.id);
+  return { kind: 'card', id: p.id, side: sideKey, red: false };
+}
+
+// Off he goes. A side needs a keeper: a sub if one can come on, otherwise the
+// best outfield player goes in goal.
+export function sendOff(rng: Rng, world: World, s: MatchState, sideKey: SideKey, p: Player, straight: boolean, second = false): void {
+  const side = s[sideKey];
+  const keeper = keeperOf(world, side).id === p.id;
+  side.onPitch = side.onPitch.filter((id) => id !== p.id);
+  s.minutes[p.id] = s.minute;
+  s.sentOff[p.id] = banFor(straight);
+  bump(s, p.id, -1.5);
+  push(s, s.minute, sideKey, 'red', second ? `Second yellow! ${shortName(p)} is sent off.` : line(rng, 'red', { p: shortName(p) }), p.id);
+  if (!keeper || !side.onPitch.length) return;
+  side.standIn = undefined;
+  const cover = players(world, side.bench).find((x) => x.position === 'GK');
+  const outfield = players(world, side.onPitch).sort((a, b) => (s.ratings[a.id] ?? 6) - (s.ratings[b.id] ?? 6));
+  s.rngState = rng.state;
+  if (cover && outfield.length && makeSub(world, s, sideKey, outfield[0].id, cover.id)) {
+    rng.state = s.rngState;
+    return;
+  }
+  rng.state = s.rngState;
+  side.standIn = players(world, side.onPitch).sort((a, b) => b.attrs.goalkeeping - a.attrs.goalkeeping)[0]?.id;
+}
+
+// A side below seven cannot go on: the match stops, and the side still on
+// the pitch gets at least a 3-0 win.
+function tooFew(s: MatchState): SideKey | null {
+  return s.home.onPitch.length < MIN_PLAYERS ? 'home' : s.away.onPitch.length < MIN_PLAYERS ? 'away' : null;
+}
+
+// The best taker on the side, on shooting and nerve.
+function penaltyTaker(world: World, side: MatchSide): Player {
+  const ps = players(world, side.onPitch).filter((p) => p.position !== 'GK');
+  return [...(ps.length ? ps : players(world, side.onPitch))].sort((a, b) => b.attrs.shooting + b.attrs.composure - (a.attrs.shooting + a.attrs.composure))[0];
+}
+
+// A foul in the box. Trying for the ball is a yellow, anything else a red.
+function concedePenalty(rng: Rng, world: World, s: MatchState, defKey: SideKey): Player {
+  const pool = players(world, s[defKey].onPitch);
+  const fouler = rng.weighted(pool, pool.map((x) => (x.position === 'DEF' ? 4 : x.position === 'GK' ? 1 : x.position === 'MID' ? 2 : 0.3)));
+  caution(rng, world, s, defKey, fouler, rng.chance(PENALTY_RED));
+  return fouler;
+}
+
+// A penalty the user is not taking. It plays out on the pitch like any other.
+function autoPenalty(rng: Rng, world: World, s: MatchState, attKey: SideKey, taker: Player, foulerId: string) {
+  const side = s[attKey];
+  const keeper = keeperOf(world, s[other(attKey)]);
+  side.shots++;
+  const skill = (taker.attrs.shooting + taker.attrs.composure) / 2 - keeper.attrs.goalkeeping;
+  const scored = rng.chance(clamp(0.77 + skill / 500, 0.62, 0.9));
+  const saved = !scored && rng.chance(0.68);
+  const result = scored ? 'goal' : saved ? 'save' : 'miss';
+  const f = decideShot(rng, result, { penalty: true });
+  const vars = { p: shortName(taker), k: shortName(keeper) };
+  if (scored) {
+    s.rngState = rng.state;
+    recordGoal(world, s, attKey, taker, undefined, 'penaltyGoal', false, f);
+    rng.state = s.rngState;
+  } else {
+    if (saved) {
+      side.onTarget++;
+      bump(s, keeper.id, 0.4);
+    }
+    bump(s, taker.id, -0.2);
+    push(s, s.minute, attKey, saved ? 'save' : 'miss', saved ? saveLine(rng, f, vars) : missLine(rng, f, vars), taker.id);
+    s.events[s.events.length - 1].shot = f;
+  }
+  if (!s.visual) return;
+  const v = new Rng(playSeed(s.rngState, s.minute, s.events.length + 5));
+  const spot = toPitch(attKey, { depth: 0.895, lat: 0.5 });
+  const foulAt = toPitch(attKey, { depth: v.range(0.9, 0.95), lat: v.range(0.35, 0.65) });
+  const steps: PlayStep[] = [
+    { ...foulAt, carrier: taker.id, side: attKey, act: 'run' },
+    { ...foulAt, carrier: foulerId, side: attKey, act: 'foul', other: taker.id, restart: 'penalty' },
+    { ...spot, carrier: taker.id, side: attKey, act: 'start', restart: 'penalty' },
+  ];
+  addFinish(steps, v, attKey, taker.id, result, keeper.id, false, f);
+  s.play = steps;
+  s.ball = { x: clamp(spot.x, 0, 1), y: clamp(spot.y, 0, 1) };
+}
 
 // Shows a card or an injury in the minute's move. A card follows a foul by
 // that player (a free kick to the other side) unless the move ended with a
@@ -1542,8 +1678,8 @@ function setPieceLead(world: World, s: MatchState, attKey: SideKey, m: KeyMoment
   const fouler = closest(rng, s, defs, foulAt);
   const lead: PlayStep[] = [
     { ...foulAt, carrier: m.actorId, side: attKey, act: 'run' },
-    { ...foulAt, carrier: fouler, side: attKey, act: 'foul', other: m.actorId, restart: 'freekick' },
-    { ...spot, carrier: m.actorId, side: attKey, act: 'start', restart: 'freekick' },
+    { ...foulAt, carrier: fouler, side: attKey, act: 'foul', other: m.actorId, restart: m.kind === 'penalty' ? 'penalty' : 'freekick' },
+    { ...spot, carrier: m.actorId, side: attKey, act: 'start', restart: m.kind === 'penalty' ? 'penalty' : 'freekick' },
     { ...spot, carrier: m.actorId, side: attKey, act: 'moment' },
   ];
   s.play = [...steps.slice(0, at), ...lead];
@@ -1675,6 +1811,8 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
     }
   }
   for (const [id, weeks] of Object.entries(s.injuries)) world.players[id].injuryWeeks = Math.max(world.players[id].injuryWeeks, weeks);
+  // The week's recovery takes one off straight after this match.
+  for (const [id, games] of Object.entries(s.sentOff)) world.players[id].suspendedWeeks = Math.max(world.players[id].suspendedWeeks ?? 0, games + 1);
 }
 
 export function quickSim(world: World, fixture: Fixture, seed: number): MatchState {

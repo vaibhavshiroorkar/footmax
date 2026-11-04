@@ -121,6 +121,12 @@ plays the shot forward against the keeper's body, so a save needs a touch by
 construction, and a test proves it. Rebounds added a little scoring, so their boost
 was held down to keep league goals near 2.6.
 
+### 12. v1.16.0: laws (2026-11-04)
+
+Cards had been random and penalties existed only for the user. Everything now goes
+through `laws.ts`, tuned to real rates, and rules follow the season. Second yellows
+ran far too high until booked players backed off, as real ones do.
+
 ## Decisions that still hold
 
 | Decision | Why |

@@ -979,7 +979,7 @@ function Touchline({ live, side, onChanges }: { live: MatchState; side: SideKey;
           );
         })}
       </View>
-      <Button label={`Substitutions (${5 - me.subsUsed} left)`} icon="swap-vertical" small variant="secondary" onPress={onChanges} />
+      <Button label={`Substitutions (${live.laws.maxSubs - me.subsUsed} left)`} icon="swap-vertical" small variant="secondary" onPress={onChanges} />
     </View>
   );
 }
@@ -1146,7 +1146,7 @@ function HalfTimePanel({ game, live, side, title = 'Half time team talk', doneLa
         <Icon name="chatbubbles" size={20} color={colors.blue} />
         <H2>{title}</H2>
       </Row>
-      <T muted>Change your approach or make substitutions ({5 - me.subsUsed} left).</T>
+      <T muted>Change your approach or make substitutions ({live.laws.maxSubs - me.subsUsed} left).</T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {STYLES.map((s) => (
           <Choice key={s.key} half active={me.style === s.key} label={s.label} sub={s.hint} onPress={() => mutateLive((m) => (m[side].style = s.key))} />
@@ -1167,7 +1167,7 @@ function HalfTimePanel({ game, live, side, title = 'Half time team talk', doneLa
         icon="swap-vertical"
         small
         variant="secondary"
-        disabled={!outId || !inId || me.subsUsed >= 5}
+        disabled={!outId || !inId || me.subsUsed >= live.laws.maxSubs}
         onPress={() => {
           mutateLive((m, g) => makeSub(g.world, m, side, outId!, inId!));
           setOutId(null);

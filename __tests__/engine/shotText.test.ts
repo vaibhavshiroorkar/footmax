@@ -26,7 +26,7 @@ describe('feed lines match the pitch', () => {
           expect(end.act).toBe('goal');
           expect(end.var).toBe('overturned');
           expect(end.restart).toBe('freekick');
-          expect(shot.text).toMatch(/VAR/);
+          expect(shot.text).toMatch(f.call ? /flag|referee/ : /VAR/);
           continue;
         }
         expect(end.act).toBe(shot.type);

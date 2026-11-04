@@ -32,6 +32,8 @@ for (const [hi, lo] of [[95, 75], [85, 75], [80, 75]]) {
     const home = i % 2 === 0;
     const f: Fixture = { id: `g${i}`, week: 1, homeId: home ? a.id : b.id, awayId: home ? b.id : a.id, played: false, homeGoals: 0, awayGoals: 0, scorers: [] };
     const s = quickSim(world, f, 1000 + i);
+    // No weeks pass here, so bans and knocks would pile up and thin the squads.
+    for (const id of [...a.playerIds, ...b.playerIds]) Object.assign(world.players[id], { suspendedWeeks: 0, injuryWeeks: 0 });
     const mine = home ? s.home.goals : s.away.goals;
     const theirs = home ? s.away.goals : s.home.goals;
     gf += mine;

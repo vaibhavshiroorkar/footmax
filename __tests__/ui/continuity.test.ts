@@ -3,7 +3,7 @@ import { chooseMoment, placeMoment, resolveMoment } from '../../src/engine/match
 import { teamById } from '../../src/engine/lineup';
 import { moveToShow, stepWatched } from '../../src/engine/pace';
 import { PlayStep, formationSpots } from '../../src/engine/play';
-import { PL, PW, PitchSim } from '../../src/ui/pitchSim';
+import { PL, PW, PitchSim, inBox } from '../../src/ui/pitchSim';
 
 // Plays a match the way the screen does and watches what is on the pitch.
 function watch(seed: number, onFrame: (sim: PitchSim, half: boolean) => void, onMoment?: (sim: PitchSim, actor: string) => void) {
@@ -93,6 +93,67 @@ describe('continuity on the pitch', () => {
       checked++;
     });
     expect(checked).toBeGreaterThan(0);
+  });
+});
+
+describe('the laws at set pieces', () => {
+  const lineup = () => {
+    const sim = new PitchSim();
+    const info = (id: string, side: 'home' | 'away', depth: number, lat: number, pos: 'GK' | 'DEF' | 'MID' | 'FWD') => ({ id, side, spot: { depth, lat }, pos, pace: 70, name: id });
+    sim.sync([
+      info('taker', 'home', 0.7, 0.5, 'FWD'),
+      info('h1', 'home', 0.72, 0.3, 'FWD'),
+      info('h2', 'home', 0.72, 0.7, 'FWD'),
+      info('hk', 'home', 0.04, 0.5, 'GK'),
+      info('a1', 'away', 0.15, 0.3, 'DEF'),
+      info('a2', 'away', 0.15, 0.5, 'DEF'),
+      info('a3', 'away', 0.15, 0.7, 'DEF'),
+      info('ak', 'away', 0.04, 0.5, 'GK'),
+    ]);
+    sim.layout = 'play';
+    return sim;
+  };
+
+  it('clears everyone for a penalty and puts the keeper on his line', () => {
+    const sim = lineup();
+    Object.assign(sim.bodies.get('a2')!, { x: PW / 2 + 2, y: PL - 8 });
+    Object.assign(sim.bodies.get('h1')!, { x: PW / 2 - 3, y: PL - 7 });
+    Object.assign(sim.ball, { x: PW / 2, y: PL - 11, owner: 'taker' });
+    Object.assign(sim.bodies.get('taker')!, { x: PW / 2, y: PL - 11 });
+    sim.enqueue([{ x: 0.5, y: 1 - 11 / PL, carrier: 'taker', side: 'home', act: 'start', restart: 'penalty' }]);
+    let seen = false;
+    for (let f = 0; f < 900 && !seen; f++) {
+      const act = sim.act;
+      sim.update(1 / 30);
+      if (act && !sim.act && act.step.restart === 'penalty') {
+        seen = true;
+        for (const b of sim.bodies.values()) {
+          if (b.id === 'taker' || b.pos === 'GK') continue;
+          expect(inBox(b, 'away')).toBe(false);
+          expect(Math.hypot(b.x - PW / 2, b.y - (PL - 11))).toBeGreaterThanOrEqual(8.8);
+        }
+        expect(Math.abs(sim.bodies.get('ak')!.y - PL)).toBeLessThan(1.2);
+      }
+    }
+    expect(seen).toBe(true);
+  });
+
+  it('flags a man who really is offside', () => {
+    const sim = lineup();
+    Object.assign(sim.ball, { x: PW / 2, y: 60, owner: 'taker' });
+    Object.assign(sim.bodies.get('taker')!, { x: PW / 2, y: 60 });
+    Object.assign(sim.bodies.get('h1')!, { x: 24, y: 80 });
+    sim.attacking = 'home';
+    sim.enqueue([{ x: 0.5, y: 60 / PL, carrier: 'taker', side: 'home', act: 'start' }, { x: 0.5, y: 0.9, carrier: null, side: 'away', act: 'offside', other: 'h1', restart: 'freekick' }]);
+    let beyond: boolean | null = null;
+    for (let f = 0; f < 900 && beyond === null; f++) {
+      sim.update(1 / 30);
+      if (sim.callout?.text === 'OFFSIDE') {
+        const ys = [...sim.bodies.values()].filter((b) => b.side === 'away').map((b) => b.y).sort((p, q) => q - p);
+        beyond = sim.bodies.get('h1')!.y > ys[1];
+      }
+    }
+    expect(beyond).toBe(true);
   });
 });
 

@@ -225,6 +225,27 @@ voice's model card and the engine's own repo in v1.17.0.
 4-3-3, 4-2-3-1 and 4-4-2 are confirmed as widely used. Sources for 4-1-4-1, 5-3-2,
 3-4-2-1 and 4-4-1-1 gave no role detail, so that research stays open for v1.20.0.
 
+## Rates and law dates (v1.16.0)
+
+| Measure | Real | Source quality |
+| --- | --- | --- |
+| Yellows a match | 4.19 (2024/25: 1,591 in 380) | Good |
+| Reds a match | 0.14 (52 in 380) | Good |
+| Penalties scored a match | 0.22 to 0.25 | Good |
+| Fouls a match | About 22.8 | Medium |
+| Offsides a match | About 2.8 | Weak |
+
+Law 3: a match cannot start or continue with fewer than seven on a side. A keeper
+sent off must be replaced by a sub or an outfield player. The VAR start seasons are
+confirmed for the big five. The 2022/23 date for five subs and the abandoned-match
+score are from general knowledge, not a checked source.
+
+Sources: [Extratime 2024/25](https://extratime.com/stats/2129/2287/premier-league/),
+[OLBG on referees](https://www.olbg.com/blogs/men-middle-premier-league-referee-performances),
+[Worldmetrics](https://worldmetrics.org/football-match-statistics/),
+[IFAB Law 3](https://theifab.com/laws/latest/the-players),
+[ESPN on VAR in Europe](https://global.espn.com/football/story/_/id/37501924/how-var-performed-la-liga-serie-bundesliga-ligue-1-mls-season).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

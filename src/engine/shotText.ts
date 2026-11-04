@@ -33,6 +33,8 @@ export interface ShotFacts {
   // A goal VAR looked at: it stands, or it is ruled out (and why).
   var?: 'stands' | 'overturned';
   varReason?: string;
+  // Ruled out on the spot, by the flag or the referee, with no review.
+  call?: 'flag' | 'foul';
 }
 
 type Names = { p: string; a?: string; k: string; club?: string; d?: string };
@@ -72,7 +74,7 @@ export function goalLine(rng: Rng, f: ShotFacts, v: Names): string {
   if (f.header) finish = rng.pick([`{p} heads it into the ${s} corner!`, `{p} rises highest and nods it in, ${s} side!`]);
   else if (f.penalty) finish = rng.pick([`{p} sends {k} the wrong way. Penalty scored, ${s} side!`, `{p} tucks the penalty into the ${s} corner.`]);
   else if (f.freekick)
-    finish = f.shape === 'curl' ? `{p} curls the free kick round the wall into the ${s} corner!` : f.shape === 'low' ? `{p} drills the free kick under the wall and in!` : `{p} smashes the free kick over the wall and in!`;
+    finish = f.shape === 'curl' ? `{p} curls the free kick round the wall into the ${s} corner!` : f.shape === 'low' ? `{p} drills the free kick under the wall, ${s} side!` : `{p} smashes the free kick over the wall, ${s} side!`;
   else if (f.shape === 'curl') finish = rng.pick([`{p} curls it into the ${s} corner!`, `{p} bends one round {k}, ${s} corner!`]);
   else if (f.shape === 'low') finish = rng.pick([`{p} drills it low into the ${s} corner!`, `{p} keeps it down and finds the bottom ${s} corner.`]);
   else finish = rng.pick([`{p} smashes it into the ${s} side of the net!`, `{p} drives it past {k}, ${s} side!`]);
