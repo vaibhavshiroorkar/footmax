@@ -1,5 +1,5 @@
 import { Position } from '../engine/types';
-import { PlayStep, Restart, Spot, toPitch } from '../engine/play';
+import { PlayStep, Restart, Spot, defendingSide, toPitch } from '../engine/play';
 import { CELEBRATIONS, celebrationText } from '../engine/creation';
 
 // A small football simulation for the live pitch. The match engine decides
@@ -476,9 +476,7 @@ export class PitchSim {
         // The keeper facing the shot decides where the ball can go, so the
         // picture always matches the result: a save goes where he can get
         // to, a goal goes beyond his dive, a miss goes wide of the posts.
-        // A goal step names the scoring side; a ruled-out one names the side
-        // that gets the free kick, which is the defending side.
-        const defSide = step.act === 'goal' && step.var !== 'overturned' ? (step.side === 'home' ? 'away' : 'home') : step.side;
+        const defSide = defendingSide(step);
         const keeper = this.active().find((b) => b.pos === 'GK' && b.side === defSide);
         const lineY = defSide === 'home' ? 0 : PL;
         const inward = defSide === 'home' ? 1 : -1;
@@ -995,9 +993,9 @@ export class PitchSim {
       depth = 0.025 + clamp(bd, 0, 0.6) * 0.09;
       lat = 0.5 + (bl - 0.5) * 0.3;
       // They have it near his goal: off his line to narrow the angle.
-      if (!inPossession && this.ball.owner && bd < 0.3) {
-        depth = Math.max(depth, bd * 0.35);
-        lat = 0.5 + (bl - 0.5) * 0.45;
+      if (!inPossession && this.ball.owner && bd < 0.34) {
+        depth = Math.max(depth, bd * 0.5);
+        lat = 0.5 + (bl - 0.5) * 0.6;
       }
       // Never out of his own penalty area in open play.
       depth = Math.min(depth, BOX_DEPTH / PL - 0.01);

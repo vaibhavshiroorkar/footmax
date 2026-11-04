@@ -440,6 +440,9 @@ export function Badge({ club, size = 36 }: { club: Club; size?: number }) {
 }
 
 // Circular rating gauge.
+// The player's own rating, the same size on every screen that shows it.
+export const PLAYER_RING = 56;
+
 export function RatingRing({ value, max = 99, size = 72, color = colors.accent, label = 'OVR', light }: { value: number; max?: number; size?: number; color?: string; label?: string; light?: boolean }) {
   const r = 42;
   const c = 2 * Math.PI * r;

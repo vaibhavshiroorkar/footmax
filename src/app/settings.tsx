@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { MatchSpeed, useSettings } from '../state/settings';
 import { useAuth } from '../state/auth';
-import { Card, Choice, H2, Icon, Row, Screen, T } from '../ui/kit';
+import { useStore } from '../state/store';
+import { Button, Card, Choice, H2, Icon, Row, Screen, T } from '../ui/kit';
 import { alpha, colors, fonts } from '../ui/theme';
 
 const SPEEDS: { key: MatchSpeed; label: string }[] = [
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const s = useSettings();
   const authStatus = useAuth((a) => a.status);
+  const hasGame = useStore((st) => !!st.game);
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -70,6 +72,8 @@ export default function SettingsScreen() {
           </Card>
         </Pressable>
       )}
+
+      {hasGame && <Button label="Quit to menu" sub="Your game is saved" icon="exit-outline" variant="secondary" onPress={() => router.replace('/')} />}
 
       <Row gap={18} style={{ justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.muted, paddingVertical: 10 }} onPress={() => router.push('/legal/privacy')}>

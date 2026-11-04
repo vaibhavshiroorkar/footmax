@@ -47,8 +47,9 @@ moments to play, not a wall of information.
   nation; signing builds that club's league. A ladder (grassroots,
   semi-pro, professional, top flight, elite) shows where he is.
 - **Training:** three sessions a week (28 energy each of 100), each a
-  mini-game whose score sets the gain, or a quick session at 0.9x. A rest
-  day (+20 fitness, 15 energy) sits on the Train screen. Attributes show
+  mini-game or a quick session. Quick gives 1x; Play gives 1x, 2x or 3x for
+  one, two or three stars (`trainingMult`). A rest day (+20 fitness, 15
+  energy) is a tile in the drill grid. Energy shows as a value out of 100. Attributes show
   whole points with a bar filling toward the next one, and a "+1" pops
   when a point lands.
 - **Abilities** (Playmaker, Clinical Finisher...) cost 1 skill point a
@@ -294,8 +295,8 @@ contracts, board and federation confidence, sackings and job offers.
 ## Screens
 
 - Bottom bar: Life, Train, Play (the big middle button), Inbox, Me.
-- Play: the player card (face, club, rating; money, which opens Life, and
-  fame, which opens Club; level bar and win streak), the next match with
+- Play: the player card (face, club, rating; money and fame, which are not
+  buttons; level bar and win streak), the next match with
   Play inside it, then four square shortcuts: Club, Tournaments, Awards,
   Leaderboard. Nothing pops into Play: rewards and the season review are
   on Me, and there are no week chips.
@@ -340,6 +341,8 @@ contracts, board and federation confidence, sackings and job offers.
   which says why when it is locked. Clubs that like you also get in touch
   through the inbox between windows; taking the call grows the
   relationship, so their offer comes sooner.
+- Quit to menu is in Settings, which is the gear on Me and on the manager
+  home. Play has no home button.
 - Me: Settings gear in the header; ladder; fitness, morale, form and
   contract; rewards to claim (the Me tab badge counts them); the season
   review; the two season goals closest to done; Growth (rating now, the

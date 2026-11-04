@@ -1,6 +1,6 @@
 {
   "name": "footmax",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/big-shoulders-display": "^0.2.3",
@@ -54,6 +54,7 @@
     "lint": "expo lint",
     "balance": "tsx scripts/simSeasons.ts",
     "probe": "tsx scripts/careerProbe.ts",
+    "match-probe": "tsx scripts/matchProbe.ts",
     "check-data": "tsx scripts/checkData.ts",
     "check-seasons": "tsx scripts/checkSeasons.ts"
   },

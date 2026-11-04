@@ -92,7 +92,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // angle. Locking the aim freezes him where he got to.
   const [rushAt, setRushAt] = useState<number | null>(null);
   const rushing = kind === 'shot' && !outside;
-  const rush = rushing ? Math.min(1, (rushAt ?? (phase === 'aim' ? t : 0)) / (oneOnOne ? 1.8 : 2.8)) : 0;
+  const rush = rushing ? Math.min(1, (rushAt ?? (phase === 'aim' ? t : 0)) / (oneOnOne ? 1.1 : 1.9)) : 0;
   const kpos = faked === null ? setup.keeper : clamp(setup.keeper + Math.sign(faked - setup.keeper || 1) * 0.22);
   const reach = (faked === null ? 1 : 0.82) * (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.25 : 1) * (1 + range * 0.15) * (1 + rush * 0.35);
   const flight = outside ? 0.85 : FLIGHT;
@@ -128,7 +128,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // Power climbs fast once the aim is set; wait too long and he shoots at
   // full power, which flies over the bar.
   // Seconds for the bar to fill: a good finisher gets a touch more time.
-  const RISE = 0.52 + (shooting / 99) * 0.32;
+  const RISE = 0.62 + (shooting / 99) * 0.38;
   const power = phase === 'power' ? Math.min(1, t / RISE) ** EASE : shot?.power ?? 0;
   // In open play a defender closes in while you pick a spot.
   const aimLimit = kind === 'shot' ? 1.8 + (composure / 99) * 1 : Infinity;

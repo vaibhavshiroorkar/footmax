@@ -59,6 +59,7 @@ npm run lint
 npm run check-data          # unknown nation codes and duplicate players in the database
 npm run balance -- 3 1234   # sim seasons headless: goals per game, winners, save size
 npm run probe -- 6 7        # play a career as an active user would and print progress
+npm run match-probe         # watch seeded matches and print length, caption time and shot checks
 ```
 
 ## Layout

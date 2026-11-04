@@ -79,11 +79,18 @@ export function trainingGain(p: Player, hasTrainer: boolean): number {
   // tapers so the peak arrives in the mid-to-late twenties, not at 21.
   const age = p.age <= 18 ? 1.1 : p.age <= 19 ? 0.9 : p.age <= 21 ? 0.6 : p.age <= 23 ? 0.45 : p.age <= 27 ? 0.35 : p.age <= 30 ? 0.2 : 0.1;
   const room = clamp((p.potential - overall(p)) / 20, 0.03, 1);
-  return 0.26 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
+  return 0.18 * age * room * (hasTrainer ? 1.25 : 1) * (0.85 + (0.3 * p.morale) / 100);
 }
 
-// score is the training mini-game result, 0..1. Quick training uses 0.35.
-export function train(game: Game, drillId: string, score = 0.35): ActionResult & { gains?: Partial<Record<AttrKey, number>>; xp?: number } {
+// How much a session is worth. A quick session is 1x. A played one is 1x, 2x
+// or 3x for the stars it earned, so playing well always beats skipping.
+export function trainingMult(score?: number): number {
+  if (score === undefined) return 1;
+  return score >= 0.8 ? 3 : score >= 0.5 ? 2 : 1;
+}
+
+// score is the training mini-game result, 0..1. Leave it out for a quick session.
+export function train(game: Game, drillId: string, score?: number): ActionResult & { gains?: Partial<Record<AttrKey, number>>; xp?: number } {
   const c = game.career!;
   const drill = DRILLS.find((d) => d.id === drillId);
   const p = careerPlayer(game);
@@ -93,8 +100,7 @@ export function train(game: Game, drillId: string, score = 0.35): ActionResult &
   const rng = new Rng(game.world.rngState);
   c.energy -= drill.energy;
   c.trainedThisWeek++;
-  const mult = 0.6 + 0.9 * Math.max(0, Math.min(1, score));
-  const gain = trainingGain(p, c.items.includes('trainer')) * mult;
+  const gain = trainingGain(p, c.items.includes('trainer')) * trainingMult(score);
   const gains: string[] = [];
   const deltas: Partial<Record<AttrKey, number>> = {};
   for (const k of drill.attrs) {
@@ -105,7 +111,7 @@ export function train(game: Game, drillId: string, score = 0.35): ActionResult &
     gains.push(`${k} +${g.toFixed(1)}`);
   }
   p.fitness = clamp(p.fitness - 4 * (1 - 0.15 * skillLevel(p, 'engine')), 0, 100);
-  const xp = Math.round((c.items.includes('trainer') ? 22 : 15) * (0.7 + score));
+  const xp = Math.round((c.items.includes('trainer') ? 22 : 15) * (0.7 + (score ?? 0.35)));
   let text = `${drill.label}: ${gains.join(', ')}. +${xp} XP.`;
   const lvl = addXp(game, xp);
   recordTraining(game);

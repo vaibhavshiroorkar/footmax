@@ -429,6 +429,14 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
   }
 }
 
+// The side facing a shot. step.side is not always that: on a stoppage it is
+// the side that restarts, so a goal, a tipped save and a deflected miss (all
+// scored by, or restarted by, the attackers) name the attackers instead.
+export function defendingSide(step: Pick<PlayStep, 'act' | 'side' | 'var' | 'restart'>): 'home' | 'away' {
+  const attackers = step.restart === 'corner' || (step.act === 'goal' && step.var !== 'overturned');
+  return attackers ? (step.side === 'home' ? 'away' : 'home') : step.side;
+}
+
 // How the next move starts after this one ended.
 export function nextStart(steps: PlayStep[] | undefined, fallback: { x: number; y: number }): PlayStart {
   const end = steps?.[steps.length - 1];

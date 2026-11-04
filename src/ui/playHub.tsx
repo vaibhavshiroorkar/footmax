@@ -9,7 +9,7 @@ import { leagueOf, tablePosition } from '../engine/league';
 import { ordinal } from '../engine/manager';
 import { teamById } from '../engine/lineup';
 import { Avatar } from './avatar';
-import { Badge, Button, Card, Icon, IconName, RatingRing, Row, haptic } from './kit';
+import { Badge, Button, Card, Icon, IconName, PLAYER_RING, RatingRing, Row, haptic } from './kit';
 import { Claimable, claimReward, claimables } from '../engine/progress';
 import { useStore } from '../state/store';
 import { playSound } from './sound';
@@ -34,8 +34,8 @@ export function winStreak(game: Game): number {
   return n;
 }
 
-// Who you are: face, name, club and rating, then money (tap for Life) and
-// fame (tap for Clubs), then level and streak. One card, nothing else.
+// Who you are: face, name, club and rating, then money and fame, then level
+// and streak. One card, nothing else.
 export function PlayerStrip({ game }: { game: Game }) {
   const router = useRouter();
   const c = game.career!;
@@ -45,6 +45,7 @@ export function PlayerStrip({ game }: { game: Game }) {
   const need = xpForLevel(c.level);
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: club ? teamColor(club.colors) : colors.border }}>
+      <View style={{ gap: 16, paddingVertical: 4 }}>
       <Pressable onPress={() => router.navigate('/career/profile')} accessibilityRole="button" accessibilityLabel={`${fullName(p)}, rated ${overall(p)}. Open your profile.`}>
         <Row gap={12}>
           {c.look && <Avatar look={c.look} number={c.number} kit={club?.colors ?? ['#2f7bff', '#ffffff']} size={54} />}
@@ -59,12 +60,12 @@ export function PlayerStrip({ game }: { game: Game }) {
               </Text>
             </Row>
           </View>
-          <RatingRing value={overall(p)} size={54} />
+          <RatingRing value={overall(p)} size={PLAYER_RING} />
         </Row>
       </Pressable>
-      <Row gap={8}>
-        <Chip icon="wallet" color={colors.gold} value={formatMoney(c.money)} label="Money" onPress={() => router.navigate('/career/life')} />
-        <Chip icon="flame" color={colors.orange} value={String(Math.floor(c.fame))} label="Fame" onPress={() => router.navigate('/career/clubs')} />
+      <Row gap={10}>
+        <Chip icon="wallet" color={colors.gold} value={formatMoney(c.money)} label="Money" />
+        <Chip icon="flame" color={colors.orange} value={String(Math.floor(c.fame))} label="Fame" />
       </Row>
       <Row gap={10}>
         <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.gold }}>LV {c.level}</Text>
@@ -78,28 +79,21 @@ export function PlayerStrip({ game }: { game: Game }) {
           </Row>
         )}
       </Row>
+      </View>
     </Card>
   );
 }
 
-// A value in the player card that opens where it is used.
-function Chip({ icon, color, value, label, onPress }: { icon: IconName; color: string; value: string; label: string; onPress: () => void }) {
+// A value in the player card, for reading only.
+function Chip({ icon, color, value, label }: { icon: IconName; color: string; value: string; label: string }) {
   return (
-    <Pressable
-      onPress={() => {
-        haptic();
-        onPress();
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}`}
-      style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: alpha(color, 0.4), backgroundColor: pressed ? alpha(color, 0.16) : alpha(color, 0.07) })}
-    >
+    <View accessible accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, minWidth: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.bgElev }}>
       <Icon name={icon} size={16} color={color} />
       <Text style={{ flex: 1, fontFamily: fonts.display, fontSize: 20, color: colors.text }} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 10.5, letterSpacing: 1, color: colors.muted }}>{label.toUpperCase()}</Text>
-    </Pressable>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 1, color: colors.muted }}>{label.toUpperCase()}</Text>
+    </View>
   );
 }
 

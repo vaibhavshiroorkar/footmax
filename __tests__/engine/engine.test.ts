@@ -5,7 +5,7 @@ import { createMatch, quickSim, resolveMoment, simToEnd, stepMinute } from '../.
 import { newCareerGame, newManagerGame, skipSummer, skipWeek, startUserMatch, finishUserMatch, starterClubs, starterNations, interruptedMatch, markKickOff, SAVE_VERSION } from '../../src/engine/game';
 import { fullName, overall, seasonRows } from '../../src/engine/player';
 import { MIGRATIONS, deserialize, loadSave, serialize } from '../../src/engine/save';
-import { train, upgradeSkill } from '../../src/engine/career';
+import { train, trainingMult, upgradeSkill } from '../../src/engine/career';
 import { askingPrice, bidFee, loanBid, loanPlayer, movePlayer, offerContract, searchMarket, startNegotiation } from '../../src/engine/transfers';
 import { autoLineup } from '../../src/engine/lineup';
 import { startTournaments, tournamentsForSummer } from '../../src/engine/international';
@@ -452,6 +452,8 @@ describe('progression', () => {
   it('a better mini-game score gives bigger training gains', () => {
     const a = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 52 });
     const b = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 52 });
+    expect(trainingMult()).toBe(1);
+    expect([0.2, 0.6, 0.9].map(trainingMult)).toEqual([1, 2, 3]);
     const low = train(a, 'finishing', 0).gains.shooting;
     const high = train(b, 'finishing', 1).gains.shooting;
     expect(high).toBeGreaterThan(low * 1.8);

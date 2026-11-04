@@ -18,7 +18,7 @@ export default function ManagerHub() {
   const m = game.manager;
   const club = managerClub(game);
   const nation = managerNation(game);
-  const menu = <IconButton icon="home" label="Menu" onPress={() => router.replace('/')} />;
+  const settings = <IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />;
 
   const nav: NavItem[] = [
     ...(club
@@ -42,7 +42,7 @@ export default function ManagerHub() {
   const wages = club ? weeklyWages(game, club) : 0;
 
   return (
-    <Screen title="Manager" back={false} right={menu} nav="manager">
+    <Screen title="Manager" back={false} right={settings} nav="manager">
       <TeamHero
         club={club ?? nation}
         kicker={`Manager  |  ${m.seasonsManaged} season${m.seasonsManaged === 1 ? '' : 's'}  |  ${m.trophies.length} troph${m.trophies.length === 1 ? 'y' : 'ies'}`}

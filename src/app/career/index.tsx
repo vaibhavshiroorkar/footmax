@@ -34,7 +34,7 @@ export default function CareerHub() {
   // One job: play this week's match. Everything else is a tap away, and
   // nothing pops in here: rewards and the season review live on Me.
   return (
-    <Screen title="FootMax" back={false} right={menu} nav="career">
+    <Screen title="FootMax" back={false} nav="career">
       <PlayerStrip game={game} />
       {(p.suspendedWeeks ?? 0) > 0 && (
         <Card glow={colors.red}>

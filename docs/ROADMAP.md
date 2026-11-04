@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.10.0. Next: v1.11.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.11.0. Next: v1.12.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -38,16 +38,16 @@ The 41-point request of 2026-11-04, word for word.
 | --- | --- | --- | --- |
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
 | 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | todo |
-| 2 | make shooting bar rise slightly slower | v1.11.0 | todo |
+| 2 | make shooting bar rise slightly slower | v1.11.0 | done |
 | 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | todo |
-| 4 | fix goalkeeper shooting to other side | v1.11.0 | todo |
+| 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
 | 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | todo |
 | 6 | make defenders actually stand in the way instead of random | v1.13.0 | todo |
 | 7 | apply proper rules and constraints of football | v1.16.0 | todo |
 | 8 | show avatar when celebrating like in the middle of the screen, same for referee calls, make a model for referee | v1.17.0 | todo |
-| 9 | don't make money and fame clickable in play | v1.11.0 | todo |
-| 10 | the card seems too congested, give more space | v1.11.0 | todo |
-| 11 | keep home inside setting as quit | v1.11.0 | todo |
+| 9 | don't make money and fame clickable in play | v1.11.0 | done |
+| 10 | the card seems too congested, give more space | v1.11.0 | done |
+| 11 | keep home inside setting as quit | v1.11.0 | done |
 | 12 | rework the club page | v1.23.0 | todo |
 | 13 | add UCL | v1.22.0 | todo |
 | 14 | when you hit play match, it should show u lineups and allow you to go back or kickoff | v1.12.0 | todo |
@@ -56,7 +56,7 @@ The 41-point request of 2026-11-04, word for word.
 | 17 | players can get angry at each other and commit red card or both commit red card onto each other (during match scene with popup on the screen with models) | v1.19.0 | todo |
 | 18 | more formation, coaches can dynamically change it in career mode at HT, manager mode user can change | v1.20.0 | todo |
 | 19 | coach can sub you off if you perform poor | v1.20.0 | todo |
-| 20 | make goalkeeper rush you faster | v1.11.0 | todo |
+| 20 | make goalkeeper rush you faster | v1.11.0 | done |
 | 21 | show proper penalty winning moment and everyone on the pitch standing outside like a short cutscene before you switch to the penalty spot and take your time to take the shot | v1.18.0 | todo |
 | 22 | freekick should be pass or shoot and also short cutscene and take your time | v1.18.0 | todo |
 | 23 | same for corner like the other 2 setpiece, short cutscene and user interaction | v1.18.0 | todo |
@@ -68,16 +68,16 @@ The 41-point request of 2026-11-04, word for word.
 | 29 | all the players should remain in context and continuity when any event happens so if 3 players are in front, it should be accurate to ur position if u shoot. | v1.13.0 | todo |
 | 30 | rework header interaction, it's mid | v1.18.0 | todo |
 | 31 | show players avatar when interaction mode instead of circles | v1.14.0 | todo |
-| 32 | keep energy out of 100 | v1.11.0 | todo |
-| 33 | keep rest beside defensive intead of below | v1.11.0 | todo |
-| 34 | make ovr of play and trian same size, inconsistencies should never happen | v1.11.0 | todo |
-| 35 | 1x for quick train, 3x for play train | v1.11.0 | todo |
+| 32 | keep energy out of 100 | v1.11.0 | done |
+| 33 | keep rest beside defensive intead of below | v1.11.0 | done |
+| 34 | make ovr of play and trian same size, inconsistencies should never happen | v1.11.0 | done |
+| 35 | 1x for quick train, 3x for play train | v1.11.0 | done |
 | 36 | ability tree should have it's own navigation with large tree with branches for each role, remove weakfoot from selection screen and make it part of tree, make tree larger with more variety. | v1.21.0 | todo |
 | 37 | alternate position can unlock multiple psoitions | v1.21.0 | todo |
 | 38 | ability tree is based on level point and requirement of attribute level | v1.21.0 | todo |
 | 39 | skill moves can be kept to train and it wiill train in X amount of weeks, it costs money instead of points | v1.21.0 | todo |
 | 40 | increasing physical can make u have more energy for training, add unique stuff like this | v1.21.0 | todo |
-| 41 | remove done for week button | v1.11.0 | todo |
+| 41 | remove done for week button | v1.11.0 | done |
 
 ## Rules changed by the 41-point request
 
@@ -139,8 +139,8 @@ question is training balance for request 35, which `npm run probe` answers.
   wrong-goal shots, so every later version can compare numbers.
 - **4:** 17% of finishes fly at the wrong goal. `PitchSim` reads `step.side` as
   the defending side, but on tipped saves and deflected misses `addFinish` sets
-  it to the attackers, because they take the corner. Add a field that names the
-  shooting side, and read that.
+  it to the attackers, because they take the corner. `defendingSide()` in
+  `play.ts` now works it out from the restart.
 - **2:** the bar's fill time goes from 0.52-0.84 s to about 0.62-1.0 s (1.2x).
   Bands stay the same.
 - **20:** the keeper's rush time goes from 2.8 s to 1.9 s, and from 1.8 s to
@@ -157,8 +157,9 @@ question is training balance for request 35, which `npm run probe` answers.
 - **34:** the ring is 54 on Play and 56 on Train. Use one shared size, then sweep
   for other mismatches.
 - **35:** Quick gives 1x. Play gives 1x, 2x or 3x for one, two or three stars.
-  Today Quick gives about 0.9x and Play tops out at 1.5x, so top growth doubles.
-  If careers peak too early, scale the base gain down and keep the ratio.
+  Literal 3x took a 16-year-old to 78 in one season, so the base gain came down
+  from 0.26 to 0.18. All three-star training now reaches elite around 19 or 20,
+  and Quick alone around 21 or 22.
 - **41:** remove the button.
 
 **Done when:** a test proves every shot flies at the goal its shooter attacks,

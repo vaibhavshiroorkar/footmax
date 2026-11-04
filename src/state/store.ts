@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Game } from '../engine/types';
+import { newCareerGame, startUserMatch } from '../engine/game';
 import { MatchState } from '../engine/match';
 import { loadErrorText, loadSave, serialize } from '../engine/save';
 import { DataPack } from '../data/pack';
@@ -272,4 +273,5 @@ export function useGame(): Game | null {
 // Dev builds expose the store so browser tests can set up game states.
 if (__DEV__ && typeof window !== 'undefined') {
   (window as unknown as { __footmax: typeof useStore }).__footmax = useStore;
+  (window as unknown as { __footmaxDev: object }).__footmaxDev = { newCareerGame, startUserMatch };
 }

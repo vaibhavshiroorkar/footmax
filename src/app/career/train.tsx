@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { SkillsBody } from './skills';
 import { useGame, useStore } from '../../state/store';
-import { Button, Card, Icon, IconName, RatingRing, Row, Screen, StatBar, Sticker, T, Tabs } from '../../ui/kit';
+import { Button, Card, Icon, IconName, PLAYER_RING, RatingRing, Row, Screen, StatBar, Sticker, T, Tabs } from '../../ui/kit';
 import { readyMoves, upgradeCount } from '../../engine/alerts';
 import { GameFor } from '../../ui/training/games';
 import { AttrRow, AttributeGrid } from '../../ui/attributes';
@@ -110,7 +110,6 @@ function ResultView({ r, onClose }: { r: Result; onClose: () => void }) {
 
 export default function Train() {
   const game = useGame();
-  const router = useRouter();
   const mutate = useStore((s) => s.mutate);
   const [playing, setPlaying] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -128,9 +127,9 @@ export default function Train() {
   const drills = drillsFor(p);
   const nearCap = overall(p) >= p.potential - 1;
   const w = weightsFor(p);
-  const sessionsLeft = Math.floor(c.energy / (drills[0]?.energy ?? 40));
 
-  const run = (drillId: string, score: number, overlay: boolean) => {
+  // score: the mini-game's result, or nothing for a quick session.
+  const run = (drillId: string, score: number | undefined, overlay: boolean) => {
     const d = drills.find((x) => x.id === drillId)!;
     const before: Partial<Record<AttrKey, number>> = {};
     for (const k of d.attrs) before[k] = p.attrs[k];
@@ -145,7 +144,7 @@ export default function Train() {
     const after: Partial<Record<AttrKey, number>> = {};
     for (const k of d.attrs) after[k] = p.attrs[k];
     const xp = r.xp ?? 0;
-    const res = { drill: drillId, score, before, after, ovrBefore, ovrAfter: overall(p), xp };
+    const res = { drill: drillId, score: score ?? 0, before, after, ovrBefore, ovrAfter: overall(p), xp };
     if (overlay) setResult(res);
     setLast(`${LOOK[drillId].game}: ${d.attrs.map((k) => `${ATTR_LABELS[k]} +${((after[k] ?? 0) - (before[k] ?? 0)).toFixed(2)}`).join(', ')}, +${res.xp} XP`);
   };
@@ -180,12 +179,12 @@ export default function Train() {
               </T>
             ) : null}
           </View>
-          <RatingRing value={overall(p)} size={56} />
+          <RatingRing value={overall(p)} size={PLAYER_RING} />
         </Row>
         <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
         <Row gap={18}>
           <View style={{ flex: 1 }}>
-            <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${sessionsLeft} left`} />
+            <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${Math.round(c.energy)}/100`} />
           </View>
           <View style={{ flex: 1 }}>
             <StatBar label="Fitness" value={p.fitness} color={p.fitness < 50 ? colors.red : colors.green} />
@@ -226,31 +225,36 @@ export default function Train() {
                   </Row>
                   <Row gap={6}>
                     <Button label="Play" icon="game-controller" small style={{ flex: 3 }} disabled={disabled} onPress={() => start(d.id)} />
-                    <Button label="Quick" small variant="secondary" style={{ flex: 2 }} disabled={disabled} onPress={() => run(d.id, 0.35, false)} />
+                    <Button label="Quick" small variant="secondary" style={{ flex: 2 }} disabled={disabled} onPress={() => run(d.id, undefined, false)} />
                   </Row>
                 </View>
               );
             })}
-          </View>
-          {/* Rest: fitness back, at the cost of some energy. */}
-          <Row gap={10} style={{ padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card }}>
-            <Sticker icon="bed" color={colors.teal} size={36} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.text }}>Rest day</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }}>+20 fitness  |  15 energy</Text>
+            {/* Rest sits in the grid: fitness back, for some energy. */}
+            <View style={{ flexBasis: '47%', flexGrow: 1, padding: 12, gap: 8, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card }}>
+              <Row gap={10}>
+                <Sticker icon="bed" color={colors.teal} size={36} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.display, fontSize: 17, color: colors.text, lineHeight: 19 }} numberOfLines={2}>
+                    Rest day
+                  </Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
+                    +20 fitness, 15 energy
+                  </Text>
+                </View>
+              </Row>
+              <Button
+                label="Rest"
+                small
+                variant="secondary"
+                disabled={c.energy < 15 || p.fitness >= 100}
+                onPress={() => {
+                  const r = mutate((g) => lifeAction(g, 'rest'));
+                  setLast(r.text);
+                }}
+              />
             </View>
-            <Button
-              label="Rest"
-              small
-              variant="secondary"
-              disabled={c.energy < 15 || p.fitness >= 100}
-              onPress={() => {
-                const r = mutate((g) => lifeAction(g, 'rest'));
-                setLast(r.text);
-              }}
-            />
-          </Row>
-          {sessionsLeft === 0 && <Button label="Done for the week" icon="football" variant="secondary" onPress={() => router.replace('/career')} />}
+          </View>
         </>
       )}
 

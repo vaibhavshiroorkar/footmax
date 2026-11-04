@@ -2,6 +2,19 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.11.0
+
+- Fixed: tipped saves and deflected shots flew at the wrong goal, about one
+  shot in six.
+- The shot bar rises a little slower. The keeper rushes you faster.
+- Training: Quick gives 1x. Play gives 1x, 2x or 3x for its stars. The base
+  gain came down, so playing well matters more and careers still build up.
+- Rest sits in the training grid. Energy reads out of 100. The Done for the
+  week button is gone.
+- Play: more room in the player card, and money and fame are just numbers
+  now. Home moved into Settings as Quit to menu. The rating is the same size
+  on Play and Train.
+
 ## 1.10.0
 
 - World Cup qualifying for every nation: in the season before a World

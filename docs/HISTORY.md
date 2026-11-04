@@ -86,6 +86,13 @@ The user sent 41 requests after playing v1.10.0, mostly about making the
 match real. All of them are in `ROADMAP.md`, in their own words, with the
 version each one ships in. The research behind the plan is in `RESEARCH.md`.
 
+### 7. v1.11.0: fix and tidy (2026-11-04)
+
+The first version of the roadmap. The wrong-goal shot was the big fix: 17% of
+finishes flew at the wrong goal, and the probe now shows none. Added
+`scripts/matchProbe.ts` so each match version can compare numbers, and a dev
+hook (`window.__footmaxDev`) so a browser check can start a game.
+
 ## Decisions that still hold
 
 | Decision | Why |

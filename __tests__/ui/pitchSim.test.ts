@@ -123,6 +123,41 @@ describe('aimed shots on the pitch', () => {
   });
 });
 
+describe('shots fly at the goal the shooter attacks', () => {
+  // A tipped save and a deflected miss name the attackers, who take the
+  // corner. They once read as the defending side and flew the other way.
+  const flight = (side: 'home' | 'away', step: Partial<PlayStep>) => {
+    const sim = new PitchSim();
+    const other = side === 'home' ? 'away' : 'home';
+    sim.sync([
+      { id: 's', side, spot: { depth: 0.8, lat: 0.5 }, pos: 'FWD', pace: 70, name: 's' },
+      { id: 'k', side: other, spot: { depth: 0.04, lat: 0.5 }, pos: 'GK', pace: 50, name: 'k' },
+      { id: 'mine', side, spot: { depth: 0.04, lat: 0.5 }, pos: 'GK', pace: 50, name: 'mine' },
+    ]);
+    sim.layout = 'play';
+    sim.ball.owner = 's';
+    sim.enqueue([{ x: 0.5, y: side === 'home' ? 1 : 0, carrier: 'k', side, act: 'save', ...step }]);
+    sim.update(0.01);
+    return { ty: sim.ball.flight!.ty, keeper: sim.act?.keeperId };
+  };
+  it.each(['home', 'away'] as const)('for %s, whatever the restart', (side) => {
+    const goal = side === 'home' ? PL : 0;
+    const other = side === 'home' ? 'away' : 'home';
+    const shots: Partial<PlayStep>[] = [
+      { act: 'save', restart: 'corner' },
+      { act: 'miss', restart: 'corner', carrier: null },
+      { act: 'save', side: other },
+      { act: 'miss', side: other, restart: 'goalkick', carrier: null },
+      { act: 'goal', carrier: null },
+    ];
+    for (const shot of shots) {
+      const { ty, keeper } = flight(side, shot);
+      expect(Math.abs(ty - goal)).toBeLessThan(PL / 2);
+      expect(keeper).toBe('k');
+    }
+  });
+});
+
 describe('acting on the ball', () => {
   it('lets the user shoot, pass or dribble from where the ball is', () => {
     const game: Game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 21 });
