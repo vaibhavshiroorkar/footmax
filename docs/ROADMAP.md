@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.18.0. Next: v1.19.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.18.1. Next: v1.19.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance

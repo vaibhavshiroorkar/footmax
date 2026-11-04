@@ -1119,7 +1119,8 @@ export class PitchSim {
       // They have it near his goal: off his line to narrow the angle.
       if (!inPossession && this.ball.owner && bd < 0.34) {
         depth = Math.max(depth, bd * 0.5);
-        lat = 0.5 + (bl - 0.5) * 0.6;
+        // Toward the near post, not out to the wing.
+        lat = 0.5 + (bl - 0.5) * 0.16;
       }
       // Never out of his own penalty area in open play.
       depth = Math.min(depth, BOX_DEPTH / PL - 0.01);

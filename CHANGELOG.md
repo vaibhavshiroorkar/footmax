@@ -2,6 +2,11 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.18.1
+
+- Fixed: on an attack down the wing, keepers wandered far outside their posts.
+  They now cover the near post.
+
 ## 1.18.0
 
 - Set pieces have a short scene and then no clock on your decision. For a penalty
