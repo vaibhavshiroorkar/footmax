@@ -1,7 +1,9 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTicker } from './useTicker';
+import { Bands, powerColor, powerStops, shotHeight, wallSpan } from './shotPower';
 import { KeeperFigure, OutfieldFigure } from './Keeper';
 import { RigFigure, useLooks } from '../rig/Figure';
 import { kick } from '../rig/poses';
@@ -25,18 +27,16 @@ const GOALS: Record<ShotView, { x: number; y: number; w: number; h: number }> = 
   // One on one: the keeper is out at you and fills more of the goal.
   oneonone: { x: 22, y: 12, w: 256, h: 96 },
 };
-// The power bar's bands, as shares of the bar: low up to LOW, mid up to
-// MID, high up to HIGH, then too high (over the bar).
-// Each band is narrower than the one below it, so the good ones are the
-// easiest to miss: LOW 38%, MID 22%, HIGH 16%, then TOO HIGH.
+// Where the power bar's feel changes, as shares of the bar. The bar shows no
+// bands: these only place its colours and the physics (see shotPower.ts).
 const LOW = 0.38;
 const MID = 0.6;
 const HIGH = 0.76;
 // Half the width of goal a blocking defender covers, when the pitch does
 // not say (see Lane).
 const BLOCK_HALF = 0.055;
-// The power bar speeds up as it fills (power = time share ^ EASE), so it
-// crawls through LOW and whips through HIGH. Hitting HIGH takes a sharp tap.
+// The power bar speeds up as it fills (power = time share ^ EASE), so it crawls
+// through the blue and whips through the gold. Stopping it there takes a sharp tap.
 const EASE = 1.7;
 
 // Two taps: the first stops the aim marker, the second the power bar. Then
@@ -63,6 +63,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const oneOnOne = kind === 'shot' && view === 'oneonone';
   // Finesse Shot pushes back where too high starts.
   const bands: Bands = { low: LOW, mid: MID, high: Math.min(0.95, HIGH + 0.03 * finesse) };
+  const stops = powerStops(bands);
   const [phase, setPhase] = useState<'aim' | 'power' | 'flight' | 'done'>('aim');
   const [aim, setAim] = useState(0.5);
   const [shape, setShape] = useState<ShotShape>('driven');
@@ -78,7 +79,6 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     // On the line for a penalty; otherwise where the pitch has him.
     // At a free kick the wall takes one side and he takes the other.
     keeper: kind === 'penalty' ? 0.5 : kind === 'freekick' ? (angle <= 0 ? 0.66 : 0.34) : scene?.keeper ?? 0.32 + Math.random() * 0.36,
-    dive: Math.random() < 0.5 ? -1 : 1,
     kit: kits?.keeper ?? '#22c55e',
     wall: angle <= 0 ? 0.04 : 0.66,
     offset: Math.random() * Math.PI * 2,
@@ -87,6 +87,10 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     // Two normal draws, used for the stray and for where a parry goes.
     stray: Math.sqrt(-2 * Math.log(Math.random() + 1e-9)) * Math.cos(2 * Math.PI * Math.random()),
     parry: Math.random() < 0.5 ? -1 : 1,
+    dive: Math.random() < 0.5 ? -1 : 1,
+    // A penalty keeper stays up the middle now and then, and otherwise goes this far.
+    stays: Math.random() < 0.15,
+    goes: 0.2 + Math.random() * 0.16,
     // How this ball flies: bend on a curler, swerve on a driven shot, and
     // its arc. Random each time, so no two shots look the same.
     bend: 40 + Math.random() * 38,
@@ -132,9 +136,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // full power, which flies over the bar.
   // Seconds for the bar to fill: a good finisher gets a touch more time.
   const RISE = 0.62 + (shooting / 99) * 0.38;
-  // Hold to charge: the bar only fills while the finger is down.
-  const [chargeAt, setChargeAt] = useState<number | null>(null);
-  const power = phase === 'power' ? (chargeAt === null ? 0 : Math.min(1, (t - chargeAt) / RISE) ** EASE) : shot?.power ?? 0;
+  const power = phase === 'power' ? Math.min(1, t / RISE) ** EASE : shot?.power ?? 0;
   // In open play a defender closes in the whole time: while you pick a spot and
   // while you wind up. He puts you off as he gets near.
   const aimLimit = kind === 'shot' ? 2.4 + (composure / 99) * 1.2 : Infinity;
@@ -150,12 +152,12 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       // No shot goes exactly where it was aimed. Better finishers stray less;
       // the weaker foot, distance and an overhit ball stray more.
       // A low shot cannot go over: struck too hard it drags wide instead.
-      const dragged = shape === 'low' && power > bands.high;
+      const drag = shape === 'low' ? Math.max(0, (power - bands.high) / (1 - bands.high)) : 0;
       // Harder is faster but less true, and a man in your face makes it worse.
-      const spread = 0.015 + (1 - (composure + shooting) / 198) * 0.15 + longWeak * 0.1 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + powerStray(power) + pressure * 0.05 + (shape === 'curl' ? 0.012 : 0) + (dragged ? 0.08 : 0);
+      const spread = 0.015 + (1 - (composure + shooting) / 198) * 0.15 + longWeak * 0.1 + (weakFoot ? 0.05 : 0) + (outside ? 0.015 : 0) + range * 0.04 + powerStray(power) + pressure * 0.05 + (shape === 'curl' ? 0.012 : 0) + drag * 0.16;
       const x = aim + setup.stray * spread * longStray;
       const strayed = Math.abs(x - aim) > 0.06;
-      if (dragged) power = bands.high;
+      if (drag > 0) power = bands.high;
       // Into a defender's body: blocked. A curler passes him wide of where it
       // ends up, so it can bend round him; a low one is easier to block.
       const hit = blockers.findIndex((b, i) => Math.abs(blockerX(b, elapsed, i === 0 ? pressure : 0, target) - (shape === 'curl' ? x + curlSide(x) * (curler ? 0.22 : 0.14) * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
@@ -164,11 +166,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       const span = wallSpan(shape, power, bands);
       const wall = kind === 'freekick' && !!span && x >= setup.wall + span[0] && x <= setup.wall + span[1];
       // Hit too hard it clears the bar; a low one stays down whatever the power.
-      const height = shape === 'low' ? 0.12 : power > bands.high ? 1.15 + (power - bands.high) : 0.18 + 0.62 * Math.min(1, power / bands.high);
+      const height = shotHeight(power, shape, bands);
       // The keeper's sums use the real flight; the picture runs a little quicker.
       const dur = Math.max(0.3, Math.min(0.95, flightAt(power) * 0.72));
       // A penalty keeper picks a side on the kick, or stays up the middle.
-      const guess = kind === 'penalty' ? (Math.random() < 0.15 ? 0.5 : 0.5 + setup.dive * (0.2 + Math.random() * 0.16)) : undefined;
+      const guess = kind === 'penalty' ? (setup.stays ? 0.5 : 0.5 + setup.dive * setup.goes) : undefined;
       const run = blocked || wall || lob ? undefined : flyShot({ aim: x, height, flight: flightAt(power), keeper: { at: kpos, skill: keeper, rush, fooled, guess, edge }, curl: shape === 'curl' ? (curler ? 2 : 1.5) : 1, rand: Math.random });
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: kpos }
@@ -176,7 +178,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           ? { outcome: 'miss' as ShotOutcome, text: 'Straight into the wall.', q: 0.08, diveTo: kpos }
           : lob
             ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: kpos }
-            : { outcome: run!.outcome as ShotOutcome, text: lineFor(run!, kind, power, bands), q: run!.outcome === 'goal' ? (power > bands.mid ? 1 : 0.85) : run!.outcome === 'save' ? 0.4 : 0.05, diveTo: run!.keeperTo };
+            : { outcome: run!.outcome as ShotOutcome, text: lineFor(run!, kind, power, bands), q: run!.outcome === 'goal' ? 0.8 + 0.2 * Math.min(1, power / bands.mid) : run!.outcome === 'save' ? 0.4 : 0.05, diveTo: run!.keeperTo };
       if (run?.end === 'wide' && strayed) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
       setShot({ power, blockAt: elapsed, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, run, height, dur, ...r });
       setPhase('flight');
@@ -184,16 +186,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   };
 
   const tap = () => {
-    if (phase !== 'aim') return;
-    setAim(aimX);
-    setRushAt(t);
-    setPhase('power');
-  };
-  const press = () => {
-    if (phase === 'power' && chargeAt === null) setChargeAt(t);
-  };
-  const release = () => {
-    if (phase === 'power' && chargeAt !== null) fire(power);
+    if (phase === 'aim') {
+      setAim(aimX);
+      setRushAt(t);
+      setPhase('power');
+    } else if (phase === 'power') fire(power);
   };
 
   // Out of time: tackled while aiming, or the power maxes out and he shoots.
@@ -208,13 +205,9 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     if (phase === 'aim' && t > aimLimit) {
       timedOut.current = true;
       setTimeout(tackled, 0);
-    } else if (phase === 'power' && chargeAt !== null && t - chargeAt >= RISE) {
+    } else if (phase === 'power' && t >= RISE) {
       timedOut.current = true;
       setTimeout(() => fire(1), 0);
-    } else if (phase === 'power' && chargeAt === null && elapsed > aimLimit + 0.8) {
-      // Stood over it too long: he is on you.
-      timedOut.current = true;
-      setTimeout(tackled, 0);
     }
   });
 
@@ -382,7 +375,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
           )}
         </View>
       )}
-      <Pressable onPress={tap} onPressIn={press} onPressOut={release} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Hold to charge, release to shoot'}>
+      <Pressable onPress={tap} accessibilityRole="button" accessibilityLabel={phase === 'aim' ? 'Lock aim' : 'Strike it'}>
         <View style={{ alignItems: 'center' }}>
           <Svg width="100%" height={190} viewBox={`0 0 ${W} ${H}`}>
             <GoalFrame x={GOAL.x} y={GOAL.y} w={GOAL.w} h={GOAL.h} />
@@ -445,19 +438,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               </View>
             ) : (
               <View style={{ gap: 3 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: colors.accent }}>2. POWER  |  {bandName(power, bands)}</Text>
-                <View style={{ height: 18, flexDirection: 'row', borderRadius: 6, overflow: 'hidden' }}>
-                  {BAND_VIEW.map((b) => {
-                    const from = b.from(bands);
-                    const to = b.to(bands);
-                    return (
-                      <View key={b.label} style={{ width: `${(to - from) * 100}%`, backgroundColor: alpha(b.color, 0.28), alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderColor: colors.bg }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.6, color: b.color }} numberOfLines={1}>
-                          {b.label}
-                        </Text>
-                      </View>
-                    );
-                  })}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1, color: powerColor(power, stops) }}>2. POWER  |  {Math.round((metres / flightAt(power)) * 3.6)} KM/H</Text>
+                <View style={{ height: 18, borderRadius: 6, overflow: 'hidden' }}>
+                  <LinearGradient colors={stops.map((s) => s.color) as [string, string, ...string[]]} locations={stops.map((s) => s.at) as [number, number, ...number[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+                  {/* The part still to come stays dim, so the colour builds as it rises. */}
+                  <View style={{ position: 'absolute', left: `${power * 100}%`, right: 0, top: 0, bottom: 0, backgroundColor: alpha(colors.bg, 0.72) }} />
                   <View style={{ position: 'absolute', left: `${power * 100}%`, top: -2, bottom: -2, width: 4, marginLeft: -2, borderRadius: 2, backgroundColor: '#ffffff' }} />
                 </View>
               </View>
@@ -468,14 +453,12 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               ? outside
                 ? 'Tap to aim: past the defender, away from the keeper.'
                 : oneOnOne
-                  ? `He is rushing out. Be quick!${chip ? ' Tap just into TOO HIGH to chip him.' : ''}`
+                  ? `He is rushing out. Be quick!${chip ? ' Stop the bar just as it turns red to chip him.' : ''}`
                   : blockers.length
                     ? 'Tap to aim past the defender. The keeper comes out if you wait.'
                     : rushing ? 'Tap to aim. He comes off his line if you wait.' : 'Tap to aim.'
               : phase === 'power'
-                ? chargeAt === null
-                  ? 'Hold to charge. Release to strike.'
-                  : 'Harder is faster, but less accurate.'
+                ? 'Tap to strike. Harder is faster, but wilder.'
                 : landed
                   ? shot?.text
                   : ' '}
@@ -568,8 +551,6 @@ function lineFor(run: ShotRun, kind: Kind, power: number, b: Bands): string {
   }
 }
 
-type Bands = { low: number; mid: number; high: number };
-
 // How to strike it. Free for everyone; each trades one thing for another.
 const SHAPES: { id: ShotShape; label: string; hint: string }[] = [
   { id: 'driven', label: 'Driven', hint: 'Hard and true' },
@@ -581,25 +562,4 @@ const SHAPES: { id: ShotShape; label: string; hint: string }[] = [
 // further out than where it ends up: to the right of a right-side target.
 function curlSide(x: number): number {
   return x >= 0.5 ? 1 : -1;
-}
-
-// The part of the wall (from its left end, as shares of the goal) a free
-// kick runs into. A curler goes round the ends; a low one goes into their
-// feet whatever the power; a driven one gets over if hit hard enough.
-// A driven one clears it from HIGH; a curler always bends round the ends.
-function wallSpan(shape: ShotShape, power: number, b: Bands): [number, number] | null {
-  if (shape === 'curl') return [0.06, 0.24];
-  if (shape === 'low') return [0, 0.3];
-  return power <= b.mid ? [0, 0.3] : null;
-}
-
-const BAND_VIEW: { label: string; color: string; from: (b: Bands) => number; to: (b: Bands) => number }[] = [
-  { label: 'LOW', color: colors.blue, from: () => 0, to: (b) => b.low },
-  { label: 'MID', color: colors.green, from: (b) => b.low, to: (b) => b.mid },
-  { label: 'HIGH', color: colors.gold, from: (b) => b.mid, to: (b) => b.high },
-  { label: 'TOO HIGH', color: colors.red, from: (b) => b.high, to: () => 1 },
-];
-
-function bandName(p: number, b: Bands): string {
-  return p < b.low ? 'LOW' : p <= b.mid ? 'MID' : p <= b.high ? 'HIGH' : 'TOO HIGH';
 }

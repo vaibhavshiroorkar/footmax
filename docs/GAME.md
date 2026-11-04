@@ -260,17 +260,17 @@ moments to play, not a wall of information.
   which is violent conduct and a three-game ban. Composure helps. If the user is
   in it he chooses: walk away, which nearly always ends it, or square up, where a
   cool head might get away with it. A scene shows both men and the referee.
-- **Hold to charge:** the power bar only fills while you hold. Harder means faster
-  (`ballSpeed`) but less true (`powerStray`). Passes are weighed the same way: hold
-  and release in the green (`passWeight`). A through ball or cross is held, and let
-  go on the timing, so how long you hold is the weight of the ball.
+- **Power:** a shot is two taps. Harder means faster (`ballSpeed`) but less true
+  (`powerStray`). Passes are held: hold and release in the green (`passWeight`). A
+  through ball or cross is held, and let go on the timing, so how long you hold is
+  the weight of the ball.
 - **Your foot:** you stand to one side of the ball and swing that leg. A curler
   bends best toward the far side from your foot. You see your own side from behind.
 - **Pressure:** with men ahead of you, the nearest runs at you the whole time you
-  aim and charge, adding stray as he gets close. Stand over it too long and he takes
+  aim and strike, adding stray as he gets close. Stand over it too long and he takes
   it. The view shows everyone ahead of you; only men in the lane can block.
 - **Free kick shape:** the wall covers the near side, the keeper the far side.
-- **Shooting:** an aim, then a hold. First pick how to strike it, free for everyone:
+- **Shooting:** two taps, one to aim and one to strike. First pick how to strike it, free for everyone:
   Driven (hard and true), Curl (bends in from outside the post: round a
   defender, into the corners, but slower, so a curler at the keeper gives
   him time) or Low (hard for the keeper to get down to, easier to block,
@@ -282,17 +282,19 @@ moments to play, not a wall of information.
   1. Aim: a marker slides across the goal. In open play a defender closes
      in (a timer under the goal), and the keeper comes off his line the
      longer you wait, so his reach grows.
-  2. Power: a fast bar with four bands, LOW (38%), MID (22%), HIGH (16%)
-     and TOO HIGH: each good band is narrower than the one before, so they
-     are easy to miss. Where you tap sets the power; at the top it shoots
+  2. Power: a fast bar with no bands. Its colour shifts smoothly from blue
+     through green and gold to red, and the readout above it shows the
+     ball's speed in km/h at that point. Tap to strike; at the top it shoots
      itself, over the bar. The bar speeds up as it fills. Shooting sets
      how fast it fills (much slower for a good shooter); composure sets
      how fast the aim marker moves and how long you have to aim.
-     LOW is an easy save. MID is placed (less stray). HIGH is hard to save
-     but strays more. TOO HIGH flies over (just into it chips the keeper
-     in a one on one with the chip move). From distance a LOW or MID shot
-     gives the keeper time to get across (his reach band under him widens
-     as you watch); only HIGH beats him from far.
+     Every point is different (`src/ui/moments/shotPower.ts`). In the blue it
+     is an easy save. Harder is faster but wilder, and the ball rises with
+     power, so the gold is hard to save. Just past it the shot is high under
+     the bar, the hardest to stop, and a little more clears the bar. As it
+     turns red it chips the keeper in a one on one with the chip move. From
+     distance a soft shot gives the keeper time to get across (his reach
+     band under him widens as you watch).
   The ball is then played out against the keeper's body (`src/engine/contact.ts`):
   he reacts late, moves at his speed, and either the ball meets his reach or
   it does not. **No touch, no save.** The bar under him shows what he can cover

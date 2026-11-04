@@ -1,12 +1,12 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.3.0. Nothing is queued. Status keys: `todo`, `doing`, `done`. Findings behind
+v2.4.0. Nothing is queued. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Where it stands
 
-All 41 requests and the second list of 20 are built and live. Four things need a
+All 41 requests and the second list are built and live. Four things need a
 person, not more code:
 
 | What | Why |
@@ -117,7 +117,8 @@ Sent on 2026-11-04 after playing the live game, to follow v2.0.0, word for word.
 | B17 | make player face towards them instead of the camera when interaction | v2.2.0 | done |
 | B18 | show a faint arrow at the start to signify direction of your attack | v2.2.0 | done |
 | B19 | make morale and fitness more affected, low morale can put you into depression and make you retire etc | v2.3.0 | done |
-| B20 | make power dynamic, holding to charge instead of fixed for shooting and passing both | v2.2.0 | done |
+| B20 | make power dynamic, holding to charge instead of fixed for shooting and passing both | v2.2.0 | done (shots went back to tap in v2.4.0, see B21; passes still hold) |
+| B21 | change the shooting to the old one where we have to tap but instead of this low medium high veryhigh, we have a dynamic color transitioning with dynamic power at each point | v2.4.0 | done |
 
 - **v2.1.0, the pitch feels right:** B2, B3, B7, B10, B13. Bugs you can see in play come
   first: the ball through the keeper, the ball jumping to you, floating defenders,

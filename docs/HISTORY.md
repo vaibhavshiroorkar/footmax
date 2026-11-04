@@ -208,6 +208,14 @@ Trap: a shoot-out can end on the user's kick. Nothing ticks after that, so the r
 was never saved until an effect took over from the minute tick. The history page being
 empty is what showed it. `committed` stops a double save.
 
+### 24. v2.4.0: tap to shoot, one colour bar (2026-11-04)
+
+Holding to charge did not feel right for shots, so they went back to two taps. The
+labelled bands went too: the bar now shifts colour and shows ball speed, and the steps
+behind it became smooth curves (height, wall, low-shot drag). Goal rates match the old
+bar up to the sweet spot. Past it there is a narrow window of top-corner shots before
+the ball clears the bar. Passes stayed on hold.
+
 ## Decisions that still hold
 
 | Decision | Why |

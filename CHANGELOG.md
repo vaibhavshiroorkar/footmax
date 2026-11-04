@@ -2,6 +2,14 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.4.0
+
+- Shooting is two taps again: one to aim, one to strike. Long shots too.
+- The power bar has no more LOW, MID and HIGH. Its colour shifts smoothly as it
+  rises, and it shows the ball's speed at that point.
+- Power is smooth all the way up: the ball rises with it, so just under the bar is
+  the hardest shot to stop, and a little more goes over.
+
 ## 2.3.0
 
 - Knockout games level at full time now go to extra time, with one more substitute
