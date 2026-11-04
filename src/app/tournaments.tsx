@@ -125,7 +125,8 @@ function QualifyingCard({ game, teamId }: { game: Game; teamId?: string }) {
   const group = q.groups.find((g) => !!teamId && g.teamIds.includes(teamId)) ?? q.groups[0];
   const name = (id: string) => teamById(world, id).name;
   const played = Math.min(q.round - 1, q.rounds);
-  const through = teamId && q.qualified ? q.qualified.includes(teamId) : null;
+  // Some nations have no team in the draw, so nothing to say about them.
+  const through = teamId && q.qualified && group.teamIds.includes(teamId) ? q.qualified.includes(teamId) : null;
   return (
     <Card>
       <Row style={{ justifyContent: 'space-between' }}>

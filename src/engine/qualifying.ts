@@ -49,7 +49,7 @@ function groupFixtures(world: World, teams: string[]): Fixture[] {
   }
   const rounds = n - 1;
   const all = [...half, ...half.map((m) => ({ home: m.away, away: m.home, round: m.round + rounds }))];
-  return all.map((m) => ({ id: newId(world, 'f'), week: m.round, homeId: m.home, awayId: m.away, played: false, homeGoals: 0, awayGoals: 0, scorers: [], stage: 'Qualifier' }));
+  return all.map((m) => ({ id: newId(world, 'f'), week: m.round, homeId: m.home, awayId: m.away, played: false, homeGoals: 0, awayGoals: 0, scorers: [], stage: 'Qualifier', noShootout: true }));
 }
 
 // Draws qualifying for the World Cup after this season, if there is one
@@ -130,6 +130,8 @@ function userNationTeam(game: Game): string | undefined {
   return game.manager?.nationalTeamId ?? undefined;
 }
 
+const LAST_BREAK = 30;
+
 // Whether this season's breaks hold qualifiers still to play.
 export function qualifyingLive(world: World): boolean {
   const q = world.qualifying;
@@ -144,12 +146,22 @@ export function playQualifyingBreak(game: Game, rng: Rng): void {
   if (!q || !qualifyingLive(world)) return;
   const mine = userNationTeam(game);
   const lines: string[] = [];
-  for (let k = 0; k < 2 && q.round <= q.rounds; k++, q.round++) {
+  // The career player's call-up is his own choice (see offers.ts), so these
+  // matches add nothing to his record.
+  const me = game.career ? world.players[game.career.playerId] : undefined;
+  const record = me ? { caps: me.caps, goals: me.intlGoals } : null;
+  // The last break of the season plays whatever is left, so a late draw finishes.
+  const today = world.week >= LAST_BREAK ? q.rounds : 2;
+  for (let k = 0; k < today && q.round <= q.rounds; k++, q.round++) {
     for (const f of q.fixtures) {
       if (f.week !== q.round || f.played) continue;
       quickSim(world, f, rng.int(1, 2 ** 31));
       if (mine && (f.homeId === mine || f.awayId === mine)) lines.push(`${teamById(world, f.homeId).name} ${f.homeGoals}-${f.awayGoals} ${teamById(world, f.awayId).name}`);
     }
+  }
+  if (me && record) {
+    me.caps = record.caps;
+    me.intlGoals = record.goals;
   }
   if (q.round > q.rounds) finish(world, q);
   if (!mine) return;

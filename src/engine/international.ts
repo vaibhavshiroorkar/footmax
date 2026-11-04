@@ -38,14 +38,15 @@ export function worldCupDef(year: number): TournamentDef {
 // The summer after a season. World Cups in 2010, 2014... (48 teams from
 // 2026), Euros in 2008, 2012... (24 teams from 2016). The smaller cups
 // follow their real calendars: AFCON in even years until 2012, then odd
-// years; the Copa America in odd years until 2019, then with the Euros; the
+// years; the Copa America in the years it was played, then with the Euros; the
 // Nations League Finals from 2019; the Asian Cup in 2007, 2011, 2015...
+const COPA_YEARS = [2007, 2011, 2015, 2016, 2019, 2021];
+
 export function tournamentsForSummer(year: number): TournamentDef[] {
   const out: TournamentDef[] = [];
   if (year % 4 === 2) out.push(worldCupDef(year));
   if (year % 4 === 0) out.push(year >= 2016 ? EURO : EURO_16);
-  if (year % 4 === 0 && year >= 2016) out.push(COPA);
-  if (year % 2 === 1 && year <= 2019) out.push(COPA);
+  if (COPA_YEARS.includes(year) || (year % 4 === 0 && year >= 2024)) out.push(COPA);
   if ((year % 2 === 0 && year <= 2012) || (year % 2 === 1 && year >= 2013)) out.push(AFCON);
   if (year % 4 === 3) out.push(ASIAN);
   if (year % 2 === 1) out.push(GOLD);

@@ -10,6 +10,8 @@ function dribbleMoment(seed: number) {
   const side = s.home.onPitch.includes(p.id) ? 'home' : 'away';
   const other = side === 'home' ? 'away' : 'home';
   const keeperId = s[other].onPitch.find((id) => game.world.players[id].position === 'GK')!;
+  // In the box: a clear run from here is a one on one.
+  s.ball = { x: 0.5, y: side === 'home' ? 0.88 : 0.12 };
   s.pending = { kind: 'dribble', side, minute: 20, actorId: p.id, keeperId, bonus: 0 };
   return { game, s };
 }

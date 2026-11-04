@@ -109,6 +109,9 @@ moments to play, not a wall of information.
 - **Laws by season** (`src/engine/laws.ts`): VAR exists only from the season each
   league brought it in (2017/18 Serie A and Bundesliga, 2018/19 LaLiga and Ligue
   1, 2019/20 elsewhere). Subs are 3 a match before 2022/23 and 5 after.
+- **Qualifiers:** World Cup qualifiers leave club football alone: no fitness cost,
+  knocks or bans carry back. A red card at international level bans no club games.
+  The career player's caps come from his call-up, not the simmed games.
 - **Fouls and cards:** the side without the ball commits them, mostly defenders and
   midfielders, and a booked man backs off. A second yellow is a red. A straight red
   bans for three games, two yellows for one; the ban is served, and sent-off
@@ -523,14 +526,15 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
     (`index.tsx`), Train, Me (`profile.tsx`), Life, Clubs.
   - `src/data/`: nations, leagues and real squads.
 - **Checks before every push:** `npm run typecheck`, `npm run lint`,
-  `npm test`. The tests include whole matches played through the pitch:
+  `npm test`, all of them green, and `npm run balance` after any engine change. The tests include whole matches played through the pitch:
   goals shown exactly once, keepers on the ball for saves, aim sides, the
   laws (`__tests__/ui/rules.test.ts`) and the zone mix
   (`__tests__/engine/zones.test.ts`).
 - **Looking at it in a browser:** `npx expo export --platform web --dev`
-  builds it and keeps the `window.__footmax` store hook; serve the output
-  and drive it with headless Chrome. The dev server here stops seeing
-  edits, so do not rely on it. Always start Chrome with `--mute-audio`.
+  builds it and keeps the `window.__footmax` store hook, then
+  `scripts/webCheck.mjs` serves it and drives muted headless Chrome. The dev server
+  here stops seeing edits, so do not rely on it. `window.__footmaxDev` can start a
+  game. For real performance numbers build with `EXPO_PUBLIC_TEST_HOOK=1`.
 - **Shipping:** commit and push to `main`; Vercel deploys
   footmax.vercel.app. The user wants every change pushed so they can see
   it live, and the docs updated in the same commit (`docs/README.md`).

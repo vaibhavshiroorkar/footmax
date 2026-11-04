@@ -145,7 +145,16 @@ export function nationReview(game: Game): void {
   const team = managerNation(game);
   if (!team) return;
   const t = game.world.tournaments.find((x) => x.teamIds.includes(team.id));
-  if (!t) return;
+  if (!t) {
+    // Missing the World Cup is the worst thing a manager can do.
+    const q = game.world.qualifying;
+    if (q?.qualified && q.year === game.world.season + 1 && !q.qualified.includes(team.id) && q.groups.some((g) => g.teamIds.includes(team.id))) {
+      m.nationConfidence = clamp(m.nationConfidence - 30, 0, 100);
+      addMessage(game, 'national', `${team.name} missed the World Cup`, 'The federation expected better. Confidence has taken a big hit.');
+      if (m.nationConfidence <= 0) m.nationalTeamId = null;
+    }
+    return;
+  }
   const ranked = [...t.teamIds].sort((a, b) => teamRating(game.world, game.world.nationalTeams[b]) - teamRating(game.world, game.world.nationalTeams[a]));
   const seed = ranked.indexOf(team.id) + 1;
   const reached = stageReached(t, team.id);

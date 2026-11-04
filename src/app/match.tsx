@@ -44,6 +44,13 @@ const SPEEDS = [
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
 
+// What the shooter brings to a shot he plays: his finishing, a clear run, and
+// the Poacher technique inside the box.
+function shotEdge(actor: Player, m: KeyMoment): number {
+  const inBox = m.view === 'box' || m.view === 'oneonone';
+  return Math.min(0.3, m.bonus * 0.8 + 0.025 * skillLevel(actor, 'finisher') + (inBox && hasTechnique(actor, 'poacher') ? 0.08 : 0));
+}
+
 // Which set piece a moment is, if any.
 function setPieceOf(m: KeyMoment): SetPiece | null {
   if (m.kind === 'penalty') return 'penalty';
@@ -53,7 +60,7 @@ function setPieceOf(m: KeyMoment): SetPiece | null {
 
 function introLine(kind: SetPiece, game: Game, m: KeyMoment, club: string): string {
   const who = shortName(game.world.players[m.actorId]);
-  return kind === 'penalty' ? `Penalty to ${club}. ${who} steps up.` : kind === 'freekick' ? `Free kick. ${who} stands over it.` : `Corner to ${club}.`;
+  return kind === 'penalty' ? `Penalty! ${who} steps up.` : kind === 'freekick' ? `Free kick. ${who} stands over it.` : `Corner to ${club}.`;
 }
 
 // Who wears what in this match, for every moment game, from the user's side.
@@ -405,10 +412,14 @@ export default function MatchScreen() {
             unhurried={!!live.pending.setPiece}
             vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
-            onShoot={() => {
-              setPassPick(null);
-              mutateLive((m) => shootInstead(m));
-            }}
+            onShoot={
+              live.pending.corner
+                ? undefined
+                : () => {
+                    setPassPick(null);
+                    mutateLive((m) => shootInstead(m));
+                  }
+            }
             onDone={(q, _t, id, outcome) => {
               setPassPick(null);
               mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, { passed: outcome }));
@@ -1157,7 +1168,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
       {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting + (hasTechnique(actor, 'longrange') ? 22 : 0)} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => passInstead(g.world, m))} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && moment.view !== 'long' && (
-        <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+        <ShotGame kind={moment.kind} edge={shotEdge(actor, moment)} scene={scene} kits={shotKit} composure={actor.attrs.composure + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}

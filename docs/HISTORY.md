@@ -168,6 +168,17 @@ drawing a tournament mid-season, and no save migration was needed.
 One long scroll became three tabs, one job each. The roadmap planned a review with the
 user first, but the user said to go ahead, so this is a first cut to judge on the phone.
 
+### 20. v2.0.0: full audit (2026-11-04)
+
+Replayed the tracker, played whole seasons in both modes, and measured a production
+build. The audit caught what per-version tests had not: skipping a halfway-line shot
+scored 16% of the time, because the skip path bypassed the new curve. Every way of
+playing a moment now has a test. A code review across all versions then found ten more
+bugs tests had missed, among them: most Champions League draws double-booked clubs
+(fixed with a proper edge colouring), a "both booked" row sent the fouler off, and
+Poacher did nothing on shots the user played, because a played shot ignores the
+sim's odds. Anything that should help a played shot has to reach `contact.ts`.
+
 ## Decisions that still hold
 
 | Decision | Why |
@@ -184,8 +195,8 @@ user first, but the user said to go ahead, so this is a first cut to judge on th
 | Push every finished change to `main` | The user checks it live on a phone |
 | Each release gets a version bump, a tag and a changelog entry | Keeps what is live easy to trace |
 
-The rule that human figures appear only in moment games changed on
-2026-11-04: see "Rules changed by the 41-point request" in `ROADMAP.md`.
+Human figures were once for moment games only, and goals had no pop-up. Requests 8,
+17 and 31 changed both: see "Rules changed by the 41-point request" in `ROADMAP.md`.
 
 ## Traps already hit
 
@@ -201,5 +212,17 @@ The rule that human figures appear only in moment games changed on
 - `step.side` means different things on different steps: for a stoppage it
   is the side that restarts. Reading it as "the defending side" sent tipped
   saves and deflected shots at the wrong goal (see `RESEARCH.md`).
+- A shot-related rule must cover every path: played, skipped and simmed. They
+  are separate code, so test all three.
+- `pause()` in `PitchSim` ends the step when it runs out. A step with more stages
+  must count on `a.t` instead.
+- A set piece left on `sim.setPiece` affects the next restart: it must be cleared
+  at kick-off, or the taker is pushed off the ball.
+- The pitch uses `Math.random`, so a test on it needs a margin, or several seeds. A
+  single seed breaks when anything changes the random stream.
+- Never ship past a red test. A gate that stops the push on any failure caught
+  three real problems across these versions.
+- In GNU sed, a backslash before a backtick means the start of the buffer. Use a
+  script for edits with backticks.
 - Save data is large, so floats are rounded and attributes stored as arrays.
   Any new save field needs a migration and `SAVE_VERSION` raised.

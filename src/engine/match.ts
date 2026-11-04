@@ -6,7 +6,7 @@ import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
 import { ROLES, isRole, FORMATION_LEAN } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
-import { ShotEnd } from './contact';
+import { ShotEnd, distanceChance } from './contact';
 import { firstLegOf } from './europe';
 import { EXTRA_PASS_VISION } from './perks';
 import { CARD_PER_MINUTE, FLAG_CALL, FLARE_ODDS, FLARE_UP, FOUL_CALL, HEAT_PER_CARD, Laws, MIN_PLAYERS, PENALTY_PER_CHANCE, PENALTY_RED, STRAIGHT_RED, banFor, lawsFor } from './laws';
@@ -108,6 +108,8 @@ export interface KeyMoment {
   metres?: number;
   // A corner: the user takes it, or picks where to be for it.
   corner?: boolean;
+  // A flare-up: the man whose foul started it.
+  fouler?: string;
   // Shots the user takes from far out: 0 is the edge of the box, 1 is long range.
   range?: number;
   // A defending moment in open play with no chance behind it: losing it
@@ -812,7 +814,7 @@ export function takeAction(world: World, s: MatchState, kind: 'shot' | 'pass' | 
   const base = { side, minute: s.minute, keeperId: keeperOf(world, s[other(side)]).id, actorId: id, bonus: 0 };
   if (kind === 'pass') s.pending = { ...base, kind: 'pass', options: passOptions(rng, world, s, side, id) };
   else if (kind === 'dribble') s.pending = { ...base, kind: 'dribble' };
-  else s.pending = { ...base, kind: 'shot', view: (1 - depth) * 105 >= LONG_RANGE ? 'long' : depth > 0.82 ? 'box' : 'outside', metres: (1 - depth) * 105, range: clamp((0.82 - depth) / 0.4, 0, 1) };
+  else s.pending = { ...base, kind: 'shot', ...shotPlace(s, side) };
   s.rngState = rng.state;
   return true;
 }
@@ -820,17 +822,21 @@ export function takeAction(world: World, s: MatchState, kind: 'shot' | 'pass' | 
 // From here on a shot opens the long range scene.
 export const LONG_RANGE = 35;
 
+// Where a shot is from, read off the ball. oneOnOne keeps a clear run on goal.
+function shotPlace(s: MatchState, side: SideKey, oneOnOne = false): Pick<KeyMoment, 'view' | 'metres' | 'range'> {
+  const depth = side === 'home' ? s.ball.y : 1 - s.ball.y;
+  const metres = (1 - depth) * 105;
+  const far = depth <= 0.82;
+  return { metres, range: far ? clamp((0.82 - depth) / 0.4, 0, 1) : 0, view: metres >= LONG_RANGE ? 'long' : far ? 'outside' : oneOnOne ? 'oneonone' : 'box' };
+}
+
 // A moment opens where the ball really is on the pitch. A shot's view and
 // range come from there, not from a roll, so the game matches what you see.
 export function placeMoment(s: MatchState, ball: { x: number; y: number }): void {
   s.ball = { x: clamp(ball.x, 0, 1), y: clamp(ball.y, 0, 1) };
   const m = s.pending;
   if (!m || m.setPiece || (m.kind !== 'shot' && m.kind !== 'choice' && m.kind !== 'dribble')) return;
-  const depth = m.side === 'home' ? s.ball.y : 1 - s.ball.y;
-  const far = depth <= 0.82;
-  m.metres = (1 - depth) * 105;
-  m.view = m.metres >= LONG_RANGE ? 'long' : far ? 'outside' : m.view === 'oneonone' ? 'oneonone' : 'box';
-  m.range = far ? clamp((0.82 - depth) / 0.4, 0, 1) : 0;
+  Object.assign(m, shotPlace(s, m.side, m.view === 'oneonone'));
 }
 
 // The user sees men in the way and passes instead: the shot becomes a pass
@@ -848,8 +854,7 @@ export function passInstead(world: World, s: MatchState): void {
 export function shootInstead(s: MatchState): void {
   const m = s.pending;
   if (!m || m.kind !== 'pass') return;
-  const depth = m.side === 'home' ? s.ball.y : 1 - s.ball.y;
-  s.pending = { ...m, kind: 'shot', options: undefined, assistId: undefined, view: depth > 0.8 ? 'box' : 'outside' };
+  s.pending = { ...m, kind: 'shot', options: undefined, assistId: undefined, ...shotPlace(s, m.side) };
 }
 
 // What the sim would do with a choice: the option that suits the player.
@@ -950,8 +955,10 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
 
   const finish = (pGoal: number, kind: LineKind, missKind: LineKind, assistId?: string) => {
     side.shots++;
-    pGoal += finishBonus(actor, m.kind);
-    const scored = forced ? forced === 'goal' : rng.chance(clamp(pGoal, 0.02, 0.92));
+    // From way out the curve decides alone, down to its own tiny odds.
+    const long = m.view === 'long';
+    if (!long) pGoal += finishBonus(actor, m.kind);
+    const scored = forced ? forced === 'goal' : rng.chance(clamp(pGoal, long ? 0.001 : 0.02, 0.92));
     const how = { header: m.kind === 'header', penalty: m.kind === 'penalty', freekick: m.kind === 'freekick' };
     if (scored) {
       const f = { ...factsFrom(rng, 'goal', user, how), pattern: m.pattern };
@@ -1002,7 +1009,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
       const fight = walk ? (lvl('coolhead') ? 'calm' : rng.weighted(['calm', 'booked'] as const, [0.85, 0.15])) : rng.weighted(['calm', 'booked', 'one', 'both'] as const, [0.15 + calm * 0.3, 0.45, 0.25 - calm * 0.15, 0.15 - calm * 0.08]);
       if (walk) bump(s, actor.id, 0.1);
       // 'one' is the user: he threw the punch.
-      settleFight(rng, world, s, m.side, actor, other(m.side), rival, fight);
+      settleFight(rng, world, s, m.side, actor, other(m.side), rival, fight, m.fouler);
       s.fightShown = fight;
       s.rngState = rng.state;
       break;
@@ -1120,6 +1127,11 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     // Tuned so a skipped moment converts about as often as an AI shot from
     // a player of the same quality; playing the mini-game well beats that.
     case 'shot':
+      // From way out the curve decides, however the moment was played.
+      if (m.view === 'long') {
+        finish(distanceChance(m.metres ?? 45) * (0.5 + (1.1 * actor.attrs.shooting) / 99), 'goal', 'miss', m.assistId);
+        break;
+      }
       // From distance it takes a real shooter.
       finish(0.02 + 0.3 * q * skill(actor.attrs.shooting) - keeperPenalty + m.bonus + 0.025 * lvl('finisher') + (m.view === 'box' || m.view === 'oneonone' ? 0.03 * lvl('poacher') : 0) - (m.view === 'outside' ? (0.06 + 0.14 * (m.range ?? 0)) * (1 - actor.attrs.shooting / 99) : 0), 'goal', q > 0.35 ? 'save' : 'miss', m.assistId);
       break;
@@ -1149,7 +1161,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
         push(s, s.minute, m.side, 'info', now > 1 ? `${shortName(actor)} beats a second man ${how}! The box opens up.` : `${shortName(actor)} beats his man ${how}!`, actor.id, played);
         // Past him: the user picks what comes next. After two men he is
         // clean through, and the chance is bigger for it.
-        s.pending = { ...m, kind: 'choice', choices: now >= 2 ? ['shot', 'pass'] : ['shot', 'pass', 'dribble'], beaten: now, bonus: m.bonus + (now >= 2 ? 0.12 : 0.06), view: 'oneonone', options: undefined };
+        s.pending = { ...m, kind: 'choice', choices: now >= 2 ? ['shot', 'pass'] : ['shot', 'pass', 'dribble'], beaten: now, bonus: m.bonus + (now >= 2 ? 0.12 : 0.06), ...shotPlace(s, m.side, true), options: undefined };
         s.rngState = rng.state;
       } else {
         bump(s, actor.id, -0.1);
@@ -1446,7 +1458,8 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     return toPitch(attKey, { depth: Math.min(0.9, slot.depth + 0.22), lat: slot.lat });
   };
   if (m.kind === 'fight') {
-    const end = { ...start, carrier: m.actorId, other: m.attackerId, side: m.side, act: 'brawl' as const, fight: s.fightShown ?? ('calm' as const) };
+    // The foul that started it still stands: a free kick to the other man's side.
+    const end = { ...start, carrier: m.actorId, other: m.attackerId, side: m.fouler === m.actorId ? other(m.side) : m.side, act: 'brawl' as const, fight: s.fightShown ?? ('calm' as const), restart: 'freekick' as const };
     s.fightShown = undefined;
     s.play = [end];
     return;
@@ -1531,6 +1544,7 @@ export function stepMinute(world: World, s: MatchState): void {
     s.half = 2;
     s.kickoff = 'away';
     s.play = undefined;
+    s.rebound = undefined;
     push(s, 45, null, 'half', `Half time: ${s.home.goals}-${s.away.goals}.`);
     coachReacts(rng, world, s, 'home');
     coachReacts(rng, world, s, 'away');
@@ -1562,7 +1576,7 @@ export function stepMinute(world: World, s: MatchState): void {
   // A loose ball near goal: the side that shot is usually first to it.
   const rebound = s.rebound;
   s.rebound = undefined;
-  const firstThere = !!rebound && rng.chance(0.7);
+  const firstThere = !!rebound && !s.kickoff && rng.chance(0.7);
   const attKey: SideKey = firstThere ? rebound! : rng.chance(pHome) ? 'home' : 'away';
   const defKey = other(attKey);
   s[attKey].possession++;
@@ -1603,7 +1617,7 @@ export function stepMinute(world: World, s: MatchState): void {
       s.moments++;
       s.rngState = rng.state;
       visualize(world, s, attKey, start, { result: 'moment', shooterId: taker.id });
-      setPieceLead(world, s, attKey, s.pending);
+      setPieceLead(world, s, attKey, s.pending, fouler.id);
       return;
     }
     autoPenalty(rng, world, s, attKey, taker, fouler.id);
@@ -1699,7 +1713,7 @@ function flareUp(rng: Rng, world: World, s: MatchState, foulSide: SideKey, foule
   if (me && (victim.id === me || fouler.id === me) && s.moments < MAX_MOMENTS) {
     const rival = victim.id === me ? fouler : victim;
     const mySide = victim.id === me ? otherSide : foulSide;
-    s.pending = { side: mySide, minute: s.minute, keeperId: keeperOf(world, s[other(mySide)]).id, actorId: me, bonus: 0, kind: 'fight', attackerId: rival.id };
+    s.pending = { side: mySide, minute: s.minute, keeperId: keeperOf(world, s[other(mySide)]).id, actorId: me, bonus: 0, kind: 'fight', attackerId: rival.id, fouler: fouler.id };
     s.moments++;
     return 'user';
   }
@@ -1707,18 +1721,20 @@ function flareUp(rng: Rng, world: World, s: MatchState, foulSide: SideKey, foule
   const calm = (fouler.attrs.composure + victim.attrs.composure) / 198;
   const odds = [FLARE_ODDS[0] * (0.6 + calm * 0.8), FLARE_ODDS[1], FLARE_ODDS[2], FLARE_ODDS[3]];
   const fight = rng.weighted(['calm', 'booked', 'one', 'both'] as const, odds);
-  settleFight(rng, world, s, foulSide, fouler, otherSide, victim, fight);
+  settleFight(rng, world, s, foulSide, fouler, otherSide, victim, fight, fouler.id);
   return { a: fouler.id, b: victim.id, fight, side: foulSide };
 }
 
 // The referee's verdict. 'one' sends off a, who started it.
-function settleFight(rng: Rng, world: World, s: MatchState, aSide: SideKey, a: Player, bSide: SideKey, b: Player, fight: NonNullable<PlayStep['fight']>) {
+// booked: the man just cautioned for the foul that started it, who is not
+// cautioned a second time for the same incident.
+function settleFight(rng: Rng, world: World, s: MatchState, aSide: SideKey, a: Player, bSide: SideKey, b: Player, fight: NonNullable<PlayStep['fight']>, booked?: string) {
   const names = `${shortName(a)} and ${shortName(b)}`;
   if (fight === 'calm') push(s, s.minute, null, 'info', `${names} square up, but team-mates pull them apart.`);
   else if (fight === 'booked') {
     push(s, s.minute, null, 'info', `${names} go head to head. The referee books them both.`);
-    caution(rng, world, s, aSide, a, false);
-    caution(rng, world, s, bSide, b, false);
+    if (a.id !== booked) caution(rng, world, s, aSide, a, false);
+    if (b.id !== booked) caution(rng, world, s, bSide, b, false);
   } else {
     push(s, s.minute, null, 'info', fight === 'both' ? `${names} come to blows. Both are sent off!` : `${shortName(a)} lashes out at ${shortName(b)}. Violent conduct.`);
     if (s[aSide].onPitch.includes(a.id)) sendOff(rng, world, s, aSide, a, true);
@@ -1852,7 +1868,7 @@ function withIncident(world: World, s: MatchState, steps: PlayStep[], inc: Incid
 
 // A penalty or a free kick for the user: brought down first, then the ball
 // placed for him (on the spot, or 25 to 30 metres out).
-function setPieceLead(world: World, s: MatchState, attKey: SideKey, m: KeyMoment) {
+function setPieceLead(world: World, s: MatchState, attKey: SideKey, m: KeyMoment, foulerId?: string) {
   const steps = s.play;
   if (!s.visual || !steps?.length) return;
   const at = steps[steps.length - 1].act === 'moment' ? steps.length - 1 : steps.length;
@@ -1860,7 +1876,7 @@ function setPieceLead(world: World, s: MatchState, attKey: SideKey, m: KeyMoment
   const spot = m.kind === 'penalty' ? toPitch(attKey, { depth: 0.895, lat: 0.5 }) : toPitch(attKey, { depth: rng.range(0.7, 0.76), lat: rng.range(0.3, 0.7) });
   const foulAt = m.kind === 'penalty' ? toPitch(attKey, { depth: rng.range(0.9, 0.95), lat: rng.range(0.35, 0.65) }) : spot;
   const defs = s[other(attKey)].onPitch.filter((id) => world.players[id]?.position !== 'GK');
-  const fouler = closest(rng, s, defs, foulAt);
+  const fouler = foulerId ?? closest(rng, s, defs, foulAt);
   const lead: PlayStep[] = [
     { ...foulAt, carrier: m.actorId, side: attKey, act: 'run' },
     { ...foulAt, carrier: fouler, side: attKey, act: 'foul', other: m.actorId, restart: m.kind === 'penalty' ? 'penalty' : 'freekick' },
@@ -1975,6 +1991,9 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
   fixture.scorers = s.scorers;
   fixture.penaltyWinner = s.penaltyWinner;
   const international = !!teamById(world, s.home.clubId).national;
+  // A qualifier in the middle of the club season leaves club football alone:
+  // no tired legs, knocks or bans carried back.
+  const quiet = fixture.stage === 'Qualifier';
   const diff = s.home.goals - s.away.goals;
   for (const side of [s.home, s.away]) {
     const isHome = side === s.home;
@@ -1993,7 +2012,7 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
       }
       const played = (s.minutes[id] ?? 90) - (s.cameOn[id] ?? 0);
       const engine = 1 - 0.15 * skillLevel(p, 'engine');
-      p.fitness = clamp(p.fitness - (played / 90) * (side.style === 'press' ? 24 : 18) * engine, 30, 100);
+      if (!quiet) p.fitness = clamp(p.fitness - (played / 90) * (side.style === 'press' ? 24 : 18) * engine, 30, 100);
     }
     if (international) continue;
     const leaders = side.usedIds.reduce((n, id) => n + skillLevel(world.players[id], 'leader'), 0);
@@ -2002,9 +2021,11 @@ export function commitMatch(world: World, s: MatchState, fixture: Fixture): void
       p.morale = clamp(p.morale + result * 4 + (result > 0 ? Math.min(3, leaders) : 0) + (side.usedIds.includes(id) ? 1 : -1), 10, 100);
     }
   }
+  if (quiet) return;
   for (const [id, weeks] of Object.entries(s.injuries)) world.players[id].injuryWeeks = Math.max(world.players[id].injuryWeeks, skillLevel(world.players[id], 'ironman') ? Math.max(1, weeks - 1) : weeks);
-  // The week's recovery takes one off straight after this match.
-  for (const [id, games] of Object.entries(s.sentOff)) world.players[id].suspendedWeeks = Math.max(world.players[id].suspendedWeeks ?? 0, games + 1);
+  // The week's recovery takes one off straight after a league match. After a
+  // midweek game the league match that week is the first he misses.
+  if (!international) for (const [id, games] of Object.entries(s.sentOff)) world.players[id].suspendedWeeks = Math.max(world.players[id].suspendedWeeks ?? 0, games + (fixture.europe ? 0 : 1));
 }
 
 export function quickSim(world: World, fixture: Fixture, seed: number): MatchState {

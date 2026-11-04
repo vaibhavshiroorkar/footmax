@@ -230,7 +230,7 @@ export function canUnlock(p: Player, n: TreeNode, points: number, nodes = allNod
     if (skillLevel(p, n.skill) !== n.level - 1) return { ok: false, reason: 'Unlock the level before it first.' };
     return canUpgrade(p, n.skill, points);
   }
-  if (n.kind === 'foot' && (p.weakFoot ?? 2) !== n.stars - 1) return { ok: false, reason: 'Unlock the star before it first.' };
+  if (n.kind === 'foot' && (p.weakFoot ?? 2) < n.stars - 1 && n.stars > 3) return { ok: false, reason: 'Unlock the star before it first.' };
   const needs = nodeNeeds(n);
   if (p.attrs[needs.attr] < needs.value) return { ok: false, reason: `Needs ${needs.attr} ${needs.value}.` };
   const cost = nodeCost(n);

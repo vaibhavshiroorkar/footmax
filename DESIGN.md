@@ -60,6 +60,14 @@ guidance:
 - No paragraphs that explain the screen. Help lives in the first-run tips.
 - Numbers, icons and short labels over sentences.
 
+## Scenes
+
+Short scenes (a goal, a referee's call, a set piece, a flare-up) play inside the
+pitch's own block, over the pitch. They never move the page and they are not modals.
+The live pitch keeps its numbered dots in normal play; people are jointed figures
+in the match's real kits, and the user's figure has their look. Anything that plays
+for more than a moment can be skipped with a tap, and reduced motion shortens it.
+
 ## Do not
 
 - Inter, Roboto or system fonts.

@@ -472,7 +472,8 @@ export function defendingSide(step: Pick<PlayStep, 'act' | 'side' | 'var' | 'res
 export function nextStart(steps: PlayStep[] | undefined, fallback: { x: number; y: number }): PlayStart {
   const end = steps?.[steps.length - 1];
   if (!end) return { ...fallback };
-  if (end.act === 'card' || end.act === 'injury') return nextStart(steps!.slice(0, -1), fallback);
+  // Cards, knocks and flare-ups come after the stoppage that set them off.
+  if (end.act === 'card' || end.act === 'injury' || (end.act === 'brawl' && !end.restart)) return nextStart(steps!.slice(0, -1), fallback);
   if (end.act === 'goal') return { x: 0.5, y: 0.5, restart: 'kickoff' };
   if (end.restart) {
     // Set pieces are taken from a sensible spot.

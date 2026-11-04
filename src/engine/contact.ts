@@ -31,6 +31,9 @@ export interface ShotInput {
     fooled?: boolean;
     // A penalty: he goes here on the kick, whatever the ball does.
     guess?: number;
+    // The shooter's edge, from 0: a clinical finisher, a clear run. It takes
+    // this share off what the keeper can reach.
+    edge?: number;
   };
   // How much harder the ball's movement makes it to read: 1 for a straight
   // ball, more for a curler that moves late.
@@ -145,7 +148,7 @@ export function flyShot(s: ShotInput): ShotRun {
   const gap = Math.hypot(x - (guess ?? from), (z - BODY_Z) * 1.15);
   const need = guess === undefined ? gap + misread : gap;
   const moving = guess === undefined ? Math.min(k.stretch, k.speed * Math.max(0, s.flight - k.reaction * (s.keeper.fooled ? 1.5 : 1))) : 0.35;
-  const can = (moving + k.reach * (s.keeper.fooled ? 0.82 : 1)) * (1 + rush * 0.35);
+  const can = (moving + k.reach * (s.keeper.fooled ? 0.82 : 1)) * (1 + rush * 0.35) * (1 - (s.keeper.edge ?? 0));
   const margin = can - need;
 
   if (margin < 0) {

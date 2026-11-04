@@ -131,22 +131,68 @@ export function leagueDraw(world: World, clubs: string[], rng: Rng): [string, st
   return best;
 }
 
+// Gives each game a slot so that no club has two in one slot. A game that
+// finds no slot free for both clubs swaps two slots along a chain of games
+// (a Kempe chain) to free one, which is how edge colouring works.
+export function colourGames(games: [string, string][], slots: number, rng: Rng): number[] | null {
+  const at = new Map<string, (number | undefined)[]>();
+  const row = (id: string) => at.get(id) ?? at.set(id, Array(slots).fill(undefined)).get(id)!;
+  const colour: number[] = Array(games.length).fill(-1);
+  const put = (g: number, c: number) => {
+    colour[g] = c;
+    row(games[g][0])[c] = g;
+    row(games[g][1])[c] = g;
+  };
+  const clear = (g: number) => {
+    row(games[g][0])[colour[g]] = undefined;
+    row(games[g][1])[colour[g]] = undefined;
+  };
+  const free = (id: string) => row(id).flatMap((g, c) => (g === undefined ? [c] : []));
+  for (const g of rng.shuffle(games.map((_, i) => i))) {
+    const [u, v] = games[g];
+    const fu = free(u);
+    const fv = free(v);
+    const both = fu.find((c) => fv.includes(c));
+    if (both !== undefined) {
+      put(g, both);
+      continue;
+    }
+    let done = false;
+    for (const a of fu) {
+      for (const b of fv) {
+        // Walk the a/b chain from v. If it does not reach u, swap it.
+        const chain: number[] = [];
+        let id = v;
+        let want = a;
+        for (;;) {
+          const next = row(id)[want];
+          if (next === undefined) break;
+          chain.push(next);
+          id = games[next][0] === id ? games[next][1] : games[next][0];
+          want = want === a ? b : a;
+        }
+        if (id === u || chain.some((e) => games[e].includes(u))) continue;
+        const swapped = chain.map((e) => [e, colour[e] === a ? b : a] as const);
+        chain.forEach(clear);
+        swapped.forEach(([e, c]) => put(e, c));
+        put(g, a);
+        done = true;
+        break;
+      }
+      if (done) break;
+    }
+    if (!done) return null;
+  }
+  return colour;
+}
+
 // Spreads games over the weeks so nobody plays twice in one.
 function schedule(world: World, games: [string, string][], weeks: number[], rng: Rng): Fixture[] {
-  for (let attempt = 0; attempt < 300; attempt++) {
-    const busy = weeks.map(() => new Set<string>());
-    const out: [number, string, string][] = [];
-    const placed = rng.shuffle([...games]).every(([h, a]) => {
-      const slot = busy.findIndex((b) => !b.has(h) && !b.has(a));
-      if (slot < 0) return false;
-      busy[slot].add(h);
-      busy[slot].add(a);
-      out.push([weeks[slot], h, a]);
-      return true;
-    });
-    if (placed) return out.map(([w, h, a]) => fixture(world, w, h, a, 'league'));
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const slots = colourGames(games, weeks.length, rng);
+    if (slots) return games.map(([h, a], i) => fixture(world, weeks[slots[i]], h, a, 'league'));
   }
-  return games.map(([h, a], i) => fixture(world, weeks[i % weeks.length], h, a, 'league'));
+  throw new Error('No schedule found for the league phase.');
 }
 
 function drawMainStage(world: World, rng: Rng) {

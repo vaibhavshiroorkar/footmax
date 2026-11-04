@@ -2,6 +2,18 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.0.0
+
+The 41-point request, finished and audited across both modes.
+
+- Fixed: skipping a shot from halfway scored far too often. It now follows the same
+  odds as playing it.
+- The penalty scene shows the ball clearly, and its caption fits on a phone.
+- Fixed from a full code review: Champions League clubs no longer play twice in a
+  week, a flare-up that ends in bookings no longer sends the fouler off, free kicks
+  survive a flare-up, midweek bans are the right length, a shot from far out always
+  counts as one, and clinical finishing and Poacher now help on the shots you play.
+
 ## 1.23.0
 
 - The club page has three tabs. My club: your standing, the coach, the dressing

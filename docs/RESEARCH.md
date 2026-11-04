@@ -50,6 +50,16 @@ v1.10.0 (about 1.9 times with goal celebrations left out, which must not shrink)
 That is the stopping point: cutting more would leave a chance with no build-up at
 all. Median caption 1.62 s, 4% under a second (goals cutting in).
 
+### Result in v2.0.0
+
+Across all versions: 186 s of pitch time a match, so the clock runs 1.64 times faster
+than v1.10.0 with play at 0.75x. The referee scenes cost about 15 s on top of v1.12.0's
+171 s. Median caption 1.62 s, 3% under a second. No wrong-goal shots.
+
+Production web build, CPU slowed 4x, no GPU: live pitch 57 fps, shot moment 60 fps, no
+page errors. The main bundle grew from 2.88 MB to 2.95 MB. Nothing here ran on a real
+phone, which is the one test left.
+
 ### Request 4: the cause
 
 `addFinish` in `src/engine/play.ts` sets `step.side` to the attackers on a tipped

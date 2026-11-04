@@ -48,11 +48,12 @@ const EASE = 1.7;
 // Every player can pick how to strike it (see SHAPES): driven, curled or low.
 // angle: where he stands across the goal (-1 out to his left, 1 to his
 // right, see PitchSim.shotAngle); the ball starts from there.
+// edge: how much of the keeper's reach the shooter takes away (see contact.ts).
 // scene and kits: the keeper, wall and team-mates as the pitch has them, in
 // the colours of this match (see PitchSim.shotScene).
 // onPass: give it to a team-mate instead, before the aim is set.
 // fake and curler: techniques from the skill tree (see skillTree.ts).
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, edge = 0, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; edge?: number; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -106,7 +107,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const longStray = Math.exp(0.05 * Math.max(0, metres - 20));
   const flightAt = (p: number) => metres / ((p < bands.low ? 15 : p <= bands.mid ? 22 : 29) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));
   // The goal he can cover for that shot: the bar under him shows the truth.
-  const reachAt = (p: number) => coverageShare(keeper, flightAt(p), rush) * (fooled ? 0.82 : 1);
+  const reachAt = (p: number) => coverageShare(keeper, flightAt(p), rush) * (fooled ? 0.82 : 1) * (1 - edge);
   const reach = reachAt(bands.mid);
   // The men in the way. From the live pitch when it says, shuffling a little
   // as they close you down. Without it, from distance: one defender from the
@@ -160,7 +161,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       const dur = Math.max(0.42, Math.min(1.3, flightAt(power)));
       // A penalty keeper picks a side on the kick, or stays up the middle.
       const guess = kind === 'penalty' ? (Math.random() < 0.15 ? 0.5 : 0.5 + setup.dive * (0.2 + Math.random() * 0.16)) : undefined;
-      const run = blocked || wall || lob ? undefined : flyShot({ aim: x, height, flight: flightAt(power), keeper: { at: kpos, skill: keeper, rush, fooled, guess }, curl: shape === 'curl' ? (curler ? 2 : 1.5) : 1, rand: Math.random });
+      const run = blocked || wall || lob ? undefined : flyShot({ aim: x, height, flight: flightAt(power), keeper: { at: kpos, skill: keeper, rush, fooled, guess, edge }, curl: shape === 'curl' ? (curler ? 2 : 1.5) : 1, rand: Math.random });
       const r = blocked
         ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: kpos }
         : wall

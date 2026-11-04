@@ -1,8 +1,19 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.23.0. Next: v2.0.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v2.0.0. Next: v2.1.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
+
+## Where it stands
+
+All 41 requests are built and live. Four things need a person, not more code:
+
+| What | Why |
+| --- | --- |
+| Play on a real phone | Every check so far ran in a browser, with a slowed CPU standing in for a phone |
+| Listen to the referee | The clips were checked by their waveforms only |
+| Judge the clock (request 1) | It runs 1.64x with play at 0.75x, short of 2x. See `RESEARCH.md` |
+| Judge the club page (request 12) | Built without the review the plan asked for |
 
 ## Versions at a glance
 
@@ -28,7 +39,8 @@ need bodies before the ball can touch them.
 | v1.23.0 | Club page | 12 | Built once, after it has Europe to show |
 | v2.0.0 | Full audit | all | Performance, phone testing and a whole-career playthrough |
 
-Request 0 (the docs) is done with this file.
+Request 0 (the docs) is done with this file. The sections below are the plan as it was
+built, kept for the reasoning behind each version.
 
 ## Request tracker
 
@@ -37,7 +49,7 @@ The 41-point request of 2026-11-04, word for word.
 | # | Request | Version | Status |
 | --- | --- | --- | --- |
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
-| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done |
+| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done (clock 1.64x, not 2x) |
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
 | 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | done |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
@@ -78,6 +90,42 @@ The 41-point request of 2026-11-04, word for word.
 | 39 | skill moves can be kept to train and it wiill train in X amount of weeks, it costs money instead of points | v1.21.0 | done |
 | 40 | increasing physical can make u have more energy for training, add unique stuff like this | v1.21.0 | done |
 | 41 | remove done for week button | v1.11.0 | done |
+
+## Second request list
+
+Sent on 2026-11-04 after playing the live game, to follow v2.0.0, word for word.
+
+| # | Request | Version | Status |
+| --- | --- | --- | --- |
+| B1 | make right foot and left foot affect shooting animation and position | v2.2.0 | todo |
+| B2 | ball is too slow, make animation go faster, make ball slightly bigger in interaction view | v2.1.0 | todo |
+| B3 | goalkeeper should be better, game feels too easy at start, ball is going through goalkeeper, goalkeepe sometimes stands far on one side which he shouldn't, he should try to cover as much as he can, fix glitchy defenders floating on the side | v2.1.0 | todo |
+| B4 | freekick, keeper should be on one side, players on another cause thats how walls work | v2.2.0 | todo |
+| B5 | defenders should be according to how many players were ahead of you on the pitch | v2.2.0 | todo |
+| B6 | defender should put pressure while you are shooting | v2.2.0 | todo |
+| B7 | offside gives ball to the other team like the rules | v2.1.0 | todo |
+| B8 | et and penalty shootout in KO stage draw | v2.3.0 | todo |
+| B9 | match history | v2.3.0 | todo |
+| B10 | ball is teleporting to me for interaction, fix that it should be real | v2.1.0 | todo |
+| B11 | higher power is less accurate but faster, goalkeeper has less chance of saving if it's perfectly placed, like real life | v2.2.0 | todo |
+| B12 | don't allow skills unless u unlock them for example nutmeg | v2.3.0 | todo |
+| B13 | game slows down and pauses glitch fix | v2.1.0 | todo |
+| B14 | keep passing more commonly the better option than shooting spam | v2.3.0 | todo |
+| B15 | defender should move in the interaction screen and there can be more than 1 depending on who is in front on the pitch | v2.2.0 | todo |
+| B16 | give joint to defender and players | v2.2.0 | todo |
+| B17 | make player face towards them instead of the camera when interaction | v2.2.0 | todo |
+| B18 | show a faint arrow at the start to signify direction of your attack | v2.2.0 | todo |
+| B19 | make morale and fitness more affected, low morale can put you into depression and make you retire etc | v2.3.0 | todo |
+| B20 | make power dynamic, holding to charge instead of fixed for shooting and passing both | v2.2.0 | todo |
+
+- **v2.1.0, the pitch feels right:** B2, B3, B7, B10, B13. Bugs you can see in play come
+  first: the ball through the keeper, the ball jumping to you, floating defenders,
+  stutters, and the restart after offside.
+- **v2.2.0, the shot and pass scene:** B1, B4, B5, B6, B11, B15, B16, B17, B18, B20. One
+  rework of the interaction view: figures facing the goal, a defender who moves and
+  presses, hold to charge, and power traded against accuracy.
+- **v2.3.0, the game around it:** B8, B9, B12, B14, B19. Extra time, match history, locked
+  skills, passing that pays, and morale and fitness with real weight.
 
 ## Rules changed by the 41-point request
 
@@ -509,6 +557,13 @@ All requests.
 - Play a whole career and a whole manager game, as `npm run probe` does and by hand.
 - Performance run against the targets, then fix the worst offenders.
 - Review the code with `/code-review`, and read all docs for anything out of date.
+
+## Known gaps
+
+- Past seasons: AFCON shares a summer with the World Cup in even years up to 2012, so
+  Africa's best miss one of them. The real AFCON was in January. Fix when those packs land.
+- About 200 qualifiers sim at once at each break in a qualifying season, which may
+  pause a phone for a moment. Measure on a real phone first.
 
 ## After this list
 

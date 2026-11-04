@@ -69,8 +69,8 @@ export function SetPieceIntro({ kind, line, wall = 4, onDone }: { kind: SetPiece
                     <Person key={x} side={i % 2 ? 'own' : 'opp'} x={x} y={150 - (1 - k) * 60} h={36} pose={walking ? runPose(t * 9 + i) : undefined} />
                   ))}
                   <RefereeFigure x={232} ground={126} h={46} pose={point(-1)} />
-                  <Football cx={150} cy={140} r={5.5} />
-                  <Person side="own" me x={150} y={158 + (1 - k) * 8} h={46} />
+                  <Football cx={150} cy={116} r={5.5} />
+                  <Person side="own" me x={150} y={146 + (1 - k) * 8} h={46} />
                 </>
               ) : (
                 <>
