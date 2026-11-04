@@ -14,6 +14,16 @@ const SOURCES = {
   reward: require('../../assets/sounds/reward.wav'),
   fanfare: require('../../assets/sounds/fanfare.wav'),
   tap: require('../../assets/sounds/tap.wav'),
+  // The referee, built by scripts/makeRefVoice.py.
+  'ref-penalty': require('../../assets/sounds/ref-penalty.wav'),
+  'ref-freekick': require('../../assets/sounds/ref-freekick.wav'),
+  'ref-corner': require('../../assets/sounds/ref-corner.wav'),
+  'ref-offside': require('../../assets/sounds/ref-offside.wav'),
+  'ref-playon': require('../../assets/sounds/ref-playon.wav'),
+  'ref-goalkick': require('../../assets/sounds/ref-goalkick.wav'),
+  'ref-nogoal': require('../../assets/sounds/ref-nogoal.wav'),
+  'ref-handball': require('../../assets/sounds/ref-handball.wav'),
+  'ref-off': require('../../assets/sounds/ref-off.wav'),
 } as const;
 
 export type SoundName = keyof typeof SOURCES;

@@ -51,6 +51,7 @@ export default function SettingsScreen() {
       <Card>
         <H2>Feel</H2>
         <Choice active={s.sound} label="Sound" sub="Kicks, whistles, the crowd and reward chimes." onPress={() => s.set({ sound: !s.sound })} />
+        <Choice active={s.refVoice} label="Referee's voice" sub="He shouts his calls: penalty, free kick, offside." onPress={() => s.set({ refVoice: !s.refVoice })} />
         {Platform.OS !== 'web' && <Choice active={s.haptics} label="Vibration" sub="Small taps on buttons, goals and rewards." onPress={() => s.set({ haptics: !s.haptics })} />}
         <Choice
           active={s.reduceMotion || s.osReduceMotion}

@@ -2,6 +2,15 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.17.0
+
+- Goals put the scorer in the middle of the screen doing their celebration, in
+  their kit. Your player has your look and your celebration.
+- The referee is a figure now. He steps in for calls with the right signal:
+  pointing to the spot, his arm up, a card in his hand, or waving play on.
+- The referee shouts his calls: penalty, free kick, corner, offside and more. You
+  can turn his voice off in Settings.
+
 ## 1.16.0
 
 - The laws, for everyone. Cards come from real fouls, a second yellow is a red, and

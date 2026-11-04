@@ -127,6 +127,12 @@ Cards had been random and penalties existed only for the user. Everything now go
 through `laws.ts`, tuned to real rates, and rules follow the season. Second yellows
 ran far too high until booked players backed off, as real ones do.
 
+### 13. v1.17.0: the stage (2026-11-04)
+
+Scenes reuse the callout layer, which already sat over the pitch, so layout never
+changes. The "no pop-up after goals" rule gave way to the user's request for the
+scorer in the middle of the screen. The voice clips are checked by waveform only.
+
 ## Decisions that still hold
 
 | Decision | Why |

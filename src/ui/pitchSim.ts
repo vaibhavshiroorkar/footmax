@@ -60,7 +60,15 @@ export interface Callout {
   tone: 'goal' | 'save' | 'miss' | 'stop' | 'yellow' | 'red';
   side?: 'home' | 'away';
   until: number;
+  // The referee steps in with this signal (see stage/Scene.tsx).
+  signal?: 'spot' | 'arm' | 'wave' | 'point' | 'card' | 'still';
+  // A goal: who scored and how he celebrates.
+  scorer?: string | null;
+  style?: string;
 }
+
+// The referee's voice: one of the ref-* clips.
+export type RefCall = 'ref-penalty' | 'ref-freekick' | 'ref-corner' | 'ref-offside' | 'ref-playon' | 'ref-goalkick' | 'ref-nogoal' | 'ref-handball' | 'ref-off';
 
 interface Active {
   step: PlayStep;
@@ -84,7 +92,7 @@ export interface SimHooks {
   onGoal?: () => void;
   onMoment?: () => void;
   // Kicks, whistles and the crowd, as they happen.
-  onSound?: (name: 'kick' | 'whistle' | 'whistle-end' | 'goal' | 'ooh', volume: number) => void;
+  onSound?: (name: 'kick' | 'whistle' | 'whistle-end' | 'goal' | 'ooh' | RefCall, volume: number) => void;
 }
 
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
@@ -751,7 +759,8 @@ export class PitchSim {
         if (step.advantage) {
           // He rides it: the referee's arms go out and the attack goes on.
           if (a.t < 0.3) return;
-          this.callout = { text: 'PLAY ON', sub: 'Advantage', tone: 'stop', until: this.clock + 1.1 };
+          this.callout = { text: 'PLAY ON', sub: 'Advantage', tone: 'stop', signal: 'wave', until: this.clock + 1.8 };
+          this.hooks.onSound?.('ref-playon', 0.9);
           this.caption = `Advantage! ${loser?.name ?? ''} stays on his feet`;
           this.hooks.onSound?.('whistle', 0.2);
           return done();
@@ -764,10 +773,11 @@ export class PitchSim {
             this.ball.vx = 0;
             this.ball.vy = 0;
             const pen = step.restart === 'penalty';
-            this.callout = { text: pen ? 'PENALTY!' : step.handball ? 'HANDBALL' : 'FOUL', tone: 'stop', until: this.clock + (pen ? 1.9 : 1.3) };
+            this.callout = { text: pen ? 'PENALTY!' : step.handball ? 'HANDBALL' : 'FREE KICK', tone: 'stop', signal: pen ? 'spot' : 'arm', until: this.clock + (pen ? 3.4 : 2.2) };
             this.hooks.onSound?.('whistle', pen ? 1 : 0.8);
+            this.hooks.onSound?.(pen ? 'ref-penalty' : step.handball ? 'ref-handball' : 'ref-freekick', 0.9);
             this.caption = pen ? `Penalty! ${carrier.name} brings him down` : step.handball ? `Handball by ${carrier.name}. Free kick.` : `Foul by ${carrier.name}. Free kick.`;
-            return pause(1.0);
+            return pause(pen ? 2.8 : 1.9);
           }
           if (loser && step.act === 'tackle') loser.down = 0.7;
           this.ball.owner = carrier.id;
@@ -782,9 +792,11 @@ export class PitchSim {
         if (!a.stage) {
           a.stage = 1;
           const r = step.restart;
-          this.callout = { text: r === 'corner' ? 'CORNER' : r === 'goalkick' ? 'GOAL KICK' : 'THROW-IN', tone: 'stop', until: this.clock + 1.1 };
+          this.callout = { text: r === 'corner' ? 'CORNER' : r === 'goalkick' ? 'GOAL KICK' : 'THROW-IN', tone: 'stop', signal: r === 'corner' ? 'point' : undefined, until: this.clock + (r === 'corner' ? 1.9 : 1.1) };
           this.caption = r === 'corner' ? 'Out for a corner' : r === 'goalkick' ? 'Out for a goal kick' : 'Out for a throw-in';
-          return pause(0.8);
+          if (r === 'corner') this.hooks.onSound?.('ref-corner', 0.8);
+          if (r === 'goalkick') this.hooks.onSound?.('ref-goalkick', 0.55);
+          return pause(r === 'corner' ? 1.5 : 0.8);
         }
         return done();
       }
@@ -797,10 +809,11 @@ export class PitchSim {
           a.stage = 1;
           this.ball.vx = 0;
           this.ball.vy = 0;
-          this.callout = { text: 'OFFSIDE', tone: 'stop', until: this.clock + 1.2 };
+          this.callout = { text: 'OFFSIDE', sub: this.name(step.other), tone: 'stop', signal: 'arm', until: this.clock + 2.2 };
           this.hooks.onSound?.('whistle', 0.7);
+          this.hooks.onSound?.('ref-offside', 0.9);
           this.caption = `Flag up: ${this.name(step.other)} is offside`;
-          return pause(0.9);
+          return pause(1.9);
         }
         return done();
       }
@@ -821,9 +834,10 @@ export class PitchSim {
           if (a.stage === 6) {
             if (a.t < 0.9) return;
             a.stage = 1;
-            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', until: this.clock + 1.6 * HOLD };
+            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', signal: 'wave', until: this.clock + 1.6 * HOLD };
             this.caption = step.call === 'flag' ? 'The flag is up. No goal.' : 'The referee had blown. No goal.';
             this.hooks.onSound?.('whistle', 0.9);
+            this.hooks.onSound?.('ref-nogoal', 0.9);
             return pause(1.4);
           }
           return done();
@@ -832,7 +846,7 @@ export class PitchSim {
         if (step.act === 'goal' && step.var && a.stage === 0) {
           a.stage = 5;
           this.varCheck = { at: this.clock, x: 0.8, y: PL / 2 };
-          this.callout = { text: 'VAR CHECK', sub: 'Checking the goal', tone: 'stop', until: this.clock + VAR_HOLD };
+          this.callout = { text: 'VAR CHECK', sub: 'Checking the goal', tone: 'stop', signal: 'still', until: this.clock + VAR_HOLD };
           this.caption = 'VAR is checking the goal...';
           this.hooks.onSound?.('whistle', 0.6);
           this.ball.owner = null;
@@ -843,9 +857,10 @@ export class PitchSim {
           this.varCheck = null;
           if (step.var === 'overturned') {
             a.stage = 1;
-            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', until: this.clock + 1.6 * HOLD };
+            this.callout = { text: 'NO GOAL', sub: step.varReason, tone: 'stop', signal: 'wave', until: this.clock + 1.6 * HOLD };
             this.caption = `VAR: no goal. ${step.varReason ?? ''}`;
             this.hooks.onSound?.('whistle', 0.9);
+            this.hooks.onSound?.('ref-nogoal', 0.9);
             return pause(1.4);
           }
           a.stage = 0;
@@ -864,6 +879,7 @@ export class PitchSim {
             const cx = (scorer?.x ?? PW / 2) < PW / 2 ? 4 : PW - 4;
             const style = (a.from && this.celebrations[a.from]) || CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)].id;
             this.celebrate = { at: this.clock, until: this.clock + 4.2 * HOLD, scorer: a.from, side: step.side, cx, cy, style };
+            if (this.callout) this.callout = { ...this.callout, scorer: a.from, style };
             this.ball.owner = null;
             this.ball.vx = 0;
             this.ball.vy = 0;
@@ -935,7 +951,8 @@ export class PitchSim {
           if (!near && a.t < 2.5) return;
           a.stage = 1;
           const red = step.card === 'red';
-          this.callout = { text: red ? 'RED CARD' : 'YELLOW CARD', sub: carrier?.name, tone: red ? 'red' : 'yellow', until: this.clock + 1.8 };
+          if (red) this.hooks.onSound?.('ref-off', 0.9);
+          this.callout = { text: red ? 'RED CARD' : 'YELLOW CARD', sub: carrier?.name, tone: red ? 'red' : 'yellow', signal: 'card', until: this.clock + 1.8 };
           this.hooks.onSound?.('whistle', 0.6);
           if (red && carrier) carrier.leaving = true;
           return pause(1.6);

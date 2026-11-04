@@ -70,6 +70,32 @@ export function dive(side: number, amount: number, reach?: Pt): PoseInput {
   };
 }
 
+// A goal celebration at time t in seconds. lift raises him; turn spins him.
+export function celebrate(style: string, t: number): { pose: PoseInput; lift: number; turn: number } {
+  const beat = Math.abs(Math.sin(t * 5));
+  switch (style) {
+    case 'knee-slide':
+      return { pose: { hip: { x: 0, y: -13 }, lean: -0.32, handL: { x: -26, y: -46 }, handR: { x: 22, y: -52 }, footL: { x: -14, y: 0 }, footR: { x: 12, y: -1 } }, lift: 0, turn: 0 };
+    case 'backflip': {
+      const k = (t % 1.3) / 1.3;
+      const air = k < 0.6;
+      return { pose: jump(air ? 0.8 : 0), lift: air ? Math.sin((k / 0.6) * Math.PI) * 30 : 0, turn: air ? -(k / 0.6) * 360 : 0 };
+    }
+    case 'shush':
+      return { pose: { ...stand(), handR: { x: 1, y: -55 }, handL: { x: -16, y: -28 } }, lift: 0, turn: 0 };
+    case 'heart':
+      return { pose: { ...stand(), handL: { x: -3, y: -46 - beat * 3 }, handR: { x: 3, y: -46 - beat * 3 } }, lift: 0, turn: 0 };
+    case 'robot': {
+      const up = Math.floor(t * 3) % 2 === 0;
+      return { pose: { ...stand(), handL: up ? { x: -21, y: -56 } : { x: -21, y: -33 }, handR: up ? { x: 21, y: -33 } : { x: 21, y: -56 } }, lift: 0, turn: 0 };
+    }
+    case 'calm':
+      return { pose: { ...stand(), handL: { x: 7, y: -39 }, handR: { x: -7, y: -41 } }, lift: 0, turn: 0 };
+    default:
+      return { pose: jump(0.6 + beat * 0.4), lift: beat * 12, turn: 0 };
+  }
+}
+
 // The referee's signals.
 export const point = (side: -1 | 1): PoseInput => ({ ...stand(), lean: side * 0.05, handL: side < 0 ? { x: -30, y: -49 } : { x: -14, y: -27 }, handR: side > 0 ? { x: 30, y: -49 } : { x: 14, y: -27 } });
 export const armUp = (side: -1 | 1): PoseInput => ({ ...stand(), handL: side < 0 ? { x: -8, y: -71 } : { x: -14, y: -27 }, handR: side > 0 ? { x: 8, y: -71 } : { x: 14, y: -27 } });

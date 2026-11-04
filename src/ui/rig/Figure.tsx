@@ -19,7 +19,8 @@ const TRIM = '#111827';
 
 // One person from a pose, standing on `ground` at `x`, about `h` units tall.
 // lift raises him off the grass while his shadow stays on it.
-export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, kit, shorts = TRIM, socks, skin = '#d9a77c', hair = '#2a1d14', boots = '#0f172a', gloves = false }: { x: number; ground: number; h?: number; pose?: PoseInput; lift?: number } & Looks) {
+// turn: degrees, about his middle, for a flip.
+export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, turn = 0, kit, shorts = TRIM, socks, skin = '#d9a77c', hair = '#2a1d14', boots = '#0f172a', gloves = false }: { x: number; ground: number; h?: number; pose?: PoseInput; lift?: number; turn?: number } & Looks) {
   const s = solve(pose);
   const sock = socks ?? kit;
   const bone = (a: Pt, b: Pt, stroke: string, w: number) => <Line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" />;
@@ -30,7 +31,7 @@ export function RigFigure({ x, ground, h = 60, pose = stand(), lift = 0, kit, sh
   return (
     <G transform={`translate(${x} ${ground}) scale(${scale})`}>
       <Ellipse cx={s.hip.x} cy={0} rx={15} ry={3} fill="#000000" opacity={0.26} />
-      <G transform={`translate(0 ${-lift})`}>
+      <G transform={`translate(0 ${-lift}) rotate(${turn} 0 -30)`}>
         {bone(s.hipL, s.legL.mid, shorts, 7.5)}
         {bone(s.hipR, s.legR.mid, shorts, 7.5)}
         {bone(s.legL.mid, s.legL.end, sock, 6)}

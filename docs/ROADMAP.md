@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.16.0. Next: v1.17.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.17.0. Next: v1.18.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -44,7 +44,7 @@ The 41-point request of 2026-11-04, word for word.
 | 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | todo |
 | 6 | make defenders actually stand in the way instead of random | v1.13.0 | done |
 | 7 | apply proper rules and constraints of football | v1.16.0 | done |
-| 8 | show avatar when celebrating like in the middle of the screen, same for referee calls, make a model for referee | v1.17.0 | todo |
+| 8 | show avatar when celebrating like in the middle of the screen, same for referee calls, make a model for referee | v1.17.0 | done |
 | 9 | don't make money and fame clickable in play | v1.11.0 | done |
 | 10 | the card seems too congested, give more space | v1.11.0 | done |
 | 11 | keep home inside setting as quit | v1.11.0 | done |
@@ -64,7 +64,7 @@ The 41-point request of 2026-11-04, word for word.
 | 25 | make sure the rules apply to all players properly, constraints should always apply | v1.16.0 | done |
 | 26 | the ball should touch the model and deflect, it cant be saved if it doesnt touch but make sure this doesnt mean the ball always goes in, it should make keeper model actually interact properly instead of static rotation of keeper body | v1.15.0 | done |
 | 27 | the ball can deflect out for corner or something as well | v1.15.0 | done |
-| 28 | maybe add voice of refree shouting PENALTY or saying freekick like that | v1.17.0 | todo |
+| 28 | maybe add voice of refree shouting PENALTY or saying freekick like that | v1.17.0 | done |
 | 29 | all the players should remain in context and continuity when any event happens so if 3 players are in front, it should be accurate to ur position if u shoot. | v1.13.0 | done |
 | 30 | rework header interaction, it's mid | v1.18.0 | todo |
 | 31 | show players avatar when interaction mode instead of circles | v1.14.0 | done |

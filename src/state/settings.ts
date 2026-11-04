@@ -7,6 +7,8 @@ export type MatchSpeed = '1' | '2' | '4';
 export interface Settings {
   haptics: boolean;
   sound: boolean;
+  // The referee shouting his calls.
+  refVoice: boolean;
   // The player's choice; the OS "reduce motion" setting also counts.
   reduceMotion: boolean;
   matchSpeed: MatchSpeed;
@@ -16,7 +18,7 @@ export interface Settings {
 }
 
 const KEY = 'footmax-settings';
-const DEFAULTS: Settings = { haptics: true, sound: true, reduceMotion: false, matchSpeed: '1', autoMoments: false, seenTips: false };
+const DEFAULTS: Settings = { haptics: true, sound: true, refVoice: true, reduceMotion: false, matchSpeed: '1', autoMoments: false, seenTips: false };
 
 interface SettingsStore extends Settings {
   osReduceMotion: boolean;

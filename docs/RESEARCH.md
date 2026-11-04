@@ -246,6 +246,18 @@ Sources: [Extratime 2024/25](https://extratime.com/stats/2129/2287/premier-leagu
 [IFAB Law 3](https://theifab.com/laws/latest/the-players),
 [ESPN on VAR in Europe](https://global.espn.com/football/story/_/id/37501924/how-var-performed-la-liga-serie-bundesliga-ligue-1-mls-season).
 
+## The referee's voice (v1.17.0)
+
+Rendered clips beat `expo-speech`: they sound the same on every device and overlap
+the crowd. The clips use Piper with the `en_US-norman` voice, whose model card says
+"public domain", from LibriVox recordings. Piper (GPL-3.0) is only a build tool and
+does not ship. Each call is the shortest of six takes, trimmed by energy, raised in
+pitch, driven and given a short echo. Open: nobody has listened to them. They were
+checked by their waveforms only, so a person should judge how they sound.
+
+Sources: [norman model card](https://huggingface.co/rhasspy/piper-voices/raw/main/en/en_US/norman/medium/MODEL_CARD),
+[Piper](https://github.com/OHF-Voice/piper1-gpl).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

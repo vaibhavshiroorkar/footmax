@@ -10,10 +10,11 @@ import { shortName } from '../engine/player';
 import { BodyInfo, Callout, PL, PW, PitchSim } from './pitchSim';
 import { CaptionQueue } from './captions';
 import { alpha, colors, fonts, luminance } from './theme';
-import { motionReduced } from '../state/settings';
+import { motionReduced, useSettings } from '../state/settings';
 import { matchKits } from './moments/Keeper';
 import { FootballIcon } from './football';
-import { RigFigure } from './rig/Figure';
+import { RigFigure, useLooks } from './rig/Figure';
+import { GoalScene, RefScene } from './stage/Scene';
 import { playSound } from './sound';
 
 const NATIVE = Platform.OS !== 'web';
@@ -148,7 +149,8 @@ function Confetti({ x, y, palette }: { x: number; y: number; palette: string[] }
   );
 }
 
-function CalloutView({ c, home, away }: { c: Callout; home: Club; away: Club }) {
+function CalloutView({ c, home, away, focusId }: { c: Callout; home: Club; away: Club; focusId?: string }) {
+  const looks = useLooks();
   const pop = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
     if (motionReduced()) pop.setValue(1);
@@ -156,6 +158,12 @@ function CalloutView({ c, home, away }: { c: Callout; home: Club; away: Club }) 
   }, [pop]);
   const big = c.tone === 'goal';
   const color = big ? (c.side === 'home' ? home.colors[0] : away.colors[0]) : colors.gold;
+  if (c.signal) return <RefScene c={c} />;
+  if (big) {
+    const kits = matchKits(home.colors, away.colors);
+    const you = c.scorer === focusId ? looks.me : undefined;
+    return <GoalScene c={c} kit={c.side === 'home' ? kits.homeShirt : kits.awayShirt} skin={you?.skin} hair={you ? you.hair : undefined} boots={you?.boots} tint={color} />;
+  }
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: big ? 'center' : 'flex-start', paddingTop: big ? 0 : 10 }, big && { backgroundColor: alpha(color, 0.3) }]}>
       <Animated.View style={{ alignItems: 'center', transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }], opacity: pop }}>
@@ -288,6 +296,8 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       // Fast-forwarding at 4x would turn kicks into a rattle; keep the big ones.
       onSound: (name, volume) => {
         if (props.current.speed >= 4 && name === 'kick') return;
+        // The referee's voice has its own switch, and stays quiet at 4x.
+        if (name.startsWith('ref-') && (props.current.speed >= 4 || !useSettings.getState().refVoice)) return;
         playSound(name, volume);
       },
     });
@@ -489,7 +499,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
             <View style={{ width: 3, height: 7, backgroundColor: '#e5e7eb' }} />
           </View>
         )}
-        {callout && <CalloutView key={`${callout.text}-${callout.until}`} c={callout} home={home} away={away} />}
+        {callout && <CalloutView key={`${callout.text}-${callout.until}`} c={callout} home={home} away={away} focusId={focusId} />}
       </View>
       <View style={{ height: 22, justifyContent: 'center', paddingHorizontal: 4 }}>
         <Text numberOfLines={1} style={{ fontFamily: callout?.tone === 'goal' ? fonts.bold : fonts.semibold, fontSize: 13, color: callout?.tone === 'goal' ? colors.accent : colors.text }}>

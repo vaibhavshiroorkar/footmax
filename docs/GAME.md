@@ -317,9 +317,15 @@ moments to play, not a wall of information.
   unlocked, and the table (five rows around the team, league or
   tournament group) with the places moved. The pitch hides at full time.
 - **Managers** change approach and make substitutions at any time.
+- **The stage** (`src/ui/stage/Scene.tsx`): short scenes over the pitch, inside
+  its block, so nothing moves. A goal shows the scorer in the middle doing his
+  celebration, with the user's look when it is him. The referee steps in for free
+  kicks, penalties, offside, corners, cards, VAR and play on, with the right
+  signal. Throw-ins and goal kicks stay as plain words: they are too common.
 - **Sound:** kicks, whistles, crowd, goal roar, groans, chimes
   (`scripts/makeSounds.py`), with a setting and a button in the match to
-  turn it off.
+  turn it off. The referee shouts his calls (`ref-*.wav`, built by
+  `scripts/makeRefVoice.py`), with its own setting, and stays quiet at 4x.
 
 ## Internationals
 
