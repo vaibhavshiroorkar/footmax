@@ -17,10 +17,16 @@ export interface ShotFacts {
   over?: boolean;
   // A save pushed round the post or over: a corner.
   tipped?: boolean;
+  // A save pushed back out into play: a live ball.
+  parried?: boolean;
   // A miss that came off a defender and went behind: a corner.
   deflected?: boolean;
+  // Off the woodwork and back into play.
+  frame?: 'post' | 'bar';
+  // Where a blocked shot went. Unset means a corner.
+  blockOut?: 'throw' | 'loose';
   // Blocked: a player id, 'lane' (whoever stands in the way on the pitch)
-  // or 'wall' (a free kick into the wall). Always ends in a corner.
+  // or 'wall' (a free kick into the wall).
   blocker?: string;
   // How the chance was made, for the assist half of the line.
   pattern?: Pattern;
@@ -77,14 +83,17 @@ export function saveLine(rng: Rng, f: ShotFacts, v: Names): string {
   const n = noun(f);
   if (f.tipped) return fill(f.header ? `{k} tips {p}'s header over the bar. Corner.` : `{k} tips {p}'s ${n} round the post. Corner.`, v);
   if (f.penalty) return fill(`{k} saves the penalty from {p}!`, v);
+  if (f.parried) return fill(`{k} parries {p}'s ${n}. It is still alive!`, v);
   if (Math.abs(f.aim - 0.5) < 0.12) return fill(`{p}'s ${n} is straight at {k}.`, v);
   return fill(rng.pick([`{k} gets across to save {p}'s ${n}.`, `{k} keeps out {p}'s ${n} to the ${side(f)}.`]), v);
 }
 
 export function missLine(rng: Rng, f: ShotFacts, v: Names): string {
   const n = noun(f);
-  if (f.blocker === 'wall') return fill(`{p}'s free kick hits the wall. Corner.`, v);
-  if (f.blocker) return fill(f.blocker === 'lane' ? `{p}'s ${n} is blocked. Corner.` : `{d} blocks {p}'s ${n}. Corner.`, v);
+  if (f.frame) return fill(f.frame === 'post' ? `{p}'s ${n} comes back off the post!` : `{p}'s ${n} crashes off the bar!`, v);
+  const after = f.blockOut === 'throw' ? ' Throw-in.' : f.blockOut === 'loose' ? '' : ' Corner.';
+  if (f.blocker === 'wall') return fill(`{p}'s free kick hits the wall.${after}`, v);
+  if (f.blocker) return fill(f.blocker === 'lane' ? `{p}'s ${n} is blocked.${after}` : `{d} blocks {p}'s ${n}.${after}`, v);
   if (f.over) return fill(f.header ? `{p} heads it over the bar.` : f.penalty ? `{p} blazes the penalty over!` : rng.pick([`{p} blazes it over the bar.`, `{p}'s ${n} flies over.`]), v);
   const verb = f.header ? 'heads' : f.shape === 'curl' ? 'curls' : f.shape === 'low' ? 'drags' : 'fires';
   const wide = f.penalty ? `{p} puts the penalty wide of the ${side(f)} post!` : `{p} ${verb} it wide of the ${side(f)} post.`;

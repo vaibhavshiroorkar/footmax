@@ -114,6 +114,13 @@ One jointed rig for every person, solved with two-bone IK. SVG passed the frame
 test, so Skia stayed out. The lesson from measuring: dev builds read far slower than
 production, so judge performance on a production build.
 
+### 11. v1.15.0: real contact (2026-11-04)
+
+The old shot game decided a save from a reach band, then drew it. Now `contact.ts`
+plays the shot forward against the keeper's body, so a save needs a touch by
+construction, and a test proves it. Rebounds added a little scoring, so their boost
+was held down to keep league goals near 2.6.
+
 ## Decisions that still hold
 
 | Decision | Why |

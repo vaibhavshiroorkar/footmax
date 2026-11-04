@@ -4,6 +4,7 @@ import Svg, { Circle, Ellipse, Line, Rect } from 'react-native-svg';
 import { useTicker } from './useTicker';
 import { KeeperFigure, OutfieldFigure } from './Keeper';
 import { ShotShape } from '../../engine/match';
+import { ShotEnd, ShotRun, coverageShare, flyShot } from '../../engine/contact';
 import { T } from '../kit';
 import { alpha, colors, fonts } from '../theme';
 import { Football } from '../football';
@@ -32,7 +33,6 @@ const HIGH = 0.76;
 // Half the width of goal a blocking defender covers, when the pitch does
 // not say (see Lane).
 const BLOCK_HALF = 0.055;
-const FLIGHT = 0.6;
 // The power bar speeds up as it fills (power = time share ^ EASE), so it
 // crawls through LOW and whips through HIGH. Hitting HIGH takes a sharp tap.
 const EASE = 1.7;
@@ -52,7 +52,7 @@ const EASE = 1.7;
 // the colours of this match (see PitchSim.shotScene).
 // onPass: give it to a team-mate instead, before the aim is set.
 // fake and curler: techniques from the skill tree (see skillTree.ts).
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -68,7 +68,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // x is where the ball actually goes: the aim plus any stray.
   // stop: the ball never reaches the goal because a defender or the wall
   // was in the way.
-  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall'; blocker?: number } | null>(null);
+  const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall'; blocker?: number; run?: ShotRun; height: number; dur: number } | null>(null);
   const [setup] = useState(() => ({
     // On the line for a penalty; otherwise where the pitch has him.
     keeper: kind === 'penalty' ? 0.5 : scene?.keeper ?? 0.32 + Math.random() * 0.36,
@@ -96,25 +96,16 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   const [rushAt, setRushAt] = useState<number | null>(null);
   const rushing = kind === 'shot' && !outside;
   const rush = rushing ? Math.min(1, (rushAt ?? (phase === 'aim' ? t : 0)) / (oneOnOne ? 1.1 : 1.9)) : 0;
-  const kpos = faked === null ? setup.keeper : clamp(setup.keeper + Math.sign(faked - setup.keeper || 1) * 0.22);
-  const reach = (faked === null ? 1 : 0.82) * (0.15 + (keeper / 99) * 0.13) * (oneOnOne ? 1.25 : 1) * (1 + range * 0.15) * (1 + rush * 0.35);
-  const flight = outside ? 0.85 : FLIGHT;
+  const fooled = faked !== null;
+  const kpos = !fooled ? setup.keeper : clamp(setup.keeper + Math.sign(faked - setup.keeper || 1) * 0.22);
   // 0 for a top shooter, near 1 for a poor one, and only from distance.
   const longWeak = kind === 'shot' && (outside || range > 0) ? (1 - shooting / 99) * (0.6 + range * 0.6) : 0;
-  // How much goal he covers for a shot of this power. Soft or mid-power
-  // shots from distance give him time to get across; a high one does not.
-  // A curler into the corner bends away from him, but it is slower, so a
-  // curler at him gives him time. A low shot is hard to get down to.
-  const reachAt = (p: number, x = aim) => {
-    if (kind === 'penalty') return reach;
-    const band = p < bands.low ? 1.6 : p <= bands.mid ? 1 : shape === 'curl' ? 0.95 : 0.85;
-    const time = 1 + range * (p > bands.mid ? 0.25 : 0.9);
-    const struck = shape === 'curl' ? (Math.abs(x - 0.5) > 0.28 ? (curler ? 0.8 : 0.88) : 1.08) : shape === 'low' ? 0.9 : 1;
-    // From distance a weak shooter cannot put enough on it: the keeper
-    // gets across.
-    const weak = 1 + longWeak * 0.45;
-    return reach * band * time * struck * weak;
-  };
+  // How far out he is, and how long a shot of this power takes to get there.
+  const metres = kind === 'penalty' ? 11 : kind === 'freekick' ? 24 : outside ? 19 + range * 24 : oneOnOne ? 9 : 14;
+  const flightAt = (p: number) => metres / ((p < bands.low ? 15 : p <= bands.mid ? 22 : 29) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));
+  // The goal he can cover for that shot: the bar under him shows the truth.
+  const reachAt = (p: number) => coverageShare(keeper, flightAt(p), rush) * (fooled ? 0.82 : 1);
+  const reach = reachAt(bands.mid);
   // The men in the way. From the live pitch when it says, shuffling a little
   // as they close you down. Without it, from distance: one defender from the
   // edge of the box, two from far out.
@@ -160,15 +151,23 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       const hit = blockers.findIndex((b) => Math.abs(blockerX(b, t) - (shape === 'curl' ? x + curlSide(x) * (curler ? 0.22 : 0.14) * b.near : x)) < b.half * (shape === 'low' ? 1.3 : 1));
       const blocked = hit >= 0;
       const lob = oneOnOne && chip && power > bands.high && power <= bands.high + 0.1;
-      const r = blocked
-        ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: kpos }
-        : lob
-          ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: kpos }
-          : judge(kind, x, power, { ...setup, keeper: kpos }, bands, reachAt(power, x), wallSpan(shape, power, bands), kind === 'penalty' ? 0 : 0.03 + (keeper / 99) * 0.07);
-      if (r.outcome === 'miss' && strayed && (x < 0.02 || x > 0.98)) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
       const span = wallSpan(shape, power, bands);
       const wall = kind === 'freekick' && !!span && x >= setup.wall + span[0] && x <= setup.wall + span[1];
-      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, ...r });
+      // Hit too hard it clears the bar; a low one stays down whatever the power.
+      const height = shape === 'low' ? 0.12 : power > bands.high ? 1.15 + (power - bands.high) : 0.18 + 0.62 * Math.min(1, power / bands.high);
+      const dur = Math.max(0.42, Math.min(1.3, flightAt(power)));
+      // A penalty keeper picks a side on the kick, or stays up the middle.
+      const guess = kind === 'penalty' ? (Math.random() < 0.15 ? 0.5 : 0.5 + setup.dive * (0.2 + Math.random() * 0.16)) : undefined;
+      const run = blocked || wall || lob ? undefined : flyShot({ aim: x, height, flight: flightAt(power), keeper: { at: kpos, skill: keeper, rush, fooled, guess }, curl: shape === 'curl' ? (curler ? 2 : 1.5) : 1, rand: Math.random });
+      const r = blocked
+        ? { outcome: 'miss' as ShotOutcome, text: 'Blocked by a defender!', q: 0.08, diveTo: kpos }
+        : wall
+          ? { outcome: 'miss' as ShotOutcome, text: 'Straight into the wall.', q: 0.08, diveTo: kpos }
+          : lob
+            ? { outcome: 'goal' as ShotOutcome, text: 'Chipped over him! Sublime.', q: 1, diveTo: kpos }
+            : { outcome: run!.outcome as ShotOutcome, text: lineFor(run!, kind, power, bands), q: run!.outcome === 'goal' ? (power > bands.mid ? 1 : 0.85) : run!.outcome === 'save' ? 0.4 : 0.05, diveTo: run!.keeperTo };
+      if (run?.end === 'wide' && strayed) r.text = weakFoot ? 'Sliced it with the weaker foot. Wide!' : 'It drifted wide of the post!';
+      setShot({ power, blockAt: t, x, parry: setup.parry, stop: blocked ? 'block' : wall ? 'wall' : undefined, blocker: blocked ? hit : undefined, run, height, dur, ...r });
       setPhase('flight');
     }
   };
@@ -176,7 +175,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // Out of time: tackled while aiming, or the power maxes out and he shoots.
   const timedOut = useRef(false);
   const tackled = () => {
-    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: kpos });
+    setShot({ power: 0.5, blockAt: t, x: aimX, parry: setup.parry, stop: 'block', outcome: 'miss', text: 'Too slow! A defender nicks it off you.', q: 0.05, diveTo: kpos, height: 0.3, dur: 0.6 });
     setPhase('flight');
   };
   useEffect(() => {
@@ -194,25 +193,29 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // When the ball lands, show the result for a moment, then report it.
   const sent = useRef(false);
   useEffect(() => {
-    if (phase === 'flight' && shot && t >= flight && !sent.current) {
+    if (phase === 'flight' && shot && t >= shot.dur && !sent.current) {
       sent.current = true;
-      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, { aim: shot.x, blocker: shot.blocker !== undefined ? blockers[shot.blocker]?.id : undefined, shape, over: shot.outcome === 'miss' && !shot.stop && shot.power > bands.high, wall: shot.stop === 'wall' }), 1200);
+      setTimeout(() => onDone(shot.q, shot.text, shot.outcome, { aim: shot.x, blocker: shot.blocker !== undefined ? blockers[shot.blocker]?.id : undefined, shape, over: shot.outcome === 'miss' && !shot.stop && shot.power > bands.high, wall: shot.stop === 'wall', end: shot.run?.end }), 1200);
     }
   });
 
   const px = (x: number) => GOAL.x + x * GOAL.w;
-  const k = phase === 'flight' && shot ? Math.min(1, t / flight) : 0;
+  const dur = shot?.dur ?? 0.6;
+  const k = phase === 'flight' && shot ? Math.min(1, t / dur) : 0;
   const landed = k >= 1;
   // After the ball arrives: a parry off the keeper, or on out of play.
-  const after = phase === 'flight' && shot ? Math.min(1, Math.max(0, (t - flight) / 0.55)) : 0;
-  const over = !!shot && shot.outcome === 'miss' && shot.power > bands.high;
-  const wide = !!shot && shot.outcome === 'miss' && !over && (shot.x < 0.02 || shot.x > 0.98);
+  // A touch ends the ball's flight there, and it goes where he sent it.
+  const end = shot?.run?.end;
+  const tc = shot?.run?.touch?.t ?? 1;
+  const after = phase === 'flight' && shot ? Math.min(1, Math.max(0, (t - dur * tc) / 0.55)) : 0;
+  const over = end === 'over';
+  const wide = end === 'wide';
   // A blocked shot hits the defender's body; a wall shot hits the wall.
   const hitMan = shot?.blocker !== undefined ? blockers[shot.blocker] : undefined;
   const stopY = shot?.stop === 'block' ? (hitMan ? manAt(hitMan, GOAL).ground - manAt(hitMan, GOAL).h * 0.6 : GOAL.y + GOAL.h + 30) : shot?.stop === 'wall' ? GOAL.y + GOAL.h - 24 : null;
   const low = shape === 'low';
-  const targetY = stopY ?? (over ? GOAL.y - 14 : low ? GOAL.y + GOAL.h * 0.86 : GOAL.y + GOAL.h * (0.85 - 0.6 * Math.min(1, (shot?.power ?? 0.5) / bands.high)));
-  const endX = shot ? px(shot.outcome === 'save' ? shot.diveTo : shot.x) : px(aim);
+  const targetY = stopY ?? (over ? GOAL.y - 14 : GOAL.y + GOAL.h * (1 - (shot?.height ?? 0.4) * 0.94));
+  const endX = shot ? px(shot.x) : px(aim);
   // Where the ball is at kk (0 at the boot, 1 at the goal). A curler starts
   // out wide and bends back in; a driven shot rises a little; a low one
   // skims the grass.
@@ -223,37 +226,72 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     const y = H - 12 + (targetY - (H - 12)) * (low ? 1 - (1 - kk) * (1 - kk) : kk) - Math.sin(Math.PI * kk) * (low ? 2 : shape === 'curl' ? 14 : 9) * setup.arc;
     return { x, y, r: 8 - 3.5 * kk };
   };
-  const at0 = pathAt(k);
+  const at0 = pathAt(Math.min(k, tc));
   let ballX = at0.x;
   let ballY = at0.y;
   let ballR = at0.r;
   // Spin: the seam turns as it flies, faster on a curler.
   const spin = (t * (shape === 'curl' ? 1500 : 900)) % 360;
   if (after > 0 && shot) {
+    const out = shot.x >= 0.5 ? 1 : -1;
     if (shot.stop) {
       // Off the body and away: back toward you and to the side.
-      ballX = endX + shot.parry * 55 * after;
-      ballY = targetY + 40 * after - Math.sin(Math.PI * after) * 16;
+      ballX = at0.x + shot.parry * 55 * after;
+      ballY = at0.y + 40 * after - Math.sin(Math.PI * after) * 16;
       ballR = 5 + 2 * after;
-    } else if (shot.outcome === 'save') {
-      // Palmed away: back out and to the side, bouncing once.
-      ballX = endX + shot.parry * 70 * after;
-      ballY = targetY + (H - 30 - targetY) * after - Math.sin(Math.PI * after) * 22;
-      ballR = 4.5 + 2.5 * after;
+    } else if (end === 'held') {
+      // Gathered: it stays in his gloves.
+      ballR = at0.r;
+    } else if (end === 'parry') {
+      // Pushed back out into play: a live ball.
+      ballX = at0.x + shot.parry * 70 * after;
+      ballY = at0.y + (H - 30 - at0.y) * after - Math.sin(Math.PI * after) * 22;
+      ballR = at0.r + 2.5 * after;
+    } else if (end === 'tipRound') {
+      ballX = at0.x + out * 62 * after;
+      ballY = at0.y - 3 * after;
+      ballR = at0.r - 1 * after;
+    } else if (end === 'tipOver') {
+      ballY = at0.y - 40 * after;
+      ballR = at0.r - 1 * after;
+    } else if (end === 'inOffHand') {
+      // A touch, but not enough: on into the net.
+      ballX = at0.x + out * 10 * after;
+      ballY = at0.y + 8 * after;
+    } else if (end === 'post' || end === 'bar') {
+      // Off the woodwork and back into play.
+      ballX = at0.x - out * (end === 'post' ? 46 : 16) * after;
+      ballY = at0.y + (H - 40 - at0.y) * after - Math.sin(Math.PI * after) * 14;
+      ballR = at0.r + 2 * after;
+    } else if (end === 'inOffPost') {
+      ballX = at0.x - out * 16 * after;
+      ballY = at0.y + 6 * after;
     } else if (shot.outcome === 'miss') {
       // On past the post or over the bar, into the crowd.
-      ballX = endX + (wide ? (shot.x < 0.5 ? -40 : 40) : 0) * after;
-      ballY = targetY - (over ? 14 : 6) * after;
+      ballX = at0.x + (wide ? (shot.x < 0.5 ? -40 : 40) : 0) * after;
+      ballY = at0.y - (over ? 14 : 6) * after;
       ballR = 4.5 - 1.5 * after;
     } else {
       // In the net: it drops into the back of it.
-      ballY = targetY + 8 * after;
+      ballY = at0.y + 8 * after;
     }
   }
-  // The keeper dives as the ball comes; on a save he gets to it.
-  const keeperAt = shot ? kpos + (shot.diveTo - kpos) * Math.min(1, k * 1.4) : kpos;
-  const diveSide = shot ? Math.sign(shot.diveTo - kpos) || setup.dive : 0;
-  const diveAmount = shot ? Math.min(1, k * 1.6) * 0.9 * diveSide : 0;
+  // He sets off late, and his body goes where the model says. On a touch the
+  // figure is placed so the glove meets the ball, and IK does the rest; with
+  // no touch his hand stops at full stretch, short of it.
+  const limb = shot?.run?.touch?.limb;
+  const keeperH = (oneOnOne ? 74 : outside ? 44 : 58) + rush * 14;
+  const hs = keeperH / 60;
+  const launch = shot?.run?.launch ?? 0;
+  const ease = shot ? Math.min(1, Math.max(0, (k - launch) / Math.max(0.05, tc - launch))) : 0;
+  const hit = pathAt(tc);
+  const going = shot ? Math.sign(hit.x - px(kpos)) || setup.dive : 0;
+  const toPx = !shot?.run ? px(kpos) : limb ? hit.x - going * (limb === 'body' ? 0 : 30 * hs) : px(shot.diveTo);
+  const keeperPx = px(kpos) + (toPx - px(kpos)) * ease;
+  const stretch = limb === 'body' ? 0.2 : limb === 'hand' ? 0.7 : limb === 'fingers' ? 1 : Math.min(1, Math.abs(toPx - px(kpos)) / 40 + 0.4);
+  const diveAmount = shot?.run ? ease * stretch * going : 0;
+  const keeperGround = GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22;
+  const gloves = shot?.run && diveAmount !== 0 ? { x: (hit.x - keeperPx) / hs, y: (hit.y - keeperGround) / hs } : undefined;
 
   return (
     <View>
@@ -331,7 +369,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
               [0, 1, 2, 3].map((i) => (
                 <OutfieldFigure key={i} x={px(setup.wall + 0.0375 + i * 0.075)} ground={GOAL.y + GOAL.h + 2} h={50} span={GOAL.w * 0.075} kit={kits?.opp} jump={phase === 'flight' ? Math.sin(Math.min(1, k * 1.5) * Math.PI) : 0} />
               ))}
-            <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
+            <KeeperFigure x={keeperPx} ground={keeperGround} h={keeperH} dive={diveAmount} kit={setup.kit} reach={gloves} />
             {phase !== 'flight' && (
               <>
                 <Circle cx={px(aimX)} cy={GOAL.y + GOAL.h / 2} r={9} stroke="#ffffff" strokeWidth={3} fill={phase === 'aim' ? 'none' : '#ffffff'} />
@@ -451,38 +489,32 @@ function clamp(v: number) {
   return Math.max(0, Math.min(1, v));
 }
 
-// Where the ball goes decides it. Penalties: the keeper guesses a side
-// before the kick, so only a shot to where he dives is saved.
-function judge(
-  kind: Kind,
-  x: number,
-  power: number,
-  setup: { keeper: number; dive: number; wall: number },
-  b: Bands,
-  reach: number,
-  wall: [number, number] | null,
-  wonder = 0,
-): { outcome: ShotOutcome; text: string; q: number; diveTo: number } {
-  const toward = (target: number) => clamp(setup.keeper + Math.max(-reach, Math.min(reach, target - setup.keeper)));
-  if (x < 0.02 || x > 0.98) return { outcome: 'miss', text: 'Wide of the post!', q: 0.05, diveTo: toward(x) };
-  if (power > b.high) return { outcome: 'miss', text: 'Blazed over the bar!', q: 0.05, diveTo: toward(x) };
-  if (kind === 'freekick' && wall && x >= setup.wall + wall[0] && x <= setup.wall + wall[1]) return { outcome: 'miss', text: 'Straight into the wall.', q: 0.08, diveTo: setup.keeper };
-  if (kind === 'penalty') {
-    const diveTo = clamp(setup.keeper + setup.dive * 0.3);
-    if (Math.abs(x - diveTo) < 0.17 || (power < b.low && Math.abs(x - setup.keeper) < 0.25)) return { outcome: 'save', text: 'He guessed right!', q: 0.35, diveTo: x };
-    return { outcome: 'goal', text: power >= b.low ? 'Sent the keeper the wrong way!' : 'Rolled in. Cheeky!', q: 0.95, diveTo };
+// What happened, in a line under the goal.
+function lineFor(run: ShotRun, kind: Kind, power: number, b: Bands): string {
+  switch (run.end) {
+    case 'net':
+      return kind === 'penalty' ? (power >= b.low ? 'Sent the keeper the wrong way!' : 'Rolled in. Cheeky!') : 'Beat him all ends up!';
+    case 'inOffHand':
+      return 'He gets a hand to it, but it still goes in!';
+    case 'inOffPost':
+      return 'In off the post!';
+    case 'held':
+      return power < b.low ? 'Too soft. Easy save.' : 'Straight into his gloves.';
+    case 'parry':
+      return 'Parried away!';
+    case 'tipRound':
+      return 'Fingertips! Round the post.';
+    case 'tipOver':
+      return 'Tipped over the bar!';
+    case 'post':
+      return 'Off the post!';
+    case 'bar':
+      return 'Off the bar!';
+    case 'over':
+      return 'Blazed over the bar!';
+    default:
+      return 'Wide of the post!';
   }
-  // reach already allows for the power and the distance (see reachAt).
-  const weak = power < b.low;
-  const gap = Math.abs(x - setup.keeper);
-  if (gap <= reach) return { outcome: 'save', text: weak ? 'Too soft. Easy save.' : power <= b.mid ? 'He had time to get across. Saved!' : 'Within his reach. Parried away!', q: 0.4, diveTo: x };
-  // He dives full stretch, but the glove (about a tenth of the goal wide)
-  // ends short of the ball.
-  const short = clamp(setup.keeper + Math.sign(x - setup.keeper) * Math.max(0, Math.min(reach, gap) - 0.1));
-  // Not even a perfect shot is certain: now and then he gets a fingertip to
-  // it at full stretch, a good keeper more often. Rarer in the corners.
-  if (Math.random() < wonder * (x < 0.12 || x > 0.88 ? 0.5 : 1)) return { outcome: 'save', text: 'Fingertips! What a save!', q: 0.45, diveTo: x };
-  return { outcome: 'goal', text: x < 0.12 || x > 0.88 ? 'Into the corner!' : 'Beat him all ends up!', q: power > b.mid ? 1 : 0.85, diveTo: short };
 }
 
 type Bands = { low: number; mid: number; high: number };

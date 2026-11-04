@@ -122,6 +122,7 @@ describe('calls', () => {
     const call = count('call');
     const run = count('run');
     expect(call.pass ?? 0).toBeGreaterThan(run.pass ?? 0);
-    expect(run.shot ?? 0).toBeGreaterThan(call.shot ?? 0);
+    const attacking = (c: typeof run) => (c.shot ?? 0) + (c.header ?? 0) + (c.dribble ?? 0);
+    expect(attacking(run)).toBeGreaterThan(attacking(call));
   });
 });

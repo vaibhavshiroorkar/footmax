@@ -53,6 +53,13 @@ export interface PlayStep {
   aim?: number;
   // A shot that hit this defender (one the shot game showed in the way).
   blocker?: string;
+  // The side that took a shot. step.side can name either team (see
+  // defendingSide), so a shot says who struck it.
+  shotBy?: 'home' | 'away';
+  // A save pushed back into play.
+  parried?: boolean;
+  // A shot off the woodwork, back into play.
+  frame?: 'post' | 'bar';
   // How a shot was struck: driven, curled or low (see ShotShape).
   shape?: 'driven' | 'curl' | 'low';
   // A miss inside the posts that goes over the bar.
@@ -415,29 +422,36 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
   const shape = facts?.shape;
   const head = facts ? !!facts.header : header;
   if (result === 'goal') {
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var, shotBy: side });
   } else if (facts?.var === 'overturned') {
     // In the net, then VAR rules it out: a free kick to the defenders.
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, restart: 'freekick' });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, restart: 'freekick', shotBy: side });
   } else if (result === 'save') {
     // About a third are tipped round the post or over: a corner.
     const tipped = facts ? !!facts.tipped : rng.chance(0.33);
-    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: tipped ? side : keeperSide, act: 'save', header: head, aim, shape, restart: tipped ? 'corner' : undefined });
+    steps.push({ x: 0.5 + rng.range(-0.05, 0.05), y: goalY + inward * 0.03, carrier: keeperId ?? null, side: tipped ? side : keeperSide, act: 'save', header: head, aim, shape, restart: tipped ? 'corner' : undefined, parried: facts?.parried, shotBy: side });
   } else if (facts?.blocker) {
-    // Off the defender and behind: a corner.
-    steps.push({ x: 0.5, y: goalY + inward * 0.15, carrier: null, side, act: 'miss', restart: 'corner', aim, shape, blocker: facts.blocker });
+    // Off the defender: behind for a corner, out for a throw, or still alive.
+    const out = facts.blockOut;
+    const left = rng.chance(0.5);
+    const at = out === 'throw' ? { x: left ? -0.01 : 1.01, y: goalY + inward * 0.2 } : { x: 0.5, y: goalY + inward * (out === 'loose' ? 0.2 : 0.15) };
+    steps.push({ ...at, carrier: null, side, act: 'miss', restart: out === 'loose' ? undefined : out === 'throw' ? 'throw' : 'corner', aim, shape, blocker: facts.blocker, shotBy: side });
+  } else if (facts?.frame) {
+    // Off the woodwork and back out: nobody has it, and play goes on.
+    steps.push({ x: 0.5 + rng.range(-0.12, 0.12), y: goalY + inward * 0.1, carrier: null, side: keeperSide, act: 'miss', header: head, aim, shape, frame: facts.frame, shotBy: side });
   } else {
     const wide = rng.chance(0.5) ? rng.range(0.34, 0.43) : rng.range(0.57, 0.66);
     // Some are deflected behind off a defender: a corner, not a goal kick.
     const deflected = facts ? !!facts.deflected : rng.chance(0.18);
-    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: deflected ? side : keeperSide, act: 'miss', restart: deflected ? 'corner' : 'goalkick', header: head, aim, shape, over: facts?.over });
+    steps.push({ x: wide, y: goalY - inward * 0.015, carrier: null, side: deflected ? side : keeperSide, act: 'miss', restart: deflected ? 'corner' : 'goalkick', header: head, aim, shape, over: facts?.over, shotBy: side });
   }
 }
 
 // The side facing a shot. step.side is not always that: on a stoppage it is
 // the side that restarts, so a goal, a tipped save and a deflected miss (all
 // scored by, or restarted by, the attackers) name the attackers instead.
-export function defendingSide(step: Pick<PlayStep, 'act' | 'side' | 'var' | 'restart'>): 'home' | 'away' {
+export function defendingSide(step: Pick<PlayStep, 'act' | 'side' | 'var' | 'restart' | 'shotBy'>): 'home' | 'away' {
+  if (step.shotBy) return step.shotBy === 'home' ? 'away' : 'home';
   const attackers = step.restart === 'corner' || (step.act === 'goal' && step.var !== 'overturned');
   return attackers ? (step.side === 'home' ? 'away' : 'home') : step.side;
 }

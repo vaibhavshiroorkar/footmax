@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.14.0. Next: v1.15.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.15.0. Next: v1.16.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -39,7 +39,7 @@ The 41-point request of 2026-11-04, word for word.
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
 | 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done |
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
-| 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | doing |
+| 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | done |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
 | 5 | allow interaction of user during corner (either header or outside the box or take the corner) | v1.18.0 | todo |
 | 6 | make defenders actually stand in the way instead of random | v1.13.0 | done |
@@ -62,8 +62,8 @@ The 41-point request of 2026-11-04, word for word.
 | 23 | same for corner like the other 2 setpiece, short cutscene and user interaction | v1.18.0 | todo |
 | 24 | sometimes let a goal happen and it gets called for VAR or offside or ref sees foul, etc | v1.16.0 | todo |
 | 25 | make sure the rules apply to all players properly, constraints should always apply | v1.16.0 | todo |
-| 26 | the ball should touch the model and deflect, it cant be saved if it doesnt touch but make sure this doesnt mean the ball always goes in, it should make keeper model actually interact properly instead of static rotation of keeper body | v1.15.0 | todo |
-| 27 | the ball can deflect out for corner or something as well | v1.15.0 | todo |
+| 26 | the ball should touch the model and deflect, it cant be saved if it doesnt touch but make sure this doesnt mean the ball always goes in, it should make keeper model actually interact properly instead of static rotation of keeper body | v1.15.0 | done |
+| 27 | the ball can deflect out for corner or something as well | v1.15.0 | done |
 | 28 | maybe add voice of refree shouting PENALTY or saying freekick like that | v1.17.0 | todo |
 | 29 | all the players should remain in context and continuity when any event happens so if 3 players are in front, it should be accurate to ur position if u shoot. | v1.13.0 | done |
 | 30 | rework header interaction, it's mid | v1.18.0 | todo |

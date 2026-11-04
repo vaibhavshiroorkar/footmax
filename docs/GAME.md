@@ -151,8 +151,7 @@ moments to play, not a wall of information.
     `__tests__/engine/shotText.test.ts`;
   - a failed pass names the defender who cuts it out, and the pitch shows
     that defender winning it;
-  - a save goes where the keeper can reach and he gets to it, and a goal
-    goes past his dive;
+  - a save always has a touch, and a goal goes past his reach;
   - an aimed shot goes to the same side on the pitch as in the shot game;
   - a picked pass goes to the team-mate picked.
 - **Key moments** open on the main screen, never in a pop-up: the pitch
@@ -227,16 +226,27 @@ moments to play, not a wall of information.
      in a one on one with the chip move). From distance a LOW or MID shot
      gives the keeper time to get across (his reach band under him widens
      as you watch); only HIGH beats him from far.
+  The ball is then played out against the keeper's body (`src/engine/contact.ts`):
+  he reacts late, moves at his speed, and either the ball meets his reach or
+  it does not. **No touch, no save.** The bar under him shows what he can cover
+  for this shot. A touch with something to spare is held or parried; with the
+  hand it is pushed away, round the post or over the bar; with the fingertips it
+  can still go in. Shots near the woodwork can hit it and come out, or go in off
+  it. A penalty keeper picks a side on the kick, so going the wrong way means
+  he cannot save it. His jointed figure is placed so the glove meets the ball,
+  and with no touch his hand stops at full stretch, short of it.
   The shot strays from the aim by composure, shooting, weak foot and
   distance. From outside the box a poor shooter strays far more and the
   keeper gets across more easily; it takes high shooting to score from
-  there (the same holds when the sim plays the shot). No shot is certain:
-  now and then the keeper gets a fingertip to one at full stretch, a good
-  keeper more often, less often in the corners. Into a defender's body it is blocked; inside the keeper's
-  reach it is saved; out of reach and on target it is a goal; wide misses.
+  there (the same holds when the sim plays the shot). Into a defender's body
+  it is blocked.
   Each defender is drawn as wide as the part of the goal he hides, so a
   man close to the shooter looks bigger and blocks more. A blocked shot
-  hits that same defender on the pitch and goes behind for a corner.
+  hits that same defender on the pitch, then goes behind for a corner (most
+  often), out for a throw, or stays alive.
+- **Rebounds:** a parry, a shot off the woodwork or a block that stays in play
+  is a live ball. The side that shot is usually first to it the next minute,
+  with a better chance of a shot.
 - **On the ball:** in a quiet move, when the user's player has the ball,
   the buttons become Shoot, Pass and Take him on, usable anywhere. Play
   slows to slow motion (at any speed) and waits about two seconds while
@@ -250,7 +260,7 @@ moments to play, not a wall of information.
     often, every pass lane is more open and more dangerous, and the pass
     scenes play as if he passed 12 points better;
   - Make a run: he runs into the box (held onside by the line) and balls
-    are played in behind to him there. He is on the end of about 2.6 times
+    are played in behind to him there. He is on the end of about 3.4 times
     as many chances, and they are better ones: closer in, often one on one.
   A tag (RUN, CALL, BACK) shows over him while a call lasts.
 - **Zone slider (Defend, Middle, Attack):** above the action buttons,

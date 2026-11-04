@@ -6,6 +6,7 @@ import { SKILL_MOVES, finishBonus, hasMove, skillLevel } from './skills';
 import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
+import { ShotEnd } from './contact';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
 import { PlayOutcome, PlayStart, PlayStep, Positions, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
 
@@ -210,6 +211,8 @@ export interface MatchState {
   // arrived. The pitch draws exactly that pass: a cross as a cross, and an
   // offside flag when the pass scene called it.
   lastPass?: { to: string; ok: boolean; kind?: PassKind; offside?: boolean; cutBy?: string };
+  // A ball left alive near goal: this side is first to it next minute.
+  rebound?: SideKey;
   // The Last-ditch technique was used this match (it saves one mistake).
   lastDitchUsed?: boolean;
   // The career player's current call, and when the next one is allowed.
@@ -373,7 +376,7 @@ function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Pl
   // The user's player is on the end of a few more chances anyway, so key
   // moments come along steadily.
   const zone = zoneOf(world, s);
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 2.6 : 1));
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 3.4 : 1));
   // Great shooters take far more of the chances.
   return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 3.5 * boost(p)));
 }
@@ -458,9 +461,14 @@ function decideShot(rng: Rng, result: 'goal' | 'save' | 'miss', how: { header?: 
   else if (result === 'save') {
     f.aim = rng.range(0.28, 0.72);
     f.tipped = rng.chance(0.33);
+    f.parried = !f.tipped && !how.penalty && rng.chance(0.4);
   } else if (!how.penalty && !how.header && rng.chance(0.22)) {
     f.blocker = how.freekick ? 'wall' : 'lane';
     f.aim = rng.range(0.2, 0.8);
+    f.blockOut = blockOut(rng);
+  } else if (!how.penalty && rng.chance(0.09)) {
+    f.frame = rng.chance(0.7) ? 'post' : 'bar';
+    f.aim = f.frame === 'bar' ? rng.range(0.2, 0.8) : rng.chance(0.5) ? 0.01 : 0.99;
   } else if (shape !== 'low' && rng.chance(0.4)) {
     f.over = true;
     f.aim = rng.range(0.25, 0.75);
@@ -471,10 +479,17 @@ function decideShot(rng: Rng, result: 'goal' | 'save' | 'miss', how: { header?: 
   return f;
 }
 
+// A blocked shot goes behind most often, but can go out or stay in play.
+function blockOut(rng: Rng): 'throw' | 'loose' | undefined {
+  const r = rng.next();
+  return r < 0.6 ? undefined : r < 0.75 ? 'throw' : 'loose';
+}
+
 // What the user's mini-game showed, as shot facts.
 function factsFrom(rng: Rng, result: 'goal' | 'save' | 'miss', p: Played, how: { header?: boolean; penalty?: boolean; freekick?: boolean }): ShotFacts {
   if (p.aim === undefined) return decideShot(rng, result, how);
   const inside = p.aim >= 0.02 && p.aim <= 0.98;
+  const frame = p.end === 'post' || p.end === 'bar' ? p.end : undefined;
   return {
     aim: p.aim,
     shape: p.shape ?? 'driven',
@@ -482,8 +497,11 @@ function factsFrom(rng: Rng, result: 'goal' | 'save' | 'miss', p: Played, how: {
     penalty: how.penalty,
     freekick: how.freekick,
     blocker: result === 'miss' ? (p.wall ? 'wall' : p.blocker) : undefined,
-    over: result === 'miss' && !p.blocker && !p.wall && (p.over ?? inside),
-    tipped: result === 'save' && rng.chance(0.33),
+    blockOut: result === 'miss' && (p.wall || p.blocker) ? blockOut(rng) : undefined,
+    over: result === 'miss' && !p.blocker && !p.wall && !frame && (p.over ?? inside),
+    tipped: result === 'save' && (p.end ? p.end === 'tipRound' || p.end === 'tipOver' : rng.chance(0.33)),
+    parried: result === 'save' && p.end === 'parry',
+    frame,
   };
 }
 
@@ -499,6 +517,7 @@ function autoShot(rng: Rng, world: World, s: MatchState, sideKey: SideKey, shoot
     const f = decideShot(rng, 'miss', how);
     push(s, s.minute, sideKey, 'miss', missLine(rng, f, vars), shooter.id);
     s.events[s.events.length - 1].shot = f;
+    if (f.frame || f.blockOut === 'loose') s.rebound = sideKey;
     return;
   }
   const skills = 0.03 * skillLevel(shooter, 'finisher') + 0.01 * skillLevel(shooter, 'finesse');
@@ -515,6 +534,7 @@ function autoShot(rng: Rng, world: World, s: MatchState, sideKey: SideKey, shoot
     const f = decideShot(rng, 'save', how);
     push(s, s.minute, sideKey, 'save', saveLine(rng, f, vars), shooter.id);
     s.events[s.events.length - 1].shot = f;
+    if (f.parried) s.rebound = sideKey;
   }
 }
 
@@ -808,6 +828,8 @@ export type ShotShape = 'driven' | 'curl' | 'low';
 // passed: what a pass scene showed. shape: how the shot was struck.
 export interface Played {
   forced?: 'goal' | 'save' | 'miss';
+  // How the shot ended, from the contact model (see contact.ts).
+  end?: ShotEnd;
   aim?: number;
   blocker?: string;
   passed?: PassOutcome;
@@ -866,6 +888,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     const vars = { p: shortName(actor), k: shortName(keeper), d: f.blocker && world.players[f.blocker] ? shortName(world.players[f.blocker]) : undefined };
     push(s, s.minute, m.side, onTarget ? 'save' : 'miss', onTarget ? saveLine(rng, f, vars) : missLine(rng, f, vars), actor.id, played);
     s.events[s.events.length - 1].shot = f;
+    if (f.parried || f.frame || f.blockOut === 'loose') s.rebound = m.side;
     s.rngState = rng.state;
   };
 
@@ -1372,7 +1395,11 @@ export function stepMinute(world: World, s: MatchState): void {
   const hm = hs.mid * STYLE_MOD[s.home.style].mid;
   const am = as.mid * STYLE_MOD[s.away.style].mid;
   const pHome = clamp(hm ** 3 / (hm ** 3 + am ** 3) + 0.03, 0.15, 0.85);
-  const attKey: SideKey = rng.chance(pHome) ? 'home' : 'away';
+  // A loose ball near goal: the side that shot is usually first to it.
+  const rebound = s.rebound;
+  s.rebound = undefined;
+  const firstThere = !!rebound && rng.chance(0.7);
+  const attKey: SideKey = firstThere ? rebound! : rng.chance(pHome) ? 'home' : 'away';
   const defKey = other(attKey);
   s[attKey].possession++;
   const start = moveStart(s);
@@ -1394,6 +1421,7 @@ export function stepMinute(world: World, s: MatchState): void {
   const chanceP =
     (1 - 0.02 * walls) *
     shoutMod *
+    (firstThere ? 1.8 : 1) *
     BASE_CHANCE * (att.attack / def.defense) ** 1.6 * STYLE_MOD[s[attKey].style].chance * STYLE_MOD[s[defKey].style].concede;
 
   if (rng.chance(chanceP)) {

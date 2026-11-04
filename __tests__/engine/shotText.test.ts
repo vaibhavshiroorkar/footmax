@@ -37,12 +37,15 @@ describe('feed lines match the pitch', () => {
           if (f.blocker) {
             expect(end.blocker).toBe(f.blocker);
             expect(text).toMatch(/block|wall/);
+          } else if (f.frame) {
+            expect(end.frame).toBe(f.frame);
+            expect(text).toMatch(/post|bar/);
           } else if (f.over) {
             expect(end.over).toBe(true);
             expect(text).toMatch(/over/);
           } else expect(text).toMatch(/wide/);
         }
-        const corner = f.tipped || f.deflected || !!f.blocker;
+        const corner = f.tipped || f.deflected || (!!f.blocker && !f.blockOut);
         expect(end.restart === 'corner').toBe(corner);
         if (corner) expect(text).toContain('corner');
       }

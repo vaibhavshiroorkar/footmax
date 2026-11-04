@@ -586,6 +586,12 @@ export class PitchSim {
         // A touch of pace variety, so no two shots fly the same.
         let dur = Math.max(0.3, d / (step.header ? 17 : 27)) * (0.9 + Math.random() * 0.2);
         // A save means he gets there, so the ball never beats his dive.
+        if (step.frame) {
+          // At the post or the bar, not past it.
+          const post = PW / 2 + (tx < PW / 2 ? -GOAL_HALF : GOAL_HALF);
+          tx = step.frame === 'post' ? post : tx;
+          toward = lineY;
+        }
         if (step.act === 'save' && keeper) dur = Math.max(dur, (dist(keeper.x, keeper.y, tx, lineY + inward * 0.7) / (keeper.top * 1.5)) * 1.25 + 0.1);
         // How it was struck: the user's choice, or a mix for everyone else.
         const shape = step.shape ?? (step.header ? 'driven' : Math.random() < 0.3 ? 'curl' : Math.random() < 0.3 ? 'low' : 'driven');
@@ -840,7 +846,7 @@ export class PitchSim {
               this.caption = `${shooter} shoots... tipped behind by ${carrier?.name ?? 'the keeper'}`;
               return pause(1.4);
             }
-            if (Math.random() < 0.5 && carrier) {
+            if (step.parried && carrier) {
               const out = carrier.side === 'home' ? 1 : -1;
               const px = clamp(this.ball.x + (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 5), 4, PW - 4);
               const py = clamp(this.ball.y + out * (5 + Math.random() * 4), 2, PL - 2);
@@ -853,13 +859,26 @@ export class PitchSim {
             this.caption = `${shooter} shoots... saved by ${carrier?.name ?? 'the keeper'}`;
             return pause(1.2);
           }
+          if (step.frame) {
+            // Off the woodwork and back into play.
+            const away = (step.shotBy ?? step.side) === 'home' ? -1 : 1;
+            this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: M(step).x, ty: M(step).y, t: 0, dur: 0.5, peak: 0.8 };
+            this.callout = { text: step.frame === 'post' ? 'OFF THE POST!' : 'OFF THE BAR!', tone: 'miss', until: this.clock + 1.3 };
+            this.hooks.onSound?.('ooh', 0.9);
+            this.caption = step.frame === 'post' ? `${shooter} hits the post!` : `${shooter} hits the bar!`;
+            this.ball.vy = away * 0.1;
+            return pause(1);
+          }
           if (step.blocker) {
-            // Off his body and behind the goal line: a corner.
+            // Off his body: behind for a corner, out for a throw, or loose.
             const lineY = step.side === 'home' ? PL : 0;
             const out = step.side === 'home' ? 1 : -1;
-            this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: clamp(this.ball.x + (this.ball.x < PW / 2 ? -6 : 6), 2, PW - 2), ty: lineY + out * 1.5, t: 0, dur: 0.6, peak: 1.6 };
+            const r = step.restart;
+            const to = r === 'corner' ? { x: clamp(this.ball.x + (this.ball.x < PW / 2 ? -6 : 6), 2, PW - 2), y: lineY + out * 1.5 } : M(step);
+            this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: to.x, ty: to.y, t: 0, dur: 0.6, peak: 1.6 };
             const by = this.name(step.blocker);
-            this.callout = { text: 'BLOCKED!', sub: by ? `${by}. Corner.` : 'Corner.', tone: 'stop', until: this.clock + 1.4 };
+            const where = r === 'corner' ? 'Corner.' : r === 'throw' ? 'Throw-in.' : '';
+            this.callout = { text: 'BLOCKED!', sub: [by, where].filter(Boolean).join('. ') || undefined, tone: 'stop', until: this.clock + 1.4 };
             this.hooks.onSound?.('ooh', 0.7);
             this.caption = by ? `${shooter} shoots... blocked by ${by}` : `${shooter} shoots... blocked`;
             return pause(1.4);

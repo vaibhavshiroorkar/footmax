@@ -97,6 +97,22 @@ SVG meets the target, so Skia and its 2.9 MB download are not needed. To repeat 
 build with `EXPO_PUBLIC_TEST_HOOK=1`, which keeps the store hook in production. Open:
 nobody has measured it on a real phone yet. That is for v2.0.0.
 
+### Keepers and contact (v1.15.0)
+
+- The ball takes 400 to 600 ms from the penalty spot (Kuhn 1988, via Tsai 2005).
+- A keeper takes about 0.6 s to reach a side and a full second to stretch to a top
+  corner (van der Kamp and colleagues, 2018).
+- One site puts the Premier League save rate near 70%. The source is weak.
+- Liverpool average 6.6 corners a game in the Premier League all-time. No reliable
+  league-wide figure turned up.
+- Open: no source gave parried against held saves, or dive distance in metres. The
+  splits in `contact.ts` and its reach figures are our judgement, tuned by test.
+
+Sources: [Tsai on keeper dive response](https://ojs.ub.uni-konstanz.de/cpa/article/view/1115),
+[Bowtell on the keeper-dependent strategy](https://repository.lboro.ac.uk/articles/Analysis_of_the_keeper-dependent_strategy_in_the_soccer_penalty_kick/9625016),
+[The Journal on van der Kamp's review](https://www.thejournal.ie/article.php?id=3973669),
+[StatMuse on corners](https://www.statmuse.com/fc/ask/liverpool-average-corners).
+
 ## Laws of the Game
 
 Source: IFAB Laws, read 2026-11-04. The 2026/27 Laws took effect on 1 July 2026.

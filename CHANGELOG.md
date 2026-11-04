@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.15.0
+
+- Keepers have to reach the ball. A save only happens if the ball touches
+  them: glove, fingertips or body, and you can see it.
+- Keepers react late and move at real speed, and the better ones get further.
+  Hard shots into the corners beat them; soft ones and shots near them do not.
+- The ball now does what a ball does: held, parried back into play, tipped round
+  the post or over the bar, in off a hand, off the post or the bar.
+- Blocked shots can go behind, out for a throw, or stay alive.
+- Rebounds are live: a parry or the woodwork can bring a second chance.
+
 ## 1.14.0
 
 - Every person in a moment is now a jointed figure with elbows and knees, in
