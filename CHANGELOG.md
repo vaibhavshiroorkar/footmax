@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.1.0
+
+- Keepers are better and harder to beat from the start. They stay central to cover
+  both corners, and the ball no longer passes through them.
+- The ball moves faster on the pitch and in moments, and is bigger when you play it.
+- A moment only opens when the ball has really reached you. No more teleporting.
+- Offside now gives the ball to the other team, like every restart.
+- Fewer stalls: corners are taken sooner, tackles do not leave the ball standing
+  still, and play slows less when you have the ball.
+- Defenders wide of the goal no longer float at the side of the shot view.
+
 ## 2.0.0
 
 The 41-point request, finished and audited across both modes.

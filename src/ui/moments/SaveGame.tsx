@@ -62,7 +62,7 @@ export function SaveGame({ reflex = 0, keeping = 60, onDone }: { reflex?: number
         <Line x1={0} y1={90} x2={300} y2={90} stroke={colors.pitchLine} strokeWidth={2} />
         <KeeperFigure x={keeperX} ground={90} h={56} dive={(dived ?? 0) * 0.85} kit={looks.ownKeeper} skin={looks.me?.skin} />
         <Person side="opp" x={150} y={148} h={44} />
-        <Football cx={ballX} cy={ballY} r={7.5} rot={(ballX + ballY) * 7} />
+        <Football cx={ballX} cy={ballY} r={9} rot={(ballX + ballY) * 7} />
       </Svg>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (struck ? `He goes ${LABEL[setup.dir]}!` : 'He steps up... read his body shape.')}

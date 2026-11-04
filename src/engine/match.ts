@@ -252,6 +252,7 @@ export interface MatchState {
 }
 
 const MAX_MOMENTS = 12;
+const RESTART_KEPT = 0.9;
 const BASE_CHANCE = 0.197;
 const SUB_MINUTES = [60, 70, 80];
 
@@ -1573,14 +1574,17 @@ export function stepMinute(world: World, s: MatchState): void {
   const hm = hs.mid * STYLE_MOD[s.home.style].mid;
   const am = as.mid * STYLE_MOD[s.away.style].mid;
   const pHome = clamp(hm ** 3 / (hm ** 3 + am ** 3) + 0.03, 0.15, 0.85);
+  const start = moveStart(s);
   // A loose ball near goal: the side that shot is usually first to it.
   const rebound = s.rebound;
   s.rebound = undefined;
-  const firstThere = !!rebound && !s.kickoff && rng.chance(0.7);
-  const attKey: SideKey = firstThere ? rebound! : rng.chance(pHome) ? 'home' : 'away';
+  const firstThere = !!rebound && !start.restart && rng.chance(0.7);
+  // Whoever restarts has the ball: an offside is the defenders' free kick, and
+  // they keep it. Only now and then do they lose it straight away.
+  const restarts = start.restartSide && rng.chance(RESTART_KEPT) ? start.restartSide : null;
+  const attKey: SideKey = restarts ?? (firstThere ? rebound! : rng.chance(pHome) ? 'home' : 'away');
   const defKey = other(attKey);
   s[attKey].possession++;
-  const start = moveStart(s);
   if (cornerMoment(rng, world, s, start)) {
     s.rngState = rng.state;
     return;

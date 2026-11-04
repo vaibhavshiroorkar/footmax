@@ -112,6 +112,8 @@ moments to play, not a wall of information.
 - **Qualifiers:** World Cup qualifiers leave club football alone: no fitness cost,
   knocks or bans carry back. A red card at international level bans no club games.
   The career player's caps come from his call-up, not the simmed games.
+- **Restarts:** whoever restarts has the ball, 9 times in 10. An offside is the
+  defenders' free kick and they keep it.
 - **Fouls and cards:** the side without the ball commits them, mostly defenders and
   midfielders, and a booked man backs off. A second yellow is a red. A straight red
   bans for three games, two yellows for one; the ban is served, and sent-off
@@ -188,6 +190,8 @@ moments to play, not a wall of information.
   - a save always has a touch, and a goal goes past his reach;
   - an aimed shot goes to the same side on the pitch as in the shot game;
   - a picked pass goes to the team-mate picked.
+- **The ball reaches you:** a moment only opens once the ball is at the player's
+  feet. If it is not there yet it is played to him in plain sight.
 - **Key moments** open on the main screen, never in a pop-up: the pitch
   and the action buttons form one block whose size never changes; a
   moment's game covers the pitch there, and the pass picker, the skip

@@ -232,7 +232,8 @@ export class PitchSim {
       if (ahead <= 0.03 || ahead >= 0.95 || d > 30) continue;
       const gx = s.x + (b.x - s.x) / ahead;
       const x = 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
-      if (x < -0.2 || x > 1.2) continue;
+      // A man wide of the goal hides none of it, so he is not in the way.
+      if (x < -0.1 || x > 1.1) continue;
       // About 0.45 m of body each side of him, seen from the shooter.
       const half = clamp(0.45 / ahead / (2 * GOAL_HALF), 0.04, 0.12);
       out.push({ id: b.id, x, half, near: 1 - ahead, d });
@@ -262,13 +263,15 @@ export class PitchSim {
     const k = this.active().find((b) => b.pos === 'GK' && b.side === defSide);
     const wall = this.setPiece?.wall.map((id) => this.bodies.get(id)).filter((b): b is Body => !!b) ?? [];
     return {
-      keeper: k ? clamp(across(k), 0.12, 0.88) : 0.5,
+      // His place across the goal itself. He stays near the middle to cover both
+      // corners, shading to the near post.
+      keeper: k ? clamp(0.5 + ((k.x - PW / 2) / (2 * GOAL_HALF)) * flip, 0.34, 0.66) : 0.5,
       out: k ? Math.abs(k.y - lineY) : 0,
       wall: wall.length ? wall.reduce((n, b) => n + across(b), 0) / wall.length : undefined,
       mates: this.active()
         .filter((b) => b.side === s.side && b.id !== s.id && b.pos !== 'GK' && (b.y - s.y) / toGoal > 0.03 && (b.y - s.y) / toGoal < 0.95 && dist(b.x, b.y, s.x, s.y) < 30)
         .map((b) => ({ id: b.id, x: across(b), near: 1 - (b.y - s.y) / toGoal }))
-        .filter((m) => m.x > -0.4 && m.x < 1.4)
+        .filter((m) => m.x > -0.1 && m.x < 1.1)
         .slice(0, 4),
     };
   }
@@ -471,7 +474,7 @@ export class PitchSim {
         // his feet if he is close, into space ahead of him if he is running.
         const runner = this.bodies.get((step.act === 'offside' ? step.other : step.carrier) ?? '');
         if (runner && step.act !== 'out') {
-          const guess = dist(fx, fy, tx, ty) / 16;
+          const guess = dist(fx, fy, tx, ty) / 21;
           const reach = runner.top * 0.85 * guess * TIME + 1;
           const gap = dist(runner.x, runner.y, tx, ty);
           if (gap > reach) {
@@ -484,13 +487,13 @@ export class PitchSim {
         const d = dist(fx, fy, tx, ty);
         // A throw-in leaves the hands: a short, looping ball.
         const thrown = prev?.act === 'start' && prev.restart === 'throw';
-        const speed = thrown ? 12 : step.act === 'cross' ? 15 : d > 30 ? 19 : 15;
+        const speed = thrown ? 14 : step.act === 'cross' ? 20 : d > 30 ? 26 : 20;
         const peak = thrown ? 1.6 : step.act === 'cross' ? 4 : d > 30 ? 3 : d > 18 ? 0.8 : 0;
         // Crosses are whipped in and bend; long balls drift; short ones run
         // almost straight.
         const bend = thrown ? 0 : step.act === 'cross' ? 2.4 + Math.random() * 1.6 : d > 30 ? 1 + Math.random() : d > 18 ? 0.5 : 0.15;
         this.ball.owner = null;
-        this.ball.flight = { fx, fy, tx, ty, t: 0, dur: Math.max(0.45, d / speed), peak, curl: bend * (Math.random() < 0.5 ? -1 : 1) };
+        this.ball.flight = { fx, fy, tx, ty, t: 0, dur: Math.max(0.32, d / speed), peak, curl: bend * (Math.random() < 0.5 ? -1 : 1) };
         this.hooks.onSound?.('kick', step.act === 'cross' || d > 30 ? 0.8 : 0.5);
         const to = step.act === 'offside' ? step.other : step.carrier;
         this.caption =
@@ -599,7 +602,7 @@ export class PitchSim {
         const d = dist(fx, fy, tx, toward);
         this.ball.owner = null;
         // A touch of pace variety, so no two shots fly the same.
-        let dur = Math.max(0.3, d / (step.header ? 17 : 27)) * (0.9 + Math.random() * 0.2);
+        let dur = Math.max(0.24, d / (step.header ? 22 : 36)) * (0.9 + Math.random() * 0.2);
         // A save means he gets there, so the ball never beats his dive.
         if (step.frame) {
           // At the post or the bar, not past it.
@@ -738,7 +741,9 @@ export class PitchSim {
           return;
         }
         // A set piece: taken once the other side has backed off.
-        if (a.t > 0.7 && (this.restartClear(step) || a.t > 5)) {
+        // A corner goes as soon as the taker is ready; others wait for the
+        // distance, but not for long.
+        if (a.t > 0.7 && (step.restart === 'corner' || this.restartClear(step) || a.t > (step.restart === 'penalty' ? 4 : 2.2))) {
           if (step.restart === 'freekick' || step.restart === 'corner') this.hooks.onSound?.('whistle', 0.45);
           return done();
         }
@@ -784,7 +789,7 @@ export class PitchSim {
           return done();
         }
         // He has to get there: a tackle from afar waits for him to arrive.
-        if (dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2 || a.t > 3.6) {
+        if (dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2 || a.t > 2.6) {
           if (step.act === 'foul') {
             if (loser) loser.down = 1.4;
             this.ball.owner = null;
@@ -985,7 +990,17 @@ export class PitchSim {
       }
       case 'moment': {
         if (!carrier) return done();
-        if (this.ball.owner !== carrier.id && dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2.5) this.ball.owner = carrier.id;
+        if (this.ball.flight) return;
+        const gap = dist(carrier.x, carrier.y, this.ball.x, this.ball.y);
+        if (gap < 2.5) this.ball.owner = carrier.id;
+        else if (!this.holding) {
+          // The ball is not with him yet: it is played to him, in plain sight,
+          // and the moment opens when he has it.
+          this.ball.owner = null;
+          this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: carrier.x, ty: carrier.y, t: 0, dur: Math.max(0.3, gap / 24), peak: gap > 24 ? 1.2 : 0.2 };
+          this.hooks.onSound?.('kick', 0.5);
+          return;
+        }
         if (!this.holding) {
           this.holding = true;
           this.hooks.onMoment?.();
@@ -1280,6 +1295,13 @@ export class PitchSim {
       let urgency = 0.55;
       const job = this.act && (this.act.step.carrier === b.id || this.act.step.other === b.id);
       if (job || ball.owner === b.id) urgency = 0.95;
+      // The man about to be tackled keeps going, so play never stands still,
+      // and the tackler meets him rather than walking up to a statue.
+      const duel = this.act?.step;
+      if (duel && duel.other === b.id && (duel.act === 'tackle' || duel.act === 'foul') && duel.carrier) {
+        const rival = this.bodies.get(duel.carrier);
+        if (rival) t = { x: b.x + (rival.x - b.x) * 0.6, y: b.y + (rival.y - b.y) * 0.6 };
+      }
       // The side without the ball sprints back into shape.
       else if (this.layout === 'play' && this.attacking && b.side !== this.attacking) urgency = 0.85;
       // Back to the kick-off spots: a jog, quicker from far away.

@@ -10,6 +10,8 @@ export const GOAL_H = 2.44;
 const POST = 0.12;
 // How far his centre is off the ground as he moves.
 const BODY_Z = 1;
+// How far a beaten keeper's body stays from the ball, so it never passes through.
+const CLEAR = 1.05;
 
 export type Touch = 'body' | 'hand' | 'fingers';
 export type ShotEnd = 'net' | 'inOffHand' | 'inOffPost' | 'held' | 'parry' | 'tipRound' | 'tipOver' | 'post' | 'bar' | 'wide' | 'over';
@@ -64,7 +66,7 @@ export interface KeeperBody {
 // What a keeper of this skill can do. Better keepers set off sooner, move
 // faster and reach further.
 export function keeperBody(skill: number): KeeperBody {
-  return { reaction: 0.3 - skill * 0.0012, speed: 2.8 + skill * 0.012, reach: 0.72 + skill * 0.002, stretch: 2.1 + skill * 0.006 };
+  return { reaction: 0.28 - skill * 0.0012, speed: 3.2 + skill * 0.012, reach: 0.82 + skill * 0.002, stretch: 2.3 + skill * 0.006 };
 }
 
 // How far from where he stands he can touch a ball that takes this long.
@@ -152,8 +154,12 @@ export function flyShot(s: ShotInput): ShotRun {
   const margin = can - need;
 
   if (margin < 0) {
-    // Beyond him. He is left short, at full stretch.
-    const to = toShare((guess ?? from) + Math.sign(x - (guess ?? from)) * Math.min(Math.abs(x - (guess ?? from)), guess === undefined ? moving : 0.35));
+    // Beyond him. He is left short at full stretch, and never where the ball
+    // goes: what beat him was his read, so his body is somewhere else.
+    const base = guess ?? from;
+    const side = Math.sign(x - base) || 1;
+    const went = Math.min(Math.abs(x - base), guess === undefined ? moving : 0.35);
+    const to = toShare(Math.abs(base + side * went - x) < CLEAR ? x - side * CLEAR : base + side * went);
     if (offPost) return s.rand() < 0.5 ? { outcome: 'goal', end: 'inOffPost', keeperTo: to, launch } : { outcome: 'miss', end: 'post', keeperTo: to, launch };
     if (offBar) return { outcome: 'miss', end: 'bar', keeperTo: to, launch };
     return { outcome: 'goal', end: 'net', keeperTo: to, launch };

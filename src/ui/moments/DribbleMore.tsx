@@ -108,7 +108,7 @@ export function GapDribble({ speed = 0, onDone }: { speed?: number; onDone: Done
       <Field>
         <Person side="opp" x={150} y={84} h={88} pose={straddle(spread * 0.68)} />
         <Rect x={150 - spread + 6} y={104} width={Math.max(0, spread * 2 - 12)} height={8} rx={4} fill={gap > 0.6 ? colors.accent : '#ffffff22'} />
-        <Football cx={150} cy={138} r={7} />
+        <Football cx={150} cy={138} r={8.5} />
       </Field>
     </Pressable>
   );

@@ -62,14 +62,14 @@ export function DribbleGame({ speed = 0, stat = 60, mode = 'dribble', onDone }: 
           <>
             {/* The attacker with the ball comes at you. */}
             <Person side="opp" x={150 + move} y={50} h={56} pose={committed ? runPose(t * 12) : undefined} />
-            <Football cx={150 + move} cy={84} r={6.5} rot={move * 6} />
+            <Football cx={150 + move} cy={84} r={8} rot={move * 6} />
             <Person side="own" me x={150} y={124} h={60} />
           </>
         ) : (
           <>
             <Person side="opp" x={150 + move} y={52} h={56} pose={committed ? slidePose(setup.dir as -1 | 1) : undefined} />
             <Person side="own" me x={150} y={122} h={60} />
-            <Football cx={150} cy={150} r={6.5} />
+            <Football cx={150} cy={150} r={8} />
           </>
         )}
       </Svg>

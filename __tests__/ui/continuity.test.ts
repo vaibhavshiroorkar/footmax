@@ -96,6 +96,23 @@ describe('continuity on the pitch', () => {
   });
 });
 
+describe('a moment opens with the ball really there', () => {
+  it('never jumps the ball to the player', () => {
+    let worst = 0;
+    let moments = 0;
+    for (const seed of [91, 92, 93, 94]) {
+      watch(seed, () => undefined, (sim) => {
+        const carrier = sim.bodies.get(sim.act?.step.carrier ?? '');
+        if (!carrier) return;
+        moments++;
+        worst = Math.max(worst, Math.hypot(carrier.x - sim.ball.x, carrier.y - sim.ball.y));
+      });
+    }
+    expect(moments).toBeGreaterThan(5);
+    expect(worst).toBeLessThan(3.5);
+  });
+});
+
 describe('the laws at set pieces', () => {
   const lineup = () => {
     const sim = new PitchSim();

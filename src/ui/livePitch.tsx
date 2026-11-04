@@ -217,7 +217,7 @@ export interface LivePitchProps {
 const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'BACK' } as const;
 // Real seconds play waits while the user's player has the ball, so he can
 // shoot, pass or take his man on.
-const ON_BALL_WAIT = 2.2;
+const ON_BALL_WAIT = 1.4;
 
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
 export function LivePitch({ world, live, focusId, speed, width, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout, celebration }: LivePitchProps) {
@@ -330,7 +330,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       // On the ball, play eases to slow motion so the choice is his.
       // On the ball play eases off so the choice is his, but at 4x
       // it stays at full 1x instead of dropping to slow motion.
-      const scale = p.paused || p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.6) : p.speed;
+      const scale = p.paused || p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.8) : p.speed;
       sim.update(dt * scale);
       const c = sim.celebrate;
       for (const [id, body] of sim.bodies) {

@@ -123,6 +123,14 @@ Sources: [Tsai on keeper dive response](https://ojs.ub.uni-konstanz.de/cpa/artic
 [The Journal on van der Kamp's review](https://www.thejournal.ie/article.php?id=3973669),
 [StatMuse on corners](https://www.statmuse.com/fc/ask/liverpool-average-corners).
 
+### Stalls and teleports (v2.1.0)
+
+Measured over eight matches on v2.0.0. When a moment opened, the ball was on average
+8.4 m from the player and up to 40 m. Stretches of a dead ball with nothing on screen
+to explain it: corners 2.6 s at worst, free kicks 2.3 s, throw-ins 1.9 s, tackles 1.6 s.
+The offside bug: the engine picked the attacking side at random after a restart, so the
+defenders took the free kick and lost it at once.
+
 ## Laws of the Game
 
 Source: IFAB Laws, read 2026-11-04. The 2026/27 Laws took effect on 1 July 2026.

@@ -113,6 +113,34 @@ describe('sent off', () => {
   });
 });
 
+describe('restarts', () => {
+  it('leave the ball with the side that restarts, nearly always', () => {
+    let restarts = 0;
+    let kept = 0;
+    for (const seed of [31, 32, 33, 34, 35, 36]) {
+      const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'CB', seed });
+      const s = startUserMatch(game)!;
+      for (let g = 0; g < 2000 && !s.finished; g++) {
+        if (s.pending) {
+          if (s.pending.kind === 'choice') chooseMoment(game.world, s, s.pending.choices?.[0] ?? 'shot');
+          resolveMoment(game.world, s, 0.6, s.pending?.options?.[0]?.playerId);
+          continue;
+        }
+        const end = s.play?.[s.play.length - 1];
+        const offside = end?.act === 'offside' ? end : undefined;
+        stepMinute(game.world, s);
+        if (offside && s.play?.length) {
+          restarts++;
+          // The team that was flagged does not start the next move with it.
+          if (s.play[0].side === offside.side && !s.play.some((st) => st.act === 'win' && st.side !== offside.side && s.play!.indexOf(st) <= 1)) kept++;
+        }
+      }
+    }
+    expect(restarts).toBeGreaterThan(3);
+    expect(kept / restarts).toBeGreaterThan(0.75);
+  });
+});
+
 describe('goals taken away', () => {
   it('rules some out on the spot and never counts them', () => {
     let calls = 0;

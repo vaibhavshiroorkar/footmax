@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.0.0. Next: v2.1.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v2.1.0. Next: v2.2.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Where it stands
@@ -98,18 +98,18 @@ Sent on 2026-11-04 after playing the live game, to follow v2.0.0, word for word.
 | # | Request | Version | Status |
 | --- | --- | --- | --- |
 | B1 | make right foot and left foot affect shooting animation and position | v2.2.0 | todo |
-| B2 | ball is too slow, make animation go faster, make ball slightly bigger in interaction view | v2.1.0 | todo |
-| B3 | goalkeeper should be better, game feels too easy at start, ball is going through goalkeeper, goalkeepe sometimes stands far on one side which he shouldn't, he should try to cover as much as he can, fix glitchy defenders floating on the side | v2.1.0 | todo |
+| B2 | ball is too slow, make animation go faster, make ball slightly bigger in interaction view | v2.1.0 | done |
+| B3 | goalkeeper should be better, game feels too easy at start, ball is going through goalkeeper, goalkeepe sometimes stands far on one side which he shouldn't, he should try to cover as much as he can, fix glitchy defenders floating on the side | v2.1.0 | done |
 | B4 | freekick, keeper should be on one side, players on another cause thats how walls work | v2.2.0 | todo |
 | B5 | defenders should be according to how many players were ahead of you on the pitch | v2.2.0 | todo |
 | B6 | defender should put pressure while you are shooting | v2.2.0 | todo |
-| B7 | offside gives ball to the other team like the rules | v2.1.0 | todo |
+| B7 | offside gives ball to the other team like the rules | v2.1.0 | done |
 | B8 | et and penalty shootout in KO stage draw | v2.3.0 | todo |
 | B9 | match history | v2.3.0 | todo |
-| B10 | ball is teleporting to me for interaction, fix that it should be real | v2.1.0 | todo |
+| B10 | ball is teleporting to me for interaction, fix that it should be real | v2.1.0 | done |
 | B11 | higher power is less accurate but faster, goalkeeper has less chance of saving if it's perfectly placed, like real life | v2.2.0 | todo |
 | B12 | don't allow skills unless u unlock them for example nutmeg | v2.3.0 | todo |
-| B13 | game slows down and pauses glitch fix | v2.1.0 | todo |
+| B13 | game slows down and pauses glitch fix | v2.1.0 | done |
 | B14 | keep passing more commonly the better option than shooting spam | v2.3.0 | todo |
 | B15 | defender should move in the interaction screen and there can be more than 1 depending on who is in front on the pitch | v2.2.0 | todo |
 | B16 | give joint to defender and players | v2.2.0 | todo |

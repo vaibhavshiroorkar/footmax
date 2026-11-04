@@ -106,7 +106,7 @@ export function HeaderGame({ air, from = 'cross', keeper = 60, onDone }: { air: 
             {!hit && <Ellipse cx={startX + (targetX - startX) * Math.min(1, k * 1.08)} cy={140} rx={7} ry={2.6} fill="#00000055" />}
             <Person side="opp" x={near + 13} y={118} h={62} pose={hit && !hit.run ? jumpPose(0.9) : undefined} lift={hit && !hit.run ? up * 16 : 0} />
             <Person side="own" me x={near} y={120} h={64} pose={hit ? jumpPose(1) : running ? runPose(t * 12) : undefined} lift={up * 18} />
-            <Football cx={bx} cy={by} r={6.5 - flight * 2} rot={(bx + by) * 7} />
+            <Football cx={bx} cy={by} r={8 - flight * 2.5} rot={(bx + by) * 7} />
           </Svg>
         </View>
       </Pressable>

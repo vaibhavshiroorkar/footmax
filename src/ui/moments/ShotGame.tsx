@@ -158,7 +158,8 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
       const wall = kind === 'freekick' && !!span && x >= setup.wall + span[0] && x <= setup.wall + span[1];
       // Hit too hard it clears the bar; a low one stays down whatever the power.
       const height = shape === 'low' ? 0.12 : power > bands.high ? 1.15 + (power - bands.high) : 0.18 + 0.62 * Math.min(1, power / bands.high);
-      const dur = Math.max(0.42, Math.min(1.3, flightAt(power)));
+      // The keeper's sums use the real flight; the picture runs a little quicker.
+      const dur = Math.max(0.3, Math.min(0.95, flightAt(power) * 0.72));
       // A penalty keeper picks a side on the kick, or stays up the middle.
       const guess = kind === 'penalty' ? (Math.random() < 0.15 ? 0.5 : 0.5 + setup.dive * (0.2 + Math.random() * 0.16)) : undefined;
       const run = blocked || wall || lob ? undefined : flyShot({ aim: x, height, flight: flightAt(power), keeper: { at: kpos, skill: keeper, rush, fooled, guess, edge }, curl: shape === 'curl' ? (curler ? 2 : 1.5) : 1, rand: Math.random });
@@ -227,7 +228,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
     const bendX = !shot ? 0 : shape === 'curl' ? curlSide(shot.x) * setup.bend * (curler ? 1.3 : 1) : shape === 'low' ? setup.swerve * 0.3 : setup.swerve;
     const x = (1 - kk) * (1 - kk) * fromX + 2 * (1 - kk) * kk * ((fromX + endX) / 2 + bendX) + kk * kk * endX;
     const y = H - 12 + (targetY - (H - 12)) * (low ? 1 - (1 - kk) * (1 - kk) : kk) - Math.sin(Math.PI * kk) * (low ? 2 : shape === 'curl' ? 14 : 9) * setup.arc;
-    return { x, y, r: 8 - 3.5 * kk };
+    return { x, y, r: 10.5 - 4 * kk };
   };
   const at0 = pathAt(Math.min(k, tc));
   let ballX = at0.x;
@@ -379,7 +380,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
                 <Line x1={px(aimX)} y1={GOAL.y + 8} x2={px(aimX)} y2={GOAL.y + GOAL.h - 8} stroke="#ffffff88" strokeWidth={1} />
               </>
             )}
-            {phase !== 'flight' && <Football cx={fromX} cy={H - 12} r={8} />}
+            {phase !== 'flight' && <Football cx={fromX} cy={H - 12} r={10.5} />}
             {phase === 'flight' && (
               <>
                 <Ellipse cx={ballX} cy={Math.min(H - 6, H - 8 + (GOAL.y + GOAL.h - (H - 8)) * k)} rx={ballR} ry={ballR * 0.4} fill="#000000" opacity={0.25} />

@@ -102,7 +102,7 @@ export function ThroughBallScene({ passing, vision, window = 0, onDone }: { pass
         {!done && <Path d={`M ${rx} ${ry - 10} L ${rx} ${ry - 34}`} stroke={colors.accent} strokeWidth={2} strokeDasharray="3 4" opacity={0.7} />}
         <Person side="own" x={rx} y={ry} pose={runPose(t * 11)} />
         <Person side="own" me x={150} y={158} />
-        <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
+        <Football cx={ballX} cy={ballY} r={6.5} rot={(ballX + ballY) * 9} />
         {done?.outcome === 'offside' && <Rect x={W - 26} y={ly - 22} width={14} height={10} fill="#facc15" />}
       </Turf>
       <T bold style={{ textAlign: 'center', marginTop: 8 }}>
@@ -183,7 +183,7 @@ export function CrossScene({ crossing, window = 0, onDone }: { crossing: number;
         <Person side="opp" x={d.x} y={d.y} pose={runPose(t * 10)} />
         <Person side="own" x={s.x} y={s.y} pose={runPose(t * 11)} />
         <Person side="own" me x={from.x} y={from.y + 6} />
-        <Football cx={ballX} cy={ballY} r={5} rot={(ballX + ballY) * 9} />
+        <Football cx={ballX} cy={ballY} r={6.5} rot={(ballX + ballY) * 9} />
       </Turf>
       <View style={{ marginTop: 8 }}>
         <T bold style={{ textAlign: 'center' }}>

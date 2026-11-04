@@ -76,7 +76,7 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
             <Path d={`M ${GOAL_X} ${GROUND} L ${GOAL_X} ${GROUND - 34} L ${GOAL_X + 16} ${GROUND - 30} L ${GOAL_X + 16} ${GROUND}`} stroke="#ffffff" strokeWidth={3} fill="#ffffff14" />
             <RigFigure x={keeperX} ground={GROUND} h={34} pose={ready()} kit={looks.oppKeeper} gloves />
             <RigFigure x={FROM_X} ground={GROUND} h={40} kit={looks.own} skin={looks.me?.skin} hair={looks.me ? looks.me.hair : undefined} />
-            {run ? <Football cx={bx} cy={by} r={5} rot={k * 900} /> : <Football cx={FROM_X + 9} cy={GROUND - 5} r={5} />}
+            {run ? <Football cx={bx} cy={by} r={6.5} rot={k * 900} /> : <Football cx={FROM_X + 9} cy={GROUND - 5} r={6.5} />}
           </Svg>
           <View pointerEvents="none" style={{ position: 'absolute', top: 8, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontFamily: fonts.display, fontSize: 22, color: '#ffffff' }}>{Math.round(metres)} M</Text>

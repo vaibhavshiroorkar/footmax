@@ -97,7 +97,7 @@ export function InterceptGame({ vision, onDone }: { vision: number; onDone: (q: 
         {looking && <Line x1={passer.x} y1={passer.y} x2={passer.x + (target.x - passer.x) * 0.22} y2={passer.y + (target.y - passer.y) * 0.22} stroke={LINE} strokeWidth={4} strokeLinecap="round" />}
         <Person side="opp" x={passer.x} y={passer.y - 8} h={38} />
         <Person side="own" me x={userX} y={userY - 8} h={38} />
-        <Football cx={flying ? ballX : passer.x} cy={flying ? ballY : passer.y - 14} r={5.5} rot={flying ? (ballX + ballY) * 9 : 0} />
+        <Football cx={flying ? ballX : passer.x} cy={flying ? ballY : passer.y - 14} r={7} rot={flying ? (ballX + ballY) * 9 : 0} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (flying ? 'He plays it!' : looking ? 'Watch his body shape...' : 'He looks up...')}
@@ -162,7 +162,7 @@ export function BlockGame({ defending, onDone }: { defending: number; onDone: (q
         {!struck && <Circle cx={shooter.x} cy={shooter.y} r={ring} fill="none" stroke={ring < 16 ? colors.gold : '#ffffff80'} strokeWidth={3} />}
         <Person side="opp" x={shooter.x} y={shooter.y - 8} h={38} />
         <Person side="own" me x={user.x} y={user.y - 8} h={38} pose={sliding ? slidePose(setup.side < 0 ? 1 : -1) : undefined} />
-        <Football cx={ballX} cy={ballY} r={5.5} rot={(ballX + ballY) * 9} />
+        <Football cx={ballX} cy={ballY} r={7} rot={(ballX + ballY) * 9} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? (struck ? 'He shoots!' : 'Slide as the ring closes!')}
@@ -223,7 +223,7 @@ export function ClearGame({ air, onDone }: { air: number; onDone: (q: number, te
         <Person side="opp" x={spot.x + 18} y={spot.y - 12} h={38} />
         <Person side="own" me x={spot.x} y={spot.y - 10} h={38} pose={up > 0 ? jumpPose(up / 8) : undefined} lift={up} />
         <Ellipse cx={groundX} cy={groundY + 4} rx={5} ry={2.5} fill="#00000055" />
-        <Football cx={bx} cy={by} r={5.5 + z / 14} rot={(bx + by) * 9} />
+        <Football cx={bx} cy={by} r={7 + z / 14} rot={(bx + by) * 9} />
       </Turf>
       <T bold style={{ textAlign: 'center', marginVertical: 8 }}>
         {done ?? 'Jump as the ball drops onto the ring!'}

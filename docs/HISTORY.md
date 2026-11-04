@@ -179,6 +179,13 @@ bugs tests had missed, among them: most Champions League draws double-booked clu
 Poacher did nothing on shots the user played, because a played shot ignores the
 sim's odds. Anything that should help a played shot has to reach `contact.ts`.
 
+### 21. v2.1.0: the pitch feels right (2026-11-04)
+
+The second list began with bugs seen on a phone. Each was measured before it was
+fixed: the ball's gap at a moment, dead-ball stretches by cause. "Ball through the keeper"
+came from a misread sending his body to the ball's spot, so a beaten keeper now stays
+clear of it. Restarts now keep the ball with the side taking them.
+
 ## Decisions that still hold
 
 | Decision | Why |

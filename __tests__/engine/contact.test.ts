@@ -35,6 +35,14 @@ describe('a shot against a real body', () => {
     expect(r.goal).toBeGreaterThan(0.15);
   });
 
+  it('never lets the ball pass through him', () => {
+    for (let i = 0; i < 5000; i++) {
+      const aim = 0.03 + rand() * 0.94;
+      const r = shot({ aim, height: 0.1 + rand() * 0.8, flight: 0.45 + rand() * 0.5, skill: 30 + rand() * 60 });
+      if (r.end === 'net') expect(Math.abs(r.keeperTo - aim) * 7.32).toBeGreaterThan(1);
+    }
+  });
+
   it('rewards a better keeper', () => {
     const at = (skill: number) => many(3000, () => shot({ aim: 0.1 + rand() * 0.8, height: 0.3, flight: 0.55, skill })).goal;
     expect(at(90)).toBeLessThan(at(45));
