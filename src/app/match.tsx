@@ -4,7 +4,8 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { CALL_PASSING, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
@@ -36,6 +37,19 @@ const SPEEDS = [
   { key: '4', label: '4x', ms: 120, mult: 4 },
 ] as const;
 type SpeedKey = (typeof SPEEDS)[number]['key'];
+
+// The clock on the board counts up one minute at a time, even when the engine
+// has folded a few quiet minutes into one, and catches up at once after a skip.
+function useRunningMinute(target: number): number {
+  const [shown, setShown] = useState(target);
+  useEffect(() => {
+    if (shown === target) return;
+    const jump = shown > target || target - shown > 6;
+    const t = setTimeout(() => setShown(jump ? target : shown + 1), jump ? 0 : 260);
+    return () => clearTimeout(t);
+  }, [shown, target]);
+  return shown;
+}
 
 export default function MatchScreen() {
   const game = useGame();
@@ -129,7 +143,8 @@ export default function MatchScreen() {
     // Anything the pitch did not get to show is on the board before play goes on.
     const total = useStore.getState().live?.scorers.length ?? 0;
     if (shownGoals < total) setShownGoals(total);
-    mutateLive((m, g) => stepMinute(g.world, m));
+    // Watching, the clock runs ahead of the pitch; quiet minutes fold away.
+    mutateLive((m, g) => (simRef.current ? stepWatched(g.world, m, simRef.current.pitchSeconds()) : stepMinute(g.world, m)));
     commitIfDone();
   };
   // With the pitch showing, the pitch asks for each minute once its move
@@ -273,7 +288,7 @@ export default function MatchScreen() {
           the pass picker, skip choices or leave check cover the buttons
           under it, so nothing pops up and nothing pushes the page. */}
       <View style={{ position: 'relative', gap: 10, zIndex: 10 }}>
-        {!live.finished && (
+        {kicked && !live.finished && (
           <View onLayout={(e) => setPitchH(e.nativeEvent.layout.height)}>
           <LivePitch
             world={world}
@@ -331,7 +346,7 @@ export default function MatchScreen() {
             options={live.pending.options ?? []}
             names={Object.fromEntries((live.pending.options ?? []).map((o) => [o.playerId, world.players[o.playerId].lastName]))}
             playmaker={skillLevel(world.players[live.pending.actorId], 'playmaker')}
-            passing={world.players[live.pending.actorId].attrs.passing}
+            passing={world.players[live.pending.actorId].attrs.passing + (live.shout?.kind === 'call' && live.minute <= live.shout.until ? CALL_PASSING : 0)}
             splitter={hasTechnique(world.players[live.pending.actorId], 'splitter')}
             vision={world.players[live.pending.actorId].attrs.vision}
             picked={passPick}
@@ -397,14 +412,18 @@ export default function MatchScreen() {
 
       {!kicked && (
         <>
-          <Button
-            label="Kick off"
-            icon="football"
-            onPress={() => {
-              mutate((g) => markKickOff(g));
-              setKicked(true);
-            }}
-          />
+          <Row gap={10}>
+            <Button label="Back" icon="chevron-back" variant="secondary" style={{ flex: 1 }} onPress={leave} />
+            <Button
+              label="Kick off"
+              icon="football"
+              style={{ flex: 2 }}
+              onPress={() => {
+                mutate((g) => markKickOff(g));
+                setKicked(true);
+              }}
+            />
+          </Row>
           <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
         </>
       )}
@@ -635,7 +654,8 @@ function Scoreboard({ game, live, home, away, flash, flashBad, shown, controls }
     loop.start();
     return () => loop.stop();
   }, [pulse, ticking]);
-  const clock = live.finished ? 'FT' : live.pausedAtHalf ? 'HT' : live.minute === 0 ? 'KO' : `${Math.min(live.minute, 90)}'${live.minute > 90 ? `+${live.minute - 90}` : ''}`;
+  const minute = useRunningMinute(live.minute);
+  const clock = live.finished ? 'FT' : live.pausedAtHalf ? 'HT' : minute === 0 ? 'KO' : `${Math.min(minute, 90)}'${minute > 90 ? `+${minute - 90}` : ''}`;
   // Goals already seen on the pitch. Shoot-out kicks are not in scorers, so
   // a finished match shows the real totals.
   const seen = live.scorers.slice(0, shown);

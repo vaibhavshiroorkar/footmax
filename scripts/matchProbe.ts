@@ -3,7 +3,9 @@
 // resolve at once and on-ball waits are left out, so a real match runs longer.
 // Run with `npm run match-probe`; add a count to change how many matches.
 import { newCareerGame, startUserMatch } from '../src/engine/game';
-import { chooseMoment, resolveMoment, stepMinute } from '../src/engine/match';
+import { chooseMoment, resolveMoment } from '../src/engine/match';
+import { moveToShow, stepWatched } from '../src/engine/pace';
+import { CaptionQueue } from '../src/ui/captions';
 import { teamById } from '../src/engine/lineup';
 import { formationSpots } from '../src/engine/play';
 import { PL, PitchSim } from '../src/ui/pitchSim';
@@ -42,18 +44,20 @@ for (let seed = 101; seed < 101 + count; seed++) {
   let lastCaption = '';
   let captionAt = 0;
   const captions: number[] = [];
+  const queue = new CaptionQueue();
   const enqueue = () => {
-    if (!s.play || s.play === queued) return;
-    queued = s.play;
+    const steps = moveToShow(s);
+    if (!steps || steps === queued) return;
+    queued = steps;
     if (frames > moveAt) {
       if (moveBusy) busyTime += (frames - moveAt) * DT;
       else quietTime += (frames - moveAt) * DT;
     }
     moveAt = frames;
-    moveBusy = s.play.some((x) => BUSY.includes(x.act));
+    moveBusy = steps.some((x) => BUSY.includes(x.act));
     if (moveBusy) busy++;
     else quiet++;
-    sim.enqueue(s.play.map((x) => ({ ...x })));
+    sim.enqueue(steps.map((x) => ({ ...x })));
   };
   for (; frames < 2_000_000 && !s.finished; frames++) {
     if (sim.holding && s.pending) {
@@ -63,7 +67,7 @@ for (let seed = 101; seed < 101 + count; seed++) {
       enqueue();
     } else if (sim.idle()) {
       if (s.minute === 46) sim.halfTime('away');
-      stepMinute(game.world, s);
+      stepWatched(game.world, s, sim.pitchSeconds());
       sync();
       enqueue();
     }
@@ -79,9 +83,11 @@ for (let seed = 101; seed < 101 + count; seed++) {
         if (f && !a.step.blocker && Math.abs(f.ty - goalY) > PL / 2) wrongGoal++;
       }
     }
-    if (sim.caption !== lastCaption) {
+    queue.offer(sim.caption, frames * DT);
+    const line = queue.read(frames * DT);
+    if (line !== lastCaption) {
       if (lastCaption) captions.push((frames - captionAt) * DT);
-      lastCaption = sim.caption;
+      lastCaption = line;
       captionAt = frames;
     }
   }

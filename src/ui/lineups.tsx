@@ -104,6 +104,7 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
         {pick('home')}
         {pick('away')}
       </Row>
+      {!started && <FormationBoard game={game} live={live} side={shown} focusId={focusId} />}
       {column(shown)}
       {subs.some((e) => e.side === shown) && (
         <View style={{ gap: 4, marginTop: 4 }}>
@@ -118,6 +119,34 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
         </View>
       )}
     </Card>
+  );
+}
+
+// The XI as it lines up: own goal at the bottom, shirt numbers and names in
+// their slots.
+function FormationBoard({ game, live, side, focusId }: { game: Game; live: MatchState; side: SideKey; focusId?: string }) {
+  const team = teamById(game.world, live[side].clubId);
+  const slots = assignSlots(game.world, team, live[side].onPitch);
+  return (
+    <View style={{ height: 300, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.pitch, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ position: 'absolute', left: '22%', right: '22%', bottom: 0, height: '17%', borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.28)' }} />
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.28)' }} />
+      {live[side].onPitch.map((id) => {
+        const s = slots[id];
+        if (!s) return null;
+        const me = id === focusId;
+        return (
+          <View key={id} style={{ position: 'absolute', left: `${s.lat * 100}%`, bottom: `${4 + s.depth * 104}%`, width: 72, marginLeft: -36, alignItems: 'center', gap: 1 }}>
+            <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: me ? colors.gold : colors.bg, borderWidth: 1.5, borderColor: me ? colors.gold : 'rgba(255,255,255,0.6)' }}>
+              <Text style={{ fontFamily: fonts.display, fontSize: 14, color: me ? colors.ink : colors.text }}>{live.numbers?.[id] ?? ''}</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 11, color: '#ffffff' }} numberOfLines={1}>
+              {game.world.players[id].lastName}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 

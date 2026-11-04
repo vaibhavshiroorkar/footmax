@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v1.11.0. Next: v1.12.0. Status keys: `todo`, `doing`, `done`. Findings behind
+v1.12.0. Next: v1.13.0. Status keys: `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Versions at a glance
@@ -37,7 +37,7 @@ The 41-point request of 2026-11-04, word for word.
 | # | Request | Version | Status |
 | --- | --- | --- | --- |
 | 0 | doucment in /docs everything of past till now for this project and it should update as we go so we never lose context | docs | done |
-| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | todo |
+| 1 | speed up timer by 2x but make gameplay 0.75x speed, keep the option 1x as default, make commentary more readable instead of fast | v1.12.0 | done |
 | 2 | make shooting bar rise slightly slower | v1.11.0 | done |
 | 3 | give joints to model so they accurately stop the ball | v1.14.0, v1.15.0 | todo |
 | 4 | fix goalkeeper shooting to other side | v1.11.0 | done |
@@ -50,8 +50,8 @@ The 41-point request of 2026-11-04, word for word.
 | 11 | keep home inside setting as quit | v1.11.0 | done |
 | 12 | rework the club page | v1.23.0 | todo |
 | 13 | add UCL | v1.22.0 | todo |
-| 14 | when you hit play match, it should show u lineups and allow you to go back or kickoff | v1.12.0 | todo |
-| 15 | make call for ball have better passing chances, make run have better shooting chances | v1.12.0 | todo |
+| 14 | when you hit play match, it should show u lineups and allow you to go back or kickoff | v1.12.0 | done |
+| 15 | make call for ball have better passing chances, make run have better shooting chances | v1.12.0 | done |
 | 16 | make shooting from longer distance exponentially harder like halfway line with new interaction scene | v1.19.0 | todo |
 | 17 | players can get angry at each other and commit red card or both commit red card onto each other (during match scene with popup on the screen with models) | v1.19.0 | todo |
 | 18 | more formation, coaches can dynamically change it in career mode at HT, manager mode user can change | v1.20.0 | todo |

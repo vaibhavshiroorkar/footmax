@@ -2,6 +2,18 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.12.0
+
+- The match clock runs about 1.8 times faster while play itself is slower
+  and easier to follow. 1x is the new pace and stays the default. Quiet
+  minutes fold away, and results are not affected.
+- Commentary is readable: each line stays up for at least 1.6 seconds, and
+  goals still cut straight in.
+- Play match now opens the lineups, with each XI on a formation board. You can
+  go back or kick off.
+- Calls have clear jobs. Call for it makes your passes better. Make a run gets
+  you more shots, and better ones.
+
 ## 1.11.0
 
 - Fixed: tipped saves and deflected shots flew at the wrong goal, about one

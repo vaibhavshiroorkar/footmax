@@ -91,9 +91,9 @@ const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax -
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const M = (p: { x: number; y: number }) => ({ x: p.x * PW, y: p.y * PL });
 
-// Real time runs a little fast on a phone screen; this keeps 1x readable
-// while a match still goes by quickly.
-const TIME = 2.6;
+// Real time runs a little fast on a phone screen; this keeps 1x readable.
+// The match clock is separate: see pace.ts.
+const TIME = 1.95;
 // Goals keep their moment: the celebration lasts as long in real time as
 // it did when play ran at 1.8.
 const HOLD = TIME / 1.8;
@@ -307,6 +307,11 @@ export class PitchSim {
 
   private name(id: string | null | undefined) {
     return id ? this.bodies.get(id)?.name ?? '' : '';
+  }
+
+  // How long the pitch has played, in seconds at 1x.
+  pitchSeconds(): number {
+    return this.clock / TIME;
   }
 
   update(rawDt: number) {

@@ -93,6 +93,13 @@ finishes flew at the wrong goal, and the probe now shows none. Added
 `scripts/matchProbe.ts` so each match version can compare numbers, and a dev
 hook (`window.__footmaxDev`) so a browser check can start a game.
 
+### 8. v1.12.0: match pace (2026-11-04)
+
+Split the clock from the pitch. The engine still plays every minute with the same
+random stream, and `stepWatched` only decides what the pitch shows, so a test can
+prove results match a plain run. A true 2x clock at 0.75x play did not fit: it
+stopped at 1.78x rather than strip chances of all build-up.
+
 ## Decisions that still hold
 
 | Decision | Why |

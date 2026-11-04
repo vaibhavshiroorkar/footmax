@@ -43,6 +43,13 @@ So skipping quiet minutes is not enough. Reaching 2x also needs shorter build-up
 in busy moves, and plain fouls treated as quiet. If that looks rushed, the honest
 landing point is about 1.6x to 1.8x.
 
+### Result in v1.12.0
+
+171 s a match with play at 0.75x, so the clock runs 1.78 times faster than
+v1.10.0 (about 1.9 times with goal celebrations left out, which must not shrink).
+That is the stopping point: cutting more would leave a chance with no build-up at
+all. Median caption 1.62 s, 4% under a second (goals cutting in).
+
 ### Request 4: the cause
 
 `addFinish` in `src/engine/play.ts` sets `step.side` to the attackers on a tipped

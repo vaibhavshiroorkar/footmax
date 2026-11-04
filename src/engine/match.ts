@@ -25,6 +25,8 @@ export type Zone = 'defend' | 'middle' | 'attack';
 // then needs a rest before the next.
 export type ShoutKind = 'call' | 'run' | 'track';
 export const SHOUT_MINUTES = 8;
+// While calling for it, the pass scenes play as if he passed this much better.
+export const CALL_PASSING = 12;
 // No rest between calls: the user can switch call whenever he likes.
 
 export type PassKind = 'safe' | 'square' | 'through' | 'cross';
@@ -56,10 +58,13 @@ export function passOptions(rng: Rng, world: World, s: MatchState, side: SideKey
   };
   const used: string[] = [];
   const out: PassOption[] = [];
+  // Calling for it means he is showing and his mates are moving: every lane
+  // is a little more open and a little more dangerous.
+  const calling = actorId === s.focus.playerId && shoutActive(s, 'call');
   const add = (p: Player | undefined, kind: PassKind, openness: number, threat: number) => {
     if (!p) return;
     used.push(p.id);
-    out.push({ playerId: p.id, kind, openness, threat });
+    out.push({ playerId: p.id, kind, openness: calling ? Math.min(0.98, openness + 0.12) : openness, threat: calling ? threat + 0.04 : threat });
   };
   const runner = shooterId ? world.players[shooterId] : undefined;
   add(runner && runner.position !== 'GK' ? runner : pick(forwards.length ? forwards : mates, used), 'through', rng.range(0.3, 0.6), rng.range(0.24, 0.32));
@@ -194,6 +199,9 @@ export interface MatchState {
   visual?: boolean;
   numbers?: Record<string, number>;
   play?: PlayStep[];
+  // What the pitch shows of that move (see pace.ts): folded and trimmed.
+  // Only counts while of is still the current move.
+  shown?: { of: PlayStep[]; steps: PlayStep[] };
   // Side that kicks off next, after a goal or at half time.
   kickoff?: SideKey;
   // The pass the last pass moment played: who it was for and whether it
@@ -363,7 +371,7 @@ function pickShooter(rng: Rng, world: World, s: MatchState, side: MatchSide): Pl
   // The user's player is on the end of a few more chances anyway, so key
   // moments come along steadily.
   const zone = zoneOf(world, s);
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 1.8 : shoutActive(s, 'call') ? 1.5 : 1));
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_SHOOT[zone] * (shoutActive(s, 'run') ? 2.6 : 1));
   // Great shooters take far more of the chances.
   return rng.weighted(ps, ps.map((p) => SHOOT_WEIGHT[p.position] * (p.attrs.shooting / 50) ** 3.5 * boost(p)));
 }
@@ -373,7 +381,7 @@ function pickAssister(rng: Rng, world: World, s: MatchState, side: MatchSide, sh
   const ps = players(world, side.onPitch).filter((p) => p.id !== shooter.id);
   if (!ps.length) return undefined;
   const zone = zoneOf(world, s);
-  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_ASSIST[zone] * (shoutActive(s, 'call') ? 3 : 1));
+  const boost = (p: Player) => (p.id !== s.focus.playerId ? 1 : ZONE_ASSIST[zone] * (shoutActive(s, 'call') ? 4.5 : 1));
   return rng.weighted(ps, ps.map((p) => ASSIST_WEIGHT[p.position] * (p.attrs.passing / 50) ** 2 * boost(p)));
 }
 
@@ -520,8 +528,10 @@ function wantsMoment(rng: Rng, s: MatchState, sideKey: SideKey, shooter: Player,
 
 function buildMoment(rng: Rng, world: World, s: MatchState, sideKey: SideKey, shooter: Player, assister: Player | undefined): KeyMoment {
   const keeperId = keeperOf(world, s[other(sideKey)]).id;
-  const base = { side: sideKey, minute: s.minute, keeperId, bonus: 0 };
   const focusId = s.focus.playerId;
+  // A run gets him in behind: a better chance, from closer in.
+  const running = shooter.id === focusId && shoutActive(s, 'run');
+  const base = { side: sideKey, minute: s.minute, keeperId, bonus: running ? 0.08 : 0 };
   const actsAsPasser = assister && (focusId ? assister.id === focusId : rng.chance(0.25));
   if (actsAsPasser && assister) {
     return { ...base, kind: 'pass', actorId: assister.id, options: passOptions(rng, world, s, sideKey, assister.id, shooter.id) };
@@ -547,7 +557,8 @@ function buildMoment(rng: Rng, world: World, s: MatchState, sideKey: SideKey, sh
     setPiece = true;
   }
   const weakFoot = shooter.id === focusId && (kind === 'shot' || kind === 'freekick' || kind === 'choice') && rng.chance(0.35);
-  const view = kind === 'header' ? (rng.chance(0.4) ? 'corner' : 'cross') : rng.chance(0.3) ? 'outside' : 'box';
+  const roll2 = rng.chance(0.3);
+  const view = kind === 'header' ? (rng.chance(0.4) ? 'corner' : 'cross') : running ? (roll2 ? 'oneonone' : 'box') : roll2 ? 'outside' : 'box';
   return { ...base, kind, actorId: shooter.id, assistId: kind === 'shot' || kind === 'header' || (kind === 'choice' && !setPiece) ? assister?.id : undefined, weakFoot, choices, view, setPiece: setPiece || undefined };
 }
 

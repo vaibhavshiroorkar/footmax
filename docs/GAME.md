@@ -89,7 +89,7 @@ moments to play, not a wall of information.
     spins as it rolls. Crosses are whipped and bend, long balls drift,
     curlers start outside the post and bend in, low shots skim the grass,
     driven ones swerve a little. Height, bend and pace vary every time.
-    Play runs at 2.6 times real time at 1x, so a match goes by quickly.
+    Play runs at 1.95 times real time at 1x.
   - Goal celebrations: the scorer runs to the corner flag and does his
     celebration (knee slide, backflip, robot, shush, heart hands, ice
     cold; the career player does the one he picked) with a jump for joy,
@@ -234,10 +234,12 @@ moments to play, not a wall of information.
   - Track back: he drops goal-side and presses, and gets tackle moments
     to win the ball;
   - Call for it: he comes short and a team-mate usually passes to him;
-    he is also picked as the passer for chances about three times as
-    often, and the team makes a few more chances with his support;
+    he is picked as the passer for chances about four and a half times as
+    often, every pass lane is more open and more dangerous, and the pass
+    scenes play as if he passed 12 points better;
   - Make a run: he runs into the box (held onside by the line) and balls
-    are played in behind to him there.
+    are played in behind to him there. He is on the end of about 2.6 times
+    as many chances, and they are better ones: closer in, often one on one.
   A tag (RUN, CALL, BACK) shows over him while a call lasts.
 - **Zone slider (Defend, Middle, Attack):** above the action buttons,
   starting at the role's zone (strikers, wingers and CAMs attack; CMs,
@@ -250,6 +252,17 @@ moments to play, not a wall of information.
   - Defend: tackles, blocks and clearances, few shots.
   No zone moment, call pass or win-back happens at a restart or in the
   first two minutes, and no moment opens before kick-off.
+- **Clock and pace** (`src/engine/pace.ts`): the engine plays all 90
+  minutes in order, so results never depend on watching. The pitch shows less
+  than that: a run of quiet minutes folds into one ball while the clock is
+  behind, and each move loses the middle of its build-up. Chances, cards and
+  the ball reaching the user are always shown. The board counts up a minute at
+  a time. A match takes about 170 s of pitch time at 1x, plus your moments.
+- **Commentary** (`src/ui/captions.ts`): each caption holds for at least 1.6
+  s. Small lines wait and go stale, shots and set pieces jump them, and goals
+  and red cards cut straight in.
+- **Before kick-off:** Play match opens the lineups with each XI on a formation
+  board, Back and Kick off. Back leaves everything as it was.
 - **Screen:** one scoreboard row with speed (1x by default, 2x, 4x), pause, sound
   and skip (to half time or to full time), scorers under it, the pitch,
   the zone slider, the action buttons (on the bench: "Skip to when I come

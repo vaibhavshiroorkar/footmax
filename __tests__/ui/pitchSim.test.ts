@@ -1,6 +1,7 @@
 import { newCareerGame, startUserMatch } from '../../src/engine/game';
 import { MatchState, Zone, chooseMoment, resolveMoment, shout, stepMinute, takeAction } from '../../src/engine/match';
 import { teamById } from '../../src/engine/lineup';
+import { moveToShow, stepWatched } from '../../src/engine/pace';
 import { PlayStep, formationSpots } from '../../src/engine/play';
 import { Game } from '../../src/engine/types';
 import { Role } from '../../src/engine/roles';
@@ -9,7 +10,7 @@ import { PL, PW, PitchSim } from '../../src/ui/pitchSim';
 // Plays a whole match through the pitch the way the match screen does:
 // a new minute only when the pitch is idle, each move queued once (by the
 // identity of the engine's array), and calls made in the middle of moves.
-function watch(seed: number, role: Role = 'ST', zone?: Zone) {
+function watch(seed: number, role: Role = 'ST', zone?: Zone, clocked = false) {
   const game: Game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role, seed });
   const s: MatchState = startUserMatch(game)!;
   s.zone = zone;
@@ -38,10 +39,11 @@ function watch(seed: number, role: Role = 'ST', zone?: Zone) {
   let queuedCount = 0;
   let lastCallout: unknown = null;
   const enqueue = () => {
-    if (s.play && s.play !== queued) {
-      queued = s.play;
+    const steps = clocked ? moveToShow(s) : s.play;
+    if (steps && steps !== queued) {
+      queued = steps;
       queuedCount++;
-      sim.enqueue(s.play.map((x) => ({ ...x })));
+      sim.enqueue(steps.map((x) => ({ ...x })));
     }
   };
   for (let frame = 0; frame < 60000 && !s.finished; frame++) {
@@ -51,7 +53,8 @@ function watch(seed: number, role: Role = 'ST', zone?: Zone) {
       enqueue();
     } else if (sim.idle()) {
       if (s.minute === 46) sim.halfTime('away');
-      stepMinute(game.world, s);
+      if (clocked) stepWatched(game.world, s, sim.pitchSeconds());
+      else stepMinute(game.world, s);
       sync();
       enqueue();
     }
@@ -86,6 +89,13 @@ describe('live pitch', () => {
       expect(r.s.finished).toBe(true);
       expect(r.shownGoals).toBe(r.s.scorers.length);
     }
+  });
+
+  it('shows every goal once on the running clock too, in fewer moves', () => {
+    const r = watch(11, 'ST', undefined, true);
+    expect(r.s.finished).toBe(true);
+    expect(r.shownGoals).toBe(r.s.scorers.length);
+    expect(r.queuedCount).toBeLessThan(runs[0].queuedCount);
   });
 
   it('puts the keeper on the ball for a save and leaves him beaten for a goal', () => {

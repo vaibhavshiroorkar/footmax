@@ -4,9 +4,11 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Club, World } from '../engine/types';
 import { MatchState, SideKey } from '../engine/match';
 import { teamById } from '../engine/lineup';
+import { moveToShow } from '../engine/pace';
 import { formationSpots } from '../engine/play';
 import { shortName } from '../engine/player';
 import { BodyInfo, Callout, PL, PW, PitchSim } from './pitchSim';
+import { CaptionQueue } from './captions';
 import { alpha, colors, fonts, luminance } from './theme';
 import { motionReduced } from '../state/settings';
 import { colourGap, keeperKit } from './moments/Keeper';
@@ -255,7 +257,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // card or a sub adds events but must not replay the move.
   const asked = useRef(false);
   const queued = useRef<unknown>(null);
-  const play = live.play;
+  const play = moveToShow(live);
   useEffect(() => {
     if (play && play !== queued.current) {
       queued.current = play;
@@ -282,6 +284,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     let raf = 0;
     let last = 0;
     let lastCaption = '';
+    const captions = new CaptionQueue();
     let lastCallout: Callout | null = null;
     let lastOwner: string | null = null;
     let lastOnBall = false;
@@ -337,9 +340,11 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
         const scorerSide = c.side === 'home' ? props.current.homeKit : props.current.awayKit;
         setConfetti({ key: c.at, x: at.x, y: at.y, palette: [...scorerSide, colors.gold, '#ffffff'] });
       }
-      if (sim.caption !== lastCaption) {
-        lastCaption = sim.caption;
-        setCaption(sim.caption);
+      captions.offer(sim.caption, now / 1000);
+      const line = captions.read(now / 1000);
+      if (line !== lastCaption) {
+        lastCaption = line;
+        setCaption(line);
       }
       if (sim.callout !== lastCallout) {
         lastCallout = sim.callout;
