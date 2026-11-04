@@ -219,7 +219,7 @@ export class PitchSim {
       if (b.side !== defSide || b.pos === 'GK' || b.down > 0) continue;
       const ahead = (b.y - s.y) / toGoal;
       const d = dist(b.x, b.y, s.x, s.y);
-      if (ahead <= 0.03 || ahead >= 0.95 || d > 22) continue;
+      if (ahead <= 0.03 || ahead >= 0.95 || d > 30) continue;
       const gx = s.x + (b.x - s.x) / ahead;
       const x = 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
       if (x < -0.2 || x > 1.2) continue;
@@ -229,8 +229,38 @@ export class PitchSim {
     }
     return out
       .sort((a, b) => a.d - b.d)
-      .slice(0, 3)
+      .slice(0, 5)
       .map(({ id, x, half, near }) => ({ id, x, half, near }));
+  }
+
+  // The goal as the shooter sees it at this moment, for the shot game: where
+  // the keeper really stands across it (as PlayStep.aim), how far off his line
+  // he is, the middle of any wall, and team-mates ahead of the shooter.
+  shotScene(shooterId: string): { keeper: number; out: number; wall?: number; mates: { id: string; x: number; near: number }[] } {
+    const s = this.bodies.get(shooterId);
+    if (!s) return { keeper: 0.5, out: 0, mates: [] };
+    const defSide = s.side === 'home' ? 'away' : 'home';
+    const lineY = defSide === 'home' ? 0 : PL;
+    const flip = defSide === 'away' ? 1 : -1;
+    const toGoal = lineY - s.y;
+    // Where a body lands on the goal line, seen from the shooter.
+    const across = (b: { x: number; y: number }) => {
+      const ahead = (b.y - s.y) / toGoal;
+      const gx = ahead > 0.02 ? s.x + (b.x - s.x) / ahead : b.x;
+      return 0.5 + ((gx - PW / 2) / (2 * GOAL_HALF)) * flip;
+    };
+    const k = this.active().find((b) => b.pos === 'GK' && b.side === defSide);
+    const wall = this.setPiece?.wall.map((id) => this.bodies.get(id)).filter((b): b is Body => !!b) ?? [];
+    return {
+      keeper: k ? clamp(across(k), 0.12, 0.88) : 0.5,
+      out: k ? Math.abs(k.y - lineY) : 0,
+      wall: wall.length ? wall.reduce((n, b) => n + across(b), 0) / wall.length : undefined,
+      mates: this.active()
+        .filter((b) => b.side === s.side && b.id !== s.id && b.pos !== 'GK' && (b.y - s.y) / toGoal > 0.03 && (b.y - s.y) / toGoal < 0.95 && dist(b.x, b.y, s.x, s.y) < 30)
+        .map((b) => ({ id: b.id, x: across(b), near: 1 - (b.y - s.y) / toGoal }))
+        .filter((m) => m.x > -0.4 && m.x < 1.4)
+        .slice(0, 4),
+    };
   }
 
   // Where a shooter stands across the goal he faces, from his own view:
@@ -307,6 +337,13 @@ export class PitchSim {
 
   private name(id: string | null | undefined) {
     return id ? this.bodies.get(id)?.name ?? '' : '';
+  }
+
+  // Everyone's place, as shares of the pitch (see stepWatched).
+  positions(): Record<string, { x: number; y: number }> {
+    const out: Record<string, { x: number; y: number }> = {};
+    for (const b of this.bodies.values()) out[b.id] = { x: b.x / PW, y: b.y / PL };
+    return out;
   }
 
   // How long the pitch has played, in seconds at 1x.
@@ -387,7 +424,7 @@ export class PitchSim {
     switch (step.act) {
       case 'start':
         if (step.restart) {
-          if (step.restart !== 'kickoff' && dist(this.ball.x, this.ball.y, target.x, target.y) > 3) {
+          if (dist(this.ball.x, this.ball.y, target.x, target.y) > 3) {
             // Fetched back to where the restart is taken.
             const d = dist(this.ball.x, this.ball.y, target.x, target.y);
             this.ball = { ...this.ball, owner: null, vx: 0, vy: 0, flight: { fx: this.ball.x, fy: this.ball.y, tx: target.x, ty: target.y, t: 0, dur: Math.min(1.2, d / 22), peak: 1 } };
@@ -700,7 +737,8 @@ export class PitchSim {
         if (!carrier) return done();
         if (this.ball.flight) return;
         const loser = step.other ? this.bodies.get(step.other) : undefined;
-        if (dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2 || a.t > 2.2) {
+        // He has to get there: a tackle from afar waits for him to arrive.
+        if (dist(carrier.x, carrier.y, this.ball.x, this.ball.y) < 2 || a.t > 3.6) {
           if (step.act === 'foul') {
             if (loser) loser.down = 1.4;
             this.ball.owner = null;
@@ -897,8 +935,15 @@ export class PitchSim {
       const dy = sp > 0.4 ? owner.vy / sp : towardGoal;
       const px = b.x;
       const py = b.y;
-      b.x += (owner.x + dx * 0.9 - b.x) * Math.min(1, dt * 14);
-      b.y += (owner.y + dy * 0.9 - b.y) * Math.min(1, dt * 14);
+      // Eases to his feet, and glides rather than jumps if he is far from it.
+      const gx = owner.x + dx * 0.9 - b.x;
+      const gy = owner.y + dy * 0.9 - b.y;
+      const gap = Math.hypot(gx, gy);
+      const move = Math.min(gap * Math.min(1, dt * 14), BALL_GLIDE * dt);
+      if (gap > 0.001) {
+        b.x += (gx / gap) * move;
+        b.y += (gy / gap) * move;
+      }
       b.rot = (b.rot + dist(px, py, b.x, b.y) * 85) % 360;
       b.z = 0;
       return;
@@ -996,7 +1041,8 @@ export class PitchSim {
     let lat: number;
     if (b.pos === 'GK') {
       depth = 0.025 + clamp(bd, 0, 0.6) * 0.09;
-      lat = 0.5 + (bl - 0.5) * 0.3;
+      // Across his goal with the ball, and never outside his posts.
+      lat = 0.5 + (bl - 0.5) * 0.1;
       // They have it near his goal: off his line to narrow the angle.
       if (!inPossession && this.ball.owner && bd < 0.34) {
         depth = Math.max(depth, bd * 0.5);
@@ -1018,8 +1064,16 @@ export class PitchSim {
         lat += b.runLat;
       }
     } else {
-      depth = b.spot.depth * 0.82 + (bd - 0.5) * 0.42 + 0.02;
-      lat = 0.5 + (b.spot.lat - 0.5) * 0.72 + (bl - 0.5) * 0.32;
+      // A block that moves as one: a back line ahead of the ball's run to
+      // goal, the lines in front of it, the whole shape sliding to the ball.
+      const back = clamp(bd - LINE_BEHIND, 0.09, 0.44);
+      const rank = clamp((b.spot.depth - 0.2) / 0.56, 0, 1);
+      depth = back + rank * BLOCK_DEPTH;
+      // It narrows to the width of the box as the ball gets near goal.
+      const width = BLOCK_WIDTH * clamp(0.5 + bd * 1.4, 0.55, 1);
+      lat = 0.5 + (bl - 0.5) * 0.55 + (b.spot.lat - 0.5) * width;
+      // Defenders stay goal-side of the ball.
+      if (b.pos === 'DEF') depth = Math.min(depth, Math.max(0.05, bd - 0.03));
     }
     const f = this.focus;
     if (f && f.id === b.id) {
@@ -1061,6 +1115,7 @@ export class PitchSim {
     const list = [...this.bodies.values()];
     const live = list.filter((b) => !b.leaving);
     const pressing = new Map<string, number>();
+    const cover = new Map<string, { x: number; y: number }>();
     const sp = this.setPiece;
     const restarting = !!sp && this.act?.step.act === 'start';
     // The offside line for each attacking side, as a depth in metres from
@@ -1075,11 +1130,25 @@ export class PitchSim {
     // Without the ball, the two nearest close it down (not at a restart).
     if (this.layout === 'play' && !this.celebrate && ball.owner && !restarting) {
       const defending = live.filter((b) => b.side !== this.attacking && b.pos !== 'GK' && b.down <= 0);
-      defending
-        .map((b) => ({ b, d: dist(b.x, b.y, ball.x, ball.y) }))
-        .sort((p, q) => p.d - q.d)
-        .slice(0, 2)
-        .forEach(({ b }, i) => pressing.set(b.id, i === 0 ? 0.85 : 0.45));
+      // The nearest man presses. The next stands in the way, on the ball's
+      // line to goal, and in the last third a third man does too, deeper.
+      const goal = { x: PW / 2, y: this.attacking === 'home' ? PL : 0 };
+      const toGoal = dist(ball.x, ball.y, goal.x, goal.y);
+      const ranked = defending.map((b) => ({ b, d: dist(b.x, b.y, ball.x, ball.y) })).sort((p, q) => p.d - q.d);
+      if (ranked[0]) pressing.set(ranked[0].b.id, 0.85);
+      const covers = toGoal < 38 ? [COVER_NEAR, COVER_FAR] : [COVER_NEAR];
+      covers.forEach((off, i) => {
+        const man = ranked[i + 1]?.b;
+        if (!man || toGoal <= off + 1) return;
+        cover.set(man.id, { x: ball.x + ((goal.x - ball.x) / toGoal) * off, y: ball.y + ((goal.y - ball.y) / toGoal) * off });
+      });
+      // A man the move is about to name: he is on his way already, so he is
+      // really there when he wins it.
+      const named = this.queue.find((st) => st.act === 'win' || st.act === 'tackle' || st.act === 'foul')?.carrier;
+      if (named) {
+        pressing.set(named, 0.92);
+        cover.delete(named);
+      }
       // Tracking back: the user's player hunts the ball too.
       const f = this.focus;
       const me = f?.shout === 'track' ? this.bodies.get(f.id) : undefined;
@@ -1115,8 +1184,15 @@ export class PitchSim {
       let urgency = 0.55;
       const job = this.act && (this.act.step.carrier === b.id || this.act.step.other === b.id);
       if (job || ball.owner === b.id) urgency = 0.95;
+      // The side without the ball sprints back into shape.
+      else if (this.layout === 'play' && this.attacking && b.side !== this.attacking) urgency = 0.85;
       // Back to the kick-off spots: a jog, quicker from far away.
       if (this.layout === 'kickoff') urgency = Math.min(1, 0.5 + dist(b.x, b.y, t.x, t.y) / 25);
+      const covering = cover.get(b.id);
+      if (covering && !job) {
+        t = covering;
+        urgency = 0.85;
+      }
       const press = pressing.get(b.id);
       if (press && !job) {
         // Stop a yard short of the man on the ball.
@@ -1124,7 +1200,7 @@ export class PitchSim {
         const dy = ball.y - t.y;
         t = { x: t.x + dx * press, y: t.y + dy * press };
         urgency = 0.85;
-      } else if (!job && this.layout === 'play' && b.side !== this.attacking && b.pos === 'DEF' && attackers.length) {
+      } else if (!job && !covering && this.layout === 'play' && b.side !== this.attacking && b.pos === 'DEF' && attackers.length) {
         // Defenders pick up the nearest attacker, goal-side of him.
         const mark = attackers.reduce((best, x) => (dist(x.x, x.y, t.x, t.y) < dist(best.x, best.y, t.x, t.y) ? x : best), attackers[0]);
         if (dist(mark.x, mark.y, t.x, t.y) < 14) {
@@ -1199,6 +1275,17 @@ export class PitchSim {
 // The laws' distances, in metres.
 const CIRCLE = 9.15;
 const FK_DISTANCE = 9.15;
+// The fastest a ball at someone's feet can move, in metres a pitch second.
+const BALL_GLIDE = 24;
+// The defending block, from coaching guides: about 30 to 35 m from back to
+// front, and about 35 to 40 m wide. As shares of the pitch.
+const BLOCK_DEPTH = 0.31;
+const BLOCK_WIDTH = 0.95;
+// How far ahead of the ball the back line sits, and how far the cover men
+// stand off the ball on its way to goal, in metres.
+const LINE_BEHIND = 0.2;
+const COVER_NEAR = 7;
+const COVER_FAR = 13;
 const BOX_DEPTH = 16.5;
 const BOX_HALF = 20.16;
 

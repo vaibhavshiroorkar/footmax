@@ -7,7 +7,7 @@ import { ROLES, isRole } from './roles';
 import { celebrationText } from './creation';
 import { line, LineKind } from './commentary';
 import { Pattern, ShotFacts, goalLine, missLine, saveLine } from './shotText';
-import { PlayOutcome, PlayStart, PlayStep, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
+import { PlayOutcome, PlayStart, PlayStep, Positions, addFinish, assignNumbers, assignSlots, buildPlay, nextStart, playSeed, toPitch } from './play';
 
 export type SideKey = 'home' | 'away';
 // 'choice' asks the user what to do (shoot, pass or dribble) before the
@@ -202,6 +202,8 @@ export interface MatchState {
   // What the pitch shows of that move (see pace.ts): folded and trimmed.
   // Only counts while of is still the current move.
   shown?: { of: PlayStep[]; steps: PlayStep[] };
+  // Where the pitch has everyone. Only the visuals read it, never a result.
+  bodies?: Positions;
   // Side that kicks off next, after a goal or at half time.
   kickoff?: SideKey;
   // The pass the last pass moment played: who it was for and whether it
@@ -720,6 +722,18 @@ export function takeAction(world: World, s: MatchState, kind: 'shot' | 'pass' | 
   return true;
 }
 
+// A moment opens where the ball really is on the pitch. A shot's view and
+// range come from there, not from a roll, so the game matches what you see.
+export function placeMoment(s: MatchState, ball: { x: number; y: number }): void {
+  s.ball = { x: clamp(ball.x, 0, 1), y: clamp(ball.y, 0, 1) };
+  const m = s.pending;
+  if (!m || m.setPiece || (m.kind !== 'shot' && m.kind !== 'choice' && m.kind !== 'dribble')) return;
+  const depth = m.side === 'home' ? s.ball.y : 1 - s.ball.y;
+  const far = depth <= 0.82;
+  m.view = far ? 'outside' : m.view === 'oneonone' ? 'oneonone' : 'box';
+  m.range = far ? clamp((0.82 - depth) / 0.4, 0, 1) : 0;
+}
+
 // The user sees men in the way and passes instead: the shot becomes a pass
 // moment from the same spot.
 export function passInstead(world: World, s: MatchState): void {
@@ -1195,7 +1209,7 @@ function involve(rng: Rng, world: World, s: MatchState, attKey: SideKey): Involv
 
 function visualize(world: World, s: MatchState, attKey: SideKey, from: PlayStart, outcome: PlayOutcome, inv?: Involve | null) {
   if (!s.visual) return;
-  let steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), from, outcome);
+  let steps = buildPlay(world, playSeed(s.rngState, s.minute, s.events.length), playSide(world, s, attKey), playSide(world, s, other(attKey)), from, outcome, s.bodies);
   if (inv) steps = withUser(world, s, attKey, steps, inv);
   s.play = steps;
   const end = steps[steps.length - 1];
@@ -1231,6 +1245,15 @@ function withUser(world: World, s: MatchState, attKey: SideKey, steps: PlayStep[
 }
 
 // After a key moment: how it played out on the pitch.
+// The man nearest this spot on the pitch, or any of them when it is not shown.
+function closest(rng: Rng, s: MatchState, ids: string[], at: { x: number; y: number }): string | null {
+  if (!ids.length) return null;
+  const pos = s.bodies;
+  if (!pos) return rng.pick(ids);
+  const gap = (id: string) => (pos[id] ? Math.hypot(pos[id].x - at.x, pos[id].y - at.y) : 9);
+  return [...ids].sort((a, b) => gap(a) - gap(b))[0];
+}
+
 function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number) {
   if (!s.visual) return;
   const rng = new Rng(playSeed(s.rngState, s.minute, s.events.length + 1));
@@ -1282,7 +1305,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
       steps.push({ x: at.x, y: at.y, carrier: null, side: defKey, act: 'offside', other: pass.to, restart: 'freekick' });
     } else if (!pass.ok) {
       // Cut out on its way to him, by the man the feed names.
-      const winner = pass.cutBy ?? (defenders.length ? rng.pick(defenders) : null);
+      const winner = pass.cutBy ?? closest(rng, s, defenders, start);
       steps.push({ x: (start.x + at.x) / 2, y: (start.y + at.y) / 2, carrier: winner, side: defKey, act: 'win', other: holder });
     } else if (s.pending) {
       // A one-two: out to him and back, a little further up.
@@ -1312,7 +1335,7 @@ function visualizeMoment(world: World, s: MatchState, m: KeyMoment, from: number
     addFinish(steps, rng, attKey, shooter, result, playSide(world, s, defKey).keeperId, m.kind === 'header' || m.kind === 'clear', lastShot?.shot);
   } else {
     // The move broke down: a defender steps in.
-    const winner = defenders.length ? rng.pick(defenders) : null;
+    const winner = closest(rng, s, defenders, start);
     steps.push({ x: start.x + rng.range(-0.05, 0.05), y: start.y - forward * 0.04, carrier: winner, side: defKey, act: m.kind === 'dribble' ? 'tackle' : 'win', other: holder });
   }
   s.play = steps;
@@ -1488,7 +1511,7 @@ function setPieceLead(world: World, s: MatchState, attKey: SideKey, m: KeyMoment
   const spot = m.kind === 'penalty' ? toPitch(attKey, { depth: 0.895, lat: 0.5 }) : toPitch(attKey, { depth: rng.range(0.7, 0.76), lat: rng.range(0.3, 0.7) });
   const foulAt = m.kind === 'penalty' ? toPitch(attKey, { depth: rng.range(0.9, 0.95), lat: rng.range(0.35, 0.65) }) : spot;
   const defs = s[other(attKey)].onPitch.filter((id) => world.players[id]?.position !== 'GK');
-  const fouler = defs.length ? rng.pick(defs) : null;
+  const fouler = closest(rng, s, defs, foulAt);
   const lead: PlayStep[] = [
     { ...foulAt, carrier: m.actorId, side: attKey, act: 'run' },
     { ...foulAt, carrier: fouler, side: attKey, act: 'foul', other: m.actorId, restart: 'freekick' },

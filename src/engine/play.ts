@@ -204,8 +204,13 @@ export interface PlayStart {
   restartSide?: 'home' | 'away';
 }
 
+// Everyone's place on the pitch, as shares of its length and width.
+export type Positions = Record<string, { x: number; y: number }>;
+
 // One minute of play for the side in possession.
-export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySide, from: PlayStart, outcome: PlayOutcome): PlayStep[] {
+// live: where everyone really is on the pitch right now, when it is watched,
+// so the man who wins the ball is the man who is near it.
+export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySide, from: PlayStart, outcome: PlayOutcome, live?: Positions): PlayStep[] {
   const rng = new Rng(seed >>> 0 || 1);
   const spots = formationSpots(world, att.team, att.ids);
   const defSpots = formationSpots(world, def.team, def.ids);
@@ -227,8 +232,8 @@ export function buildPlay(world: World, seed: number, att: PlaySide, def: PlaySi
   const nearest = (p: { x: number; y: number }, ids: string[], key: 'home' | 'away') => {
     const sp = key === att.key ? spots : defSpots;
     return [...ids].sort((a, b) => {
-      const pa = toPitch(key, sp[a] ?? { depth: 0.5, lat: 0.5 });
-      const pb = toPitch(key, sp[b] ?? { depth: 0.5, lat: 0.5 });
+      const pa = live?.[a] ?? toPitch(key, sp[a] ?? { depth: 0.5, lat: 0.5 });
+      const pb = live?.[b] ?? toPitch(key, sp[b] ?? { depth: 0.5, lat: 0.5 });
       return Math.hypot(pa.x - p.x, pa.y - p.y) - Math.hypot(pb.x - p.x, pb.y - p.y);
     })[0];
   };

@@ -48,9 +48,11 @@ const EASE = 1.7;
 // Every player can pick how to strike it (see SHAPES): driven, curled or low.
 // angle: where he stands across the goal (-1 out to his left, 1 to his
 // right, see PitchSim.shotAngle); the ball starts from there.
+// scene and kits: the keeper, wall and team-mates as the pitch has them, in
+// the colours of this match (see PitchSim.shotScene).
 // onPass: give it to a team-mate instead, before the aim is set.
 // fake and curler: techniques from the skill tree (see skillTree.ts).
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -68,10 +70,11 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // was in the way.
   const [shot, setShot] = useState<{ power: number; outcome: ShotOutcome; text: string; q: number; diveTo: number; blockAt: number; x: number; parry: number; stop?: 'block' | 'wall'; blocker?: number } | null>(null);
   const [setup] = useState(() => ({
-    keeper: 0.32 + Math.random() * 0.36,
+    // On the line for a penalty; otherwise where the pitch has him.
+    keeper: kind === 'penalty' ? 0.5 : scene?.keeper ?? 0.32 + Math.random() * 0.36,
     dive: Math.random() < 0.5 ? -1 : 1,
-    kit: ['#22c55e', '#facc15', '#a855f7', '#f97316'][Math.floor(Math.random() * 4)],
-    wall: 0.15 + Math.random() * 0.4,
+    kit: kits?.keeper ?? '#22c55e',
+    wall: scene?.wall !== undefined ? clamp(scene.wall - 0.15) : 0.15 + Math.random() * 0.4,
     offset: Math.random() * Math.PI * 2,
     blockers: [0.25 + Math.random() * 0.2, 0.55 + Math.random() * 0.2].map((x) => ({ x, speed: 0.8 + Math.random() * 0.8, phase: Math.random() * 6 })),
     jitter: [0, 1, 2].map(() => ({ speed: 0.9 + Math.random() * 0.8, phase: Math.random() * 6 })),
@@ -321,16 +324,20 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
             {/* The keeper's reach before you shoot, so the gap is readable. */}
             {phase !== 'flight' && <Rect x={px(Math.max(0, kpos - (phase === 'power' ? reachAt(power) : reach)))} y={GOAL.y + GOAL.h - 4} width={GOAL.w * Math.min(1, (phase === 'power' ? reachAt(power) : reach) * 2)} height={4} fill="#ffffff" opacity={0.25} />}
             {outside && <Rect x={0} y={GOAL.y + GOAL.h + 22} width={W} height={2} fill={colors.pitchLine} opacity={0.6} />}
+            {kind === 'shot' && (scene?.mates ?? []).map((mate) => {
+              const m = manAt({ x: mate.x, half: 0.06, near: mate.near, speed: 0, phase: 0, amp: 0 }, GOAL);
+              return <OutfieldFigure key={mate.id} x={px(mate.x)} ground={m.ground} h={m.h} span={m.w * 0.7} kit={kits?.own} />;
+            })}
             {[...blockers].sort((a, b) => a.near - b.near).map((b, i) => {
               const m = manAt(b, GOAL);
               const cx = px(blockerX(b, phase === 'flight' ? shot?.blockAt ?? 0 : t));
               return (
-                <OutfieldFigure key={b.id ?? i} x={cx} ground={m.ground} h={m.h} span={m.w} />
+                <OutfieldFigure key={b.id ?? i} x={cx} ground={m.ground} h={m.h} span={m.w} kit={kits?.opp} />
               );
             })}
             {kind === 'freekick' &&
               [0, 1, 2, 3].map((i) => (
-                <OutfieldFigure key={i} x={px(setup.wall + 0.0375 + i * 0.075)} ground={GOAL.y + GOAL.h + 2} h={50} span={GOAL.w * 0.075} jump={phase === 'flight' ? Math.sin(Math.min(1, k * 1.5) * Math.PI) : 0} />
+                <OutfieldFigure key={i} x={px(setup.wall + 0.0375 + i * 0.075)} ground={GOAL.y + GOAL.h + 2} h={50} span={GOAL.w * 0.075} kit={kits?.opp} jump={phase === 'flight' ? Math.sin(Math.min(1, k * 1.5) * Math.PI) : 0} />
               ))}
             <KeeperFigure x={px(keeperAt)} ground={GOAL.y + GOAL.h + (oneOnOne ? 22 : 0) + rush * 22} h={(oneOnOne ? 74 : outside ? 44 : 58) + rush * 14} dive={diveAmount} kit={setup.kit} />
             {phase !== 'flight' && (
@@ -413,6 +420,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
 // A man in the way, as the live pitch reports him (see
 // PitchSim.laneDefenders), plus how he shuffles while you aim.
 export type Lane = { id: string; x: number; half: number; near: number };
+export type ShotScene = { keeper: number; out: number; wall?: number; mates: { id: string; x: number; near: number }[] };
 type Blocker = Omit<Lane, 'id'> & { id?: string; speed: number; phase: number; amp: number };
 
 // A defender's position across the goal at time t.

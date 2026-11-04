@@ -1,5 +1,5 @@
 import { MatchState, stepMinute } from './match';
-import { PlayAct, PlayStep } from './play';
+import { PlayAct, PlayStep, Positions } from './play';
 import { World } from './types';
 
 // The match clock and the pitch run at different speeds. The engine still
@@ -47,8 +47,10 @@ function bridge(end: PlayStep): PlayStep[] {
 
 // Plays the next minute for the pitch, running on through quiet minutes while
 // the clock is behind. seconds: how long the pitch has been playing at 1x.
-export function stepWatched(world: World, s: MatchState, seconds: number): void {
+// bodies: where the pitch has everyone, so a move starts from the real picture.
+export function stepWatched(world: World, s: MatchState, seconds: number, bodies?: Positions): void {
   const target = seconds / MINUTE_SECONDS;
+  s.bodies = bodies;
   let folded = 0;
   let last: PlayStep | undefined;
   let before = s.play;

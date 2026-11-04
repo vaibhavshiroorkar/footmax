@@ -101,6 +101,16 @@ export function colourGap(a: string, b: string): number {
   return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
 }
 
+// What each side wears in a match: when the shirts are too alike the away
+// side wears its second colour, and each keeper wears a colour that clashes
+// with neither. The pitch and the moment games both use this.
+export function matchKits(home: [string, string], away: [string, string]) {
+  const awayShirt = colourGap(home[0], away[0]) < 140 && away[1] && colourGap(home[0], away[1]) > colourGap(home[0], away[0]) ? away[1] : away[0];
+  const homeKeeper = keeperKit([home[0], awayShirt]);
+  const awayKeeper = keeperKit([home[0], awayShirt, homeKeeper], homeKeeper);
+  return { homeShirt: home[0], awayShirt, homeKeeper, awayKeeper };
+}
+
 // The keeper colour that stands out most from both teams' shirts.
 export function keeperKit(avoid: string[], skip?: string): string {
   return [...KEEPER_KITS]

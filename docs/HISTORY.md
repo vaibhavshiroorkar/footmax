@@ -100,6 +100,14 @@ random stream, and `stepWatched` only decides what the pitch shows, so a test ca
 prove results match a plain run. A true 2x clock at 0.75x play did not fit: it
 stopped at 1.78x rather than strip chances of all build-up.
 
+### 9. v1.13.0: one pitch (2026-11-04)
+
+Moments stopped inventing their own world. The shot game reads the real keeper,
+wall, defenders and mates, and the pitch freezes while you play. Found on the way:
+keepers stood up to 8 m outside their posts, and the shot view was a dice roll that
+could disagree with the pitch. Live positions reach the move builder through
+`s.bodies`, which only visuals may read.
+
 ## Decisions that still hold
 
 | Decision | Why |

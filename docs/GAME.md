@@ -118,8 +118,8 @@ moments to play, not a wall of information.
     for free kicks within about 36 m of goal, attackers and markers in the
     box for corners; goal kicks: the other side out of the box; the kick
     waits until they are back;
-  - keepers stay in their penalty area and come off their line to narrow
-    the angle when the ball is near;
+  - keepers stay in their penalty area, stay between their posts, and come
+    off their line to narrow the angle when the ball is near;
   - saves are sometimes tipped behind and shots deflected out: corners;
   - the ball is fetched to a restart spot instead of jumping there;
   - fouls bring a player down and give a free kick; a card follows a foul
@@ -129,6 +129,17 @@ moments to play, not a wall of information.
 - **Positions:** each formation has named slots (4-3-3 is GK, LB CB CB RB,
   CM CDM CM, LW ST RW); players fill the slot that suits them and stand
   there on the pitch and in the lineups.
+- **Defending shape:** the side without the ball moves as a block, about 32 m
+  deep and 38 m wide, sliding toward the ball and narrowing near goal.
+  Defenders stay goal-side of it. The nearest man presses; the next stands on
+  the ball's line to goal, and in the last third a third does too, deeper. The
+  man about to win the ball runs there early. A watched move picks its tackler
+  from where everyone really is (`s.bodies`), which never touches a result.
+- **One pitch:** a moment opens with the pitch frozen, and play resumes from
+  that exact picture. The shot game reads the keeper's real place, how far out
+  he is, the wall, up to five men in the way and team-mates ahead of you, all
+  in this match's kits (`PitchSim.shotScene`). The view and range of a shot
+  come from where you really are (`placeMoment`), not from a roll.
 - **What you see is what counts:**
   - the scoreboard only adds a goal when the pitch shows it going in;
   - each move plays once;
@@ -150,7 +161,7 @@ moments to play, not a wall of information.
   the page. Moments:
   - a choice: shoot, pass or take him on;
   - shots from the box or from distance, with the defenders the pitch
-    has in the way drawn in front of goal (up to three, nearest first), or
+    has in the way drawn in front of goal (up to five, nearest first), or
     one on one with nobody in the way (chip with the chip move);
   - penalties, and free kicks with a choice: shoot it, or cross it into
     the box (the pass options become crosses); both start from a foul on

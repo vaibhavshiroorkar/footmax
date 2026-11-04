@@ -11,7 +11,7 @@ import { BodyInfo, Callout, PL, PW, PitchSim } from './pitchSim';
 import { CaptionQueue } from './captions';
 import { alpha, colors, fonts, luminance } from './theme';
 import { motionReduced } from '../state/settings';
-import { colourGap, keeperKit } from './moments/Keeper';
+import { matchKits } from './moments/Keeper';
 import { FootballIcon } from './football';
 import { playSound } from './sound';
 
@@ -173,7 +173,10 @@ export interface LivePitchProps {
   // True while the clock may run. The pitch asks for the next minute when
   // its current move has played out.
   running: boolean;
-  paused?: boolean;
+  paused: boolean;
+  // A moment game covers the pitch: everyone stays exactly where they are, so
+  // play resumes from the picture the game showed.
+  frozen?: boolean;
   onNeedMinute?: () => void;
   onGoal?: () => void;
   onMomentReady?: () => void;
@@ -197,7 +200,7 @@ const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'BACK' } as const;
 const ON_BALL_WAIT = 2.2;
 
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
-export function LivePitch({ world, live, focusId, speed, width, running, paused, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout, celebration }: LivePitchProps) {
+export function LivePitch({ world, live, focusId, speed, width, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout, celebration }: LivePitchProps) {
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
@@ -221,9 +224,9 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // Latest props for the frame loop, which is set up once.
   const homeKit = home.colors;
   const awayKit = away.colors;
-  const props = useRef({ speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout, homeKit, awayKit });
+  const props = useRef({ speed, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout, homeKit, awayKit });
   useEffect(() => {
-    props.current = { speed, running, paused, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout, homeKit, awayKit };
+    props.current = { speed, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, onBall, focusId, width, h, zone, shout, homeKit, awayKit };
   });
   useEffect(() => {
     if (focusId && celebration) sim.setCelebration(focusId, celebration);
@@ -305,7 +308,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       // On the ball, play eases to slow motion so the choice is his.
       // On the ball play eases off so the choice is his, but at 4x
       // it stays at full 1x instead of dropping to slow motion.
-      const scale = p.paused ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.6) : p.speed;
+      const scale = p.paused || p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.6) : p.speed;
       sim.update(dt * scale);
       const c = sim.celebrate;
       for (const [id, body] of sim.bodies) {
@@ -380,11 +383,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   }, [sim, registry, ball, refPos]);
 
   const size = Math.max(15, Math.min(21, width / 22));
-  // When the shirts are too alike, the away side wears its second colour,
-  // as in a real match. Each keeper wears a colour that clashes with neither.
-  const awayShirt = colourGap(home.colors[0], away.colors[0]) < 140 && away.colors[1] && colourGap(home.colors[0], away.colors[1]) > colourGap(home.colors[0], away.colors[0]) ? away.colors[1] : away.colors[0];
-  const homeKeeper = keeperKit([home.colors[0], awayShirt]);
-  const awayKeeper = keeperKit([home.colors[0], awayShirt, homeKeeper], homeKeeper);
+  const { awayShirt, homeKeeper, awayKeeper } = matchKits(home.colors, away.colors);
   const dots = (['home', 'away'] as SideKey[]).flatMap((side) => {
     const team = side === 'home' ? home : away;
     const ids = [...live[side].onPitch, ...gone.filter((g) => g.side === side && !live[side].onPitch.includes(g.id)).map((g) => g.id)];

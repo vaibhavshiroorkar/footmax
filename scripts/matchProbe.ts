@@ -67,7 +67,7 @@ for (let seed = 101; seed < 101 + count; seed++) {
       enqueue();
     } else if (sim.idle()) {
       if (s.minute === 46) sim.halfTime('away');
-      stepWatched(game.world, s, sim.pitchSeconds());
+      stepWatched(game.world, s, sim.pitchSeconds(), sim.positions());
       sync();
       enqueue();
     }

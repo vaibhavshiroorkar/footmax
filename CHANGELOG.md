@@ -2,6 +2,17 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 1.13.0
+
+- Moments now show the real pitch: the keeper where he stands, the men who are
+  actually in the way, your team-mates, in this match's kits. Play freezes while
+  you decide and carries on from the same picture.
+- Whether a shot counts as long range comes from where you really are.
+- Defenders hold a compact shape, get goal-side and step into the line of the
+  shot. The man who wins the ball is the man near it.
+- The ball no longer jumps across the pitch, and keepers stay between their
+  posts.
+
 ## 1.12.0
 
 - The match clock runs about 1.8 times faster while play itself is slower

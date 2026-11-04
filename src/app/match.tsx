@@ -4,7 +4,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { CALL_PASSING, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { CALL_PASSING, placeMoment, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { teamById } from '../engine/lineup';
@@ -23,6 +23,7 @@ import { LivePitch, PitchTarget } from '../ui/livePitch';
 import { PL, PW, PitchSim } from '../ui/pitchSim';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
+import { matchKits } from '../ui/moments/Keeper';
 import { LineupsCard } from '../ui/lineups';
 import { SaveGame } from '../ui/moments/SaveGame';
 import { BlockGame, ClearGame, InterceptGame } from '../ui/moments/DefendGames';
@@ -144,7 +145,7 @@ export default function MatchScreen() {
     const total = useStore.getState().live?.scorers.length ?? 0;
     if (shownGoals < total) setShownGoals(total);
     // Watching, the clock runs ahead of the pitch; quiet minutes fold away.
-    mutateLive((m, g) => (simRef.current ? stepWatched(g.world, m, simRef.current.pitchSeconds()) : stepMinute(g.world, m)));
+    mutateLive((m, g) => (simRef.current ? stepWatched(g.world, m, simRef.current.pitchSeconds(), simRef.current.positions()) : stepMinute(g.world, m)));
     commitIfDone();
   };
   // With the pitch showing, the pitch asks for each minute once its move
@@ -171,6 +172,8 @@ export default function MatchScreen() {
   const passing = momentOpen && !autoMoments && live?.pending?.kind === 'pass';
   const [passPick, setPassPick] = useState<string | null>(null);
   const onMomentReady = () => {
+    const sim = simRef.current;
+    if (sim) mutateLive((m) => placeMoment(m, { x: sim.ball.x / PW, y: sim.ball.y / PL }));
     const m = useStore.getState().live;
     if (m?.pending) setReadyMoment(momentKey(m));
   };
@@ -298,6 +301,7 @@ export default function MatchScreen() {
             width={pitchWidth}
             running={running}
             paused={paused}
+            frozen={momentOpen && !passing}
             onNeedMinute={tick}
             onGoal={onGoalShown}
             onMomentReady={onMomentReady}
@@ -1008,6 +1012,11 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
   const [lanes] = useState(() => (moment.kind === 'shot' ? getSim()?.laneDefenders(moment.actorId) : undefined));
   // Where he stands across the goal, so the shot starts from there.
   const [angle] = useState(() => (moment.kind === 'shot' ? getSim()?.shotAngle(moment.actorId) ?? 0 : 0));
+  // The keeper, the wall and team-mates as the pitch has them right now.
+  const [scene] = useState(() => (moment.kind === 'shot' || moment.kind === 'freekick' ? getSim()?.shotScene(moment.actorId) : undefined));
+  const live = useStore.getState().live!;
+  const kits = matchKits(teamById(game.world, live.home.clubId).colors, teamById(game.world, live.away.clubId).colors);
+  const shotKit = moment.side === 'home' ? { own: kits.homeShirt, opp: kits.awayShirt, keeper: kits.awayKeeper } : { own: kits.awayShirt, opp: kits.homeShirt, keeper: kits.homeKeeper };
   const names: Record<string, string> = {};
   for (const o of moment.options ?? []) names[o.playerId] = game.world.players[o.playerId].lastName;
   const base = MOMENT_TITLES[moment.kind];
@@ -1083,7 +1092,7 @@ function MomentPanel({ game, moment, getSim }: { game: Game; moment: KeyMoment; 
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
-        <ShotGame kind={moment.kind} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+        <ShotGame kind={moment.kind} scene={scene} kits={shotKit} composure={actor.attrs.composure} shooting={actor.attrs.shooting} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}

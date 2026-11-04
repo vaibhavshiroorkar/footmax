@@ -59,6 +59,30 @@ the shooter's own keeper. The ball flies the length of the pitch, then jumps bac
 for the corner. Measured: 30 tipped saves and 10 deflected misses out of 239
 finishes, and no other kind. Keepers never took a shot.
 
+### Defending shape (v1.13.0)
+
+Coaching guides put a compact block at about 30 to 35 m from back to front, 35 to
+40 m wide, with 10 to 15 m between lines. They disagree on units and nothing here
+is a governing-body standard, so these are rules of thumb. A study of 153 Bundesliga
+games found almost no difference in compactness between successful and failed
+defending, so shape alone does not stop goals.
+
+Measured over five matches, at the moment each shot was struck:
+
+| | v1.12.0 | v1.13.0 |
+| --- | --- | --- |
+| Shots with a defender within 3 m of the line to goal | 50% | 58% |
+| Mean men in that lane | 0.62 | 0.75 |
+| Frame-to-frame ball jumps over 3 m, per four matches | 74 | 0 |
+
+The first attempt changed nothing: the block was too wide and moved at a jog, and
+tacklers came from formation spots. Passing live positions to the move builder and
+making the block run did the work.
+
+Sources: [The Football Analyst on compactness](https://the-footballanalyst.com/?p=7317),
+[TeamStats on defensive shape](https://teamstats.net/blog/strengthening-defensive-shape-through-practice),
+[Bundesliga compactness study](https://ucrisportal.univie.ac.at/en/publications/is-a-compact-organization-important-for-defensive-success-in-elit/).
+
 ## Laws of the Game
 
 Source: IFAB Laws, read 2026-11-04. The 2026/27 Laws took effect on 1 July 2026.
