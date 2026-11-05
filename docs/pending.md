@@ -14,7 +14,7 @@ Later releases and requests take precedence over earlier unfinished lists.
 
 Source: the user's update list of 2026-11-05 and follow-up. All 42 entries remain open,
 with release versions unassigned. C0 is in design; the others are `todo`.
-C0 is the highest priority. See the proposed
+C0 is the highest priority. See the approved
 [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md).
 The supplied list numbers both the engine and opening rival as 1.
 C0 identifies the engine request; C1 through C40 preserve the remaining numbers.

@@ -1,6 +1,6 @@
 # Engine consistency and backlog delivery
 
-Status: proposed design, awaiting review. No gameplay implementation is complete.
+Status: approved by the user on 2026-11-05. Implementation is in progress.
 
 The user asked to implement everything in [pending.md](../../pending.md).
 Engine precision is the first priority. This document defines that foundation

@@ -559,6 +559,8 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
     `game.ts`), `alerts.ts` (badges).
   - `src/engine/matchRuntime/pitch.ts`: physical pitch simulation (no React, tested).
     `src/ui/pitchSim.ts` keeps existing imports working;
+    its snapshots copy every player, the ball, restart and active movement.
+    Physical variation uses a per-match seeded RNG, independent of rendering.
     `src/ui/livePitch.tsx` draws it.
   - `src/ui/rig/`: the jointed body. `skeleton.ts` (no React, tested),
     `poses.ts`, `Figure.tsx` (`RigFigure`, `RefereeFigure`, `Person`).

@@ -8,10 +8,11 @@ this plan are in `RESEARCH.md`.
 ## Active work
 
 Request: "can you do all the pending work?"
-Version: staged releases, unassigned. Status: doing, engine design first.
-The proposed [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md)
-sets the dependency order for the full backlog. It awaits review; no new gameplay
-item is complete. Human reviews, historical data and Legends remain in scope.
+Version: staged releases, unassigned. Status: doing, approved on 2026-11-05.
+The [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md)
+sets the dependency order for the full backlog. The
+[foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is in progress.
+Human reviews, historical data and Legends remain in scope.
 
 ## Complete Football Game Update List (2026-11-05)
 
@@ -23,7 +24,7 @@ C41 records the follow-up request.
 
 | Requests | Version | Status |
 | --- | --- | --- |
-| C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: proposed design, implementation not started |
+| C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation implementation |
 | C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
 | C41: change track back into press instead | Unassigned | todo |
 
@@ -40,7 +41,7 @@ Earlier completion entries describe those releases, not completion of this new l
 
 The engine planning request was the last request in the local chat that shipped
 v2.4.0. The reply began tracing moment data, then stopped at a usage limit.
-No finished plan is recorded. Historical packs, Legends, reviews and research
+The approved design and foundation plan now address that request. Historical packs, Legends, reviews and research
 gaps also remain open in [pending.md](pending.md).
 
 ## Where it stands

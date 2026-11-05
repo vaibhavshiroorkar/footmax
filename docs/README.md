@@ -7,7 +7,8 @@ hold everything about the project, so no context depends on a chat.
 | --- | --- | --- |
 | [ROADMAP.md](ROADMAP.md) | What comes next: every open request, the version it ships in, and its status | A request arrives, a status changes, or the plan moves |
 | [pending.md](pending.md) | Unfinished work from project chats and documents, with sources and completion checks | Work is found, finished, deferred, or awaiting review |
-| [Engine design](superpowers/specs/2026-11-05-engine-consistency-design.md) | Proposed shared match state and delivery order for the backlog | The design is reviewed or an implementation decision changes |
+| [Engine design](superpowers/specs/2026-11-05-engine-consistency-design.md) | Approved shared match state and delivery order for the backlog | An implementation decision changes |
+| [Engine foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) | Implementation steps for engine ownership, snapshots and transitions | A step finishes or its design changes |
 | [HISTORY.md](HISTORY.md) | What happened: each stage of the project, the decisions made and why, and the traps found | A version ships or a decision is made |
 | [GAME.md](GAME.md) | How the game works right now: every rule and system | Any rule or system changes |
 | [RESEARCH.md](RESEARCH.md) | What we found out: laws, formats, tools, measurements and their sources | Before building each version |
