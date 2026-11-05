@@ -6,7 +6,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { CALL_PASSING, passIsBetter, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { CALL_PASSING, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { FORMATIONS, teamById } from '../engine/lineup';
@@ -583,23 +583,16 @@ function FullTime({ game, live, verdict, reward, onContinue, posBefore }: { game
       </Row>
       {reward?.played && (
         <View style={{ gap: 10 }}>
-          <Row gap={12}>
-            <View style={[styles.rateBox, { borderColor: matchRatingColor(reward.rating) }]}>
-              <AnimatedNumber value={reward.rating} format={(n) => n.toFixed(1)} duration={900} style={{ fontFamily: fonts.display, fontSize: 34, color: matchRatingColor(reward.rating) }} />
-              <Text style={styles.rateLabel}>RATING</Text>
-            </View>
-            <View style={{ flex: 1, gap: 6 }}>
-              {reward.motm && <Pill label="Player of the match" icon="star" color={colors.gold} solid />}
-              <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                {reward.goals > 0 && <Pill label={`${reward.goals} goal${reward.goals > 1 ? 's' : ''}`} icon="football" color={colors.accent} />}
-                {reward.assists > 0 && <Pill label={`${reward.assists} assist${reward.assists > 1 ? 's' : ''}`} icon="git-branch" color={colors.teal} />}
-              </Row>
-            </View>
-          </Row>
-          <Row gap={8}>
+          <Row gap={6}>
+            <Gain label="Rating" value={reward.rating} color={matchRatingColor(reward.rating)} icon="star" decimals={1} absolute />
             <Gain label="XP" value={reward.xp} color={colors.gold} icon="sparkles" />
             <Gain label="Fame" value={reward.fame} color={colors.pink} icon="flame" decimals={1} />
-            {reward.money > 0 && <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />}
+            <Gain label="Bonus" value={reward.money} color={colors.accent} icon="cash" money />
+          </Row>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+            {reward.motm && <Pill label="Player of the match" icon="star" color={colors.gold} solid />}
+            {reward.goals > 0 && <Pill label={`${reward.goals} goal${reward.goals > 1 ? 's' : ''}`} icon="football" color={colors.accent} />}
+            {reward.assists > 0 && <Pill label={`${reward.assists} assist${reward.assists > 1 ? 's' : ''}`} icon="git-branch" color={colors.teal} />}
           </Row>
           {c && <XpFill from={reward.xpBefore ?? c.xp} fromLevel={reward.levelBefore ?? c.level} to={c.xp} level={c.level} />}
           {reward.levels > 0 && c && (
@@ -734,11 +727,11 @@ function MiniTable({ game, teamId, before }: { game: Game; teamId: string; befor
   );
 }
 
-function Gain({ label, value, color, icon, decimals = 0, money }: { label: string; value: number; color: string; icon: IconName; decimals?: number; money?: boolean }) {
+function Gain({ label, value, color, icon, decimals = 0, money, absolute }: { label: string; value: number; color: string; icon: IconName; decimals?: number; money?: boolean; absolute?: boolean }) {
   return (
     <View style={[styles.gain, { borderColor: alpha(color, 0.35), backgroundColor: alpha(color, 0.08) }]}>
       <Icon name={icon} size={16} color={color} />
-      <AnimatedNumber value={value} duration={1100} format={(n) => (money ? `+${formatMoney(Math.round(n))}` : `+${n.toFixed(decimals)}`)} style={{ fontFamily: fonts.display, fontSize: 20, color }} />
+      <AnimatedNumber value={value} duration={1100} format={(n) => (money ? `+${formatMoney(Math.round(n))}` : `${absolute ? '' : '+'}${n.toFixed(decimals)}`)} style={{ fontFamily: fonts.display, fontSize: 20, color }} />
       <Text style={styles.rateLabel}>{label.toUpperCase()}</Text>
     </View>
   );
@@ -1170,7 +1163,6 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
         <View style={{ gap: 8 }}>
           {(moment.choices ?? []).map((k: MomentKind) => {
             const c = moment.corner && k === 'shot' ? CORNER_EDGE : moment.setPiece && k === 'pass' ? SET_PIECE_PASS : CHOICES[k];
-            const better = k === 'pass' && !moment.setPiece && !moment.corner && passIsBetter(live, moment);
             return (
               <Pressable
                 key={k}
@@ -1180,14 +1172,13 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
                   haptic('medium');
                   mutateLive((m, g) => { if (m.pending === moment) chooseMoment(g.world, m, k); });
                 }}
-                style={({ pressed }) => [styles.choiceBtn, better && { borderColor: colors.accent }, pressed && { backgroundColor: alpha(colors.accent, 0.16) }]}
+                style={({ pressed }) => [styles.choiceBtn, pressed && { backgroundColor: alpha(colors.accent, 0.16) }]}
               >
                 <View style={styles.choiceIcon}>
                   <Icon name={c.icon} size={20} color={colors.ink} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.choiceLabel}>{c.label}{better ? '  (better option)' : ''}</Text>
-                  <Text style={[styles.shoutHint, { textAlign: 'left' }]}>{k === 'shot' && moment.weakFoot ? 'On your weaker foot' : k === 'dribble' && moment.beaten ? 'The next man: harder, bigger reward' : k === 'shot' && moment.beaten ? 'One on one with the keeper' : c.hint}</Text>
+                  <Text style={styles.choiceLabel}>{c.label}</Text>
                 </View>
                 <Icon name="chevron-forward" size={18} color={colors.muted} />
               </Pressable>
@@ -1400,9 +1391,8 @@ const styles = StyleSheet.create({
   segBtn: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 40, justifyContent: 'center', borderRadius: 10 },
   segText: { fontFamily: fonts.bold, fontSize: 13, color: colors.muted },
   verdict: { fontFamily: fonts.display, fontSize: 44, letterSpacing: 2 },
-  rateBox: { width: 92, height: 80, borderRadius: 18, borderWidth: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgElev },
   rateLabel: { fontFamily: fonts.bold, fontSize: 11, color: colors.muted, letterSpacing: 1.2 },
-  gain: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
+  gain: { flex: 1, minWidth: 0, alignItems: 'center', gap: 2, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14 },
   bannerText: { flex: 1, fontFamily: fonts.display, fontSize: 20, color: colors.ink, letterSpacing: 0.8 },
   bannerSub: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.ink },
@@ -1434,4 +1424,5 @@ const styles = StyleSheet.create({
   ratingRow: { gap: 8, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
   ratingChip: { minWidth: 42, paddingVertical: 3, borderRadius: 8, alignItems: 'center' },
 });
+
 

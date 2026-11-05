@@ -3,25 +3,31 @@
 What we found out and where it came from. Each version in `ROADMAP.md` adds its
 findings here before it is built. Mark anything unproven as open.
 
-## Shared match state proposal
+## Shared match state
 
-The current live pitch owns physical positions, while interactions report outcomes
+The engine's physical pitch owns positions, while legacy interactions report outcomes
 that `visualizeMoment` reconstructs as new moves. Headers generate their own lane
 and marker. These code paths need a shared state contract; camera changes alone
-cannot establish full continuity. The proposed design is in
+cannot establish full continuity. The approved design is in
 [Engine consistency](superpowers/specs/2026-11-05-engine-consistency-design.md).
 
 Box2D's simulation documentation recommends fixed time steps and explains sweeping
-fast objects to their first contact. These principles inform the proposed TypeScript
-runtime; adding Box2D is not part of the proposal. The initial 60 Hz step and the
-compressed football-clock ratio are engineering choices that still need measurement.
+fast objects to their first contact. These principles inform the TypeScript
+runtime; adding Box2D is not part of the design. The fixed 60 Hz physical step
+produces identical seeded movement at 30, 60 and 120 display frames per second.
+The current clock ratio advances 1.95 physics seconds per wall-clock second at 1x.
+
+The foundation's 12-match probe averages 175 seconds per match, excluding user decision time.
+Median caption time remains 1.62 seconds, with 3% shown for under one second.
+None of its 248 shots went toward the wrong goal. This checks direction, not full action continuity.
+Three simulated seasons finish with 2.55 to 2.77 goals per match and 22% to 23% draws.
 
 Sources: [Box2D simulation](https://box2d.org/documentation/md_simulation.html),
 [Expo SDK 58](https://docs.expo.dev/versions/v58.0.0/),
 [Expo audio reference](https://docs.expo.dev/versions/v58.0.0/sdk/audio/).
 
-Open: full transition measurements, runtime cost across seasons, real-phone frame
-times and reproduction of the reported audio and halftime-input failures.
+The halftime regression now skips a pending chance, invalidates its callback and accepts a fresh second-half chance.
+Open: full transition measurements, real-phone frame times and reproduction of the reported audio failures.
 
 ## Baseline: v1.10.0 (measured 2026-11-04)
 

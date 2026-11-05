@@ -12,8 +12,8 @@ Later releases and requests take precedence over earlier unfinished lists.
 
 ## Complete Football Game Update List
 
-Source: the user's update list of 2026-11-05 and follow-up. All 42 entries remain open,
-with release versions unassigned. C0 is in design; the others are `todo`.
+Source: the user's update list of 2026-11-05 and follow-up. 36 entries remain open,
+with release versions unassigned. C0 is in implementation; the others are `todo`.
 C0 is the highest priority. See the approved
 [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md).
 The supplied list numbers both the engine and opening rival as 1.
@@ -41,8 +41,6 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C9. Quick Sim Result Screen:** Quick Sim should still display the match result screen after simulating a match.
 
-- [ ] **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
-
 - [ ] **C11. Defensive Actions and Tutorial:** Make defensive contributions such as tracking back, pressing, marking, and positioning equally important as attacking actions. Emphasize these mechanics during the tutorial.
 
 - [ ] **C12. Realistic Award Eligibility:** Players in local leagues should not be able to win major global awards like the Ballon d'Or. Award eligibility should depend on league reputation, competition level, individual performance, and career achievements.
@@ -50,8 +48,6 @@ The request text below is preserved, including overlapping corner and consistenc
 - [ ] **C13. Noticeable Career Progression:** Make the difference between local leagues and higher-tier football clearly noticeable through gameplay quality, player abilities, match intensity, stadium atmosphere, rewards, and overall presentation.
 
 - [ ] **C14. Dynamic Pitches and Crowds:** Change pitches and stadium appearances based on the club, league, and competition. Audiences should reflect the participating teams' colors, with appropriate differences between home and away supporters.
-
-- [ ] **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
 
 - [ ] **C16. Corner Kick Interaction Glitches:** Fix the glitchy corner kick interactions and ensure they function smoothly.
 
@@ -81,19 +77,11 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C29. Show All Players During Headers:** During heading interactions, display all relevant players inside the penalty box rather than only showing a limited number of players.
 
-- [ ] **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
-
-- [ ] **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
-
 - [ ] **C32. Automatic Situation-Based Interactions:** Interactions should automatically trigger whenever an appropriate match situation occurs rather than requiring the player to manually initiate them.
 
 - [ ] **C33. Contextual Interaction Examples:** Automatic interactions should include situations such as shooting during a 1v1 opportunity, deciding whether to pass from midfield when an attacking chance develops, or receiving a through ball.
 
 - [ ] **C34. Rework Sprinting Interaction:** Redesign sprinting interactions so the animation clearly demonstrates the player accelerating past and outspeeding a defender, with the outcome influenced by pace, acceleration, positioning, and defender ability.
-
-- [ ] **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
-
-- [ ] **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
 
 - [ ] **C37. Smarter Player AI:** Improve the AI for all players, including teammates and opponents, so they play proper, intelligent football. Players should maintain realistic positioning, make better passing decisions, create space, defend intelligently, track runs, support attacks, and react appropriately to changing situations. AI behavior should also vary based on individual attributes, tactical roles, and team quality.
 

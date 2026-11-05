@@ -339,9 +339,6 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
                 style={{ flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? alpha(colors.accent, 0.16) : colors.bgElev, opacity: locked && !on ? 0.4 : 1 }}
               >
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.8, color: on ? colors.accent : colors.muted }}>{sh.label.toUpperCase()}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 9.5, color: colors.faint }} numberOfLines={1}>
-                  {sh.hint}
-                </Text>
               </Pressable>
             );
           })}

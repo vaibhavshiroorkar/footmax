@@ -87,12 +87,11 @@ export function LongShotGame({ metres, shooting, keeperOut = 2, onPass, onDone }
       {kind === null ? (
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {([
-            ['lob', 'Lob him', 'Over his head'],
-            ['driven', 'Drive it', 'Low and hard'],
-          ] as const).map(([id, label, hint]) => (
+            ['lob', 'Lob him'],
+            ['driven', 'Drive it'],
+          ] as const).map(([id, label]) => (
             <Pressable key={id} onPress={() => setKind(id)} accessibilityRole="button" accessibilityLabel={label} style={{ flex: 1, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.accent, backgroundColor: alpha(colors.accent, 0.1) }}>
               <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.accent }}>{label}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.muted }}>{hint}</Text>
             </Pressable>
           ))}
           {onPass && (

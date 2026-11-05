@@ -59,6 +59,10 @@ guidance:
 - At most three blocks before you scroll.
 - No paragraphs that explain the screen. Help lives in the first-run tips.
 - Numbers, icons and short labels over sentences.
+- Match rewards use four equal columns: Rating, XP, Fame and Bonus.
+  Keep zero values visible. Place match badges below the row.
+- Interaction buttons show action names without explanatory subtitles or recommendation highlights.
+- Training names all affected attributes in both the drill card and active session.
 
 ## Scenes
 

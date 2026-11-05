@@ -183,6 +183,7 @@ export default function Train() {
           <RatingRing value={overall(p)} size={PLAYER_RING} />
         </Row>
         <AttributeGrid attrs={shown} keeper={p.position === 'GK'} weights={w} />
+        <T muted style={{ fontSize: 12 }}>Green dot: key attribute for your position.</T>
         <Row gap={18}>
           <View style={{ flex: 1 }}>
             <StatBar label="Energy" value={c.energy} color={colors.blue} right={`${Math.round(c.energy)}/100`} />
@@ -219,7 +220,7 @@ export default function Train() {
                       <Text style={{ fontFamily: fonts.display, fontSize: 17, color: colors.text, lineHeight: 19 }} numberOfLines={2}>
                         {d.label}
                       </Text>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }}>
                         {d.attrs.map((k) => ATTR_LABELS[k]).join(' + ')}
                       </Text>
                     </View>
@@ -271,6 +272,7 @@ export default function Train() {
                       <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.text, flex: 1 }}>{LOOK[playing].game}</Text>
                       <Button label="Quit" small variant="ghost" onPress={close} />
                     </Row>
+                    <T muted>Training: {drills.find((d) => d.id === playing)?.attrs.map((k) => ATTR_LABELS[k]).join(' + ')}</T>
                     <GameFor drill={playing} onDone={(score) => run(playing, score, true)} />
                   </>
                 )}

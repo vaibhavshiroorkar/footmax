@@ -11,26 +11,41 @@ Request: "can you do all the pending work?"
 Version: staged releases, unassigned. Status: doing, approved on 2026-11-05.
 The [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md)
 sets the dependency order for the full backlog. The
-[foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is in progress.
+[foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is implemented and verified.
+The [usability plan](superpowers/plans/2026-11-05-match-usability.md) covers the completed presentation changes.
 Human reviews, historical data and Legends remain in scope.
 
 ## Complete Football Game Update List (2026-11-05)
 
-The user's full request text and individual checkboxes are in
+Open requests and their original wording are in
 [pending.md](pending.md#complete-football-game-update-list).
-All 42 entries are open. C0 identifies the first of the two items numbered 1;
+36 entries remain open. Six requests below are done and awaiting release. C0 identifies the first of the two items numbered 1;
 C1 through C40 preserve the remaining supplied numbers.
 C41 records the follow-up request.
 
 | Requests | Version | Status |
 | --- | --- | --- |
-| C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation implementation |
+| C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation verified; action migration next |
 | C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
 | C41: change track back into press instead | Unassigned | todo |
 
 C0 expands the earlier planning request below. C27 requests removal of the
 dedicated long-range interaction previously shipped for original request 16.
 Earlier completion entries describe those releases, not completion of this new list.
+
+### Completed requests awaiting release
+
+- **done, unreleased.** **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
+
+- **done, unreleased.** **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
+
+- **done, unreleased.** **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
+
+- **done, unreleased.** **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
+
+- **done, unreleased.** **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
+
+- **done, unreleased.** **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
 
 ## Requests recovered from chats
 
@@ -47,7 +62,7 @@ gaps also remain open in [pending.md](pending.md).
 ## Where it stands
 
 The original 41 requests and B1 through B21 were shipped through v2.4.0.
-The new C0 through C41 list is pending. Four earlier reviews also remain open:
+The remaining C0 through C41 work is in pending.md. Four earlier reviews also remain open:
 
 | What | Why |
 | --- | --- |

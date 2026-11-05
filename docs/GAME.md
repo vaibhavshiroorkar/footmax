@@ -51,7 +51,8 @@ moments to play, not a wall of information.
   one, two or three stars (`trainingMult`). A rest day (+20 fitness, 15
   energy) is a tile in the drill grid. Energy shows as a value out of 100. Attributes show
   whole points with a bar filling toward the next one, and a "+1" pops
-  when a point lands.
+  when a point lands. A green dot marks attributes important to the player's position,
+  with a legend beside the grid. Drill cards and active sessions name every trained attribute.
 - **Abilities** live on the ability tree, below. **Skill moves** (nine dribble
   tricks, six finishing techniques) are trained: pay the coach (`moveFee`, from $500
   for one star, four times more per star) and wait stars + 1 weeks, one move at a
@@ -361,8 +362,9 @@ moments to play, not a wall of information.
   he never does), then two tabs: Feed, and Teams
   (possession and shots, then one team at a time, picked by its crest,
   with team OVR, each player's OVR, live rating, goals and assists). No
-  pop-up after goals. Full time shows the rating, player of the match,
-  XP (the bar fills from where it was), fame, win bonus, what the match
+  pop-up after goals. Full time shows Rating, XP, Fame and Bonus in one row,
+  including a zero bonus. Player-of-the-match, goals and assists sit below.
+  The XP bar fills from where it was. Full time also shows what the match
   unlocked, and the table (five rows around the team, league or
   tournament group) with the places moved. The pitch hides at full time.
 - **Managers** change approach and make substitutions at any time.
@@ -386,9 +388,10 @@ always kicks third and plays that kick. Shoot-out kicks add to no score but thei
 ### Passing or shooting
 
 A shot costs `spamCost`: 0.05 per shot since your last completed pass, up to 0.15, on
-the keeper's reach and the sim's chance. A one-two adds 0.09 to the next chance. The
-choice marks a pass as the better option from far out, on the weaker foot, or after
-a shot. Always passing scored 1.72 team goals a game in a probe, always shooting 1.30.
+the keeper's reach and the sim's chance. A one-two adds 0.09 to the next chance.
+Interaction buttons show action names without explanatory subtitles or better-option labels.
+Choices have no recommendation highlight. Pass choices still name their receiver.
+Always passing scored 1.72 team goals a game in a probe, always shooting 1.30.
 
 ### Morale and fitness
 

@@ -144,7 +144,7 @@ export function PassPanel({ options, names, playmaker = 0, passing = 60, vision 
                 {look.name}
               </Text>
               <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.muted }} numberOfLines={1}>
-                {names[o.playerId]}  |  {look.hint}
+                {names[o.playerId]}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={{ width: 46, fontFamily: fonts.semibold, fontSize: 11, color: colors.muted }}>Safe</Text>
