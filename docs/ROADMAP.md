@@ -1,13 +1,52 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.4.0. Nothing is queued. Status keys: `todo`, `doing`, `done`. Findings behind
+v2.4.0. Open work is collected in [pending.md](pending.md). Status keys:
+`todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
+
+## Active work
+
+Request: "can you do all the pending work?"
+Version: staged releases, unassigned. Status: doing, engine design first.
+The proposed [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md)
+sets the dependency order for the full backlog. It awaits review; no new gameplay
+item is complete. Human reviews, historical data and Legends remain in scope.
+
+## Complete Football Game Update List (2026-11-05)
+
+The user's full request text and individual checkboxes are in
+[pending.md](pending.md#complete-football-game-update-list).
+All 42 entries are open. C0 identifies the first of the two items numbered 1;
+C1 through C40 preserve the remaining supplied numbers.
+C41 records the follow-up request.
+
+| Requests | Version | Status |
+| --- | --- | --- |
+| C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: proposed design, implementation not started |
+| C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
+| C41: change track back into press instead | Unassigned | todo |
+
+C0 expands the earlier planning request below. C27 requests removal of the
+dedicated long-range interaction previously shipped for original request 16.
+Earlier completion entries describe those releases, not completion of this new list.
+
+## Requests recovered from chats
+
+| Request | Version | Status |
+| --- | --- | --- |
+| can you plan the best way to make this engine precise and accurate? the live pitch consistency with the interaction part is very important | Unassigned, expanded by C0 | todo: tracked under C0 |
+| can you make a pending.md in docs and add everything that is pending from all the chats for this projects and everything from the documents? | docs | done: [pending.md](pending.md) collects available local chats and project documents |
+
+The engine planning request was the last request in the local chat that shipped
+v2.4.0. The reply began tracing moment data, then stopped at a usage limit.
+No finished plan is recorded. Historical packs, Legends, reviews and research
+gaps also remain open in [pending.md](pending.md).
 
 ## Where it stands
 
-All 41 requests and the second list are built and live. Four things need a
-person, not more code:
+The original 41 requests and B1 through B21 were shipped through v2.4.0.
+The new C0 through C41 list is pending. Four earlier reviews also remain open:
 
 | What | Why |
 | --- | --- |

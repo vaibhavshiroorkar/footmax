@@ -3,6 +3,26 @@
 What we found out and where it came from. Each version in `ROADMAP.md` adds its
 findings here before it is built. Mark anything unproven as open.
 
+## Shared match state proposal
+
+The current live pitch owns physical positions, while interactions report outcomes
+that `visualizeMoment` reconstructs as new moves. Headers generate their own lane
+and marker. These code paths need a shared state contract; camera changes alone
+cannot establish full continuity. The proposed design is in
+[Engine consistency](superpowers/specs/2026-11-05-engine-consistency-design.md).
+
+Box2D's simulation documentation recommends fixed time steps and explains sweeping
+fast objects to their first contact. These principles inform the proposed TypeScript
+runtime; adding Box2D is not part of the proposal. The initial 60 Hz step and the
+compressed football-clock ratio are engineering choices that still need measurement.
+
+Sources: [Box2D simulation](https://box2d.org/documentation/md_simulation.html),
+[Expo SDK 58](https://docs.expo.dev/versions/v58.0.0/),
+[Expo audio reference](https://docs.expo.dev/versions/v58.0.0/sdk/audio/).
+
+Open: full transition measurements, runtime cost across seasons, real-phone frame
+times and reproduction of the reported audio and halftime-input failures.
+
 ## Baseline: v1.10.0 (measured 2026-11-04)
 
 Typecheck and lint are clean, and all 113 tests in 17 suites pass.
