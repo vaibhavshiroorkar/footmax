@@ -52,7 +52,7 @@ function TargetRing({ v, size, target, onPress }: { v: Animated.ValueXY; size: n
   );
 }
 
-function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget, tag }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void; tag?: string }) {
+function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, target, onTarget, tag, booked }: { id: string; registry: Registry; size: number; fill: string; ring: string; text: string; textColor: string; glow: boolean; keeper?: boolean; target?: PitchTarget; onTarget?: (id: string) => void; tag?: string; booked?: boolean }) {
   const a = useState<BodyAnim>(() => ({ pos: new Animated.ValueXY({ x: -100, y: -100 }), pop: new Animated.Value(1) }))[0];
   const v = a.pos;
   useEffect(() => {
@@ -89,6 +89,7 @@ function Dot({ id, registry, size, fill, ring, text, textColor, glow, keeper, ta
       }}
     >
       <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.48, color: textColor, lineHeight: size * 0.62 }}>{text}</Text>
+      {booked && <View accessible accessibilityLabel={`Player ${text}: yellow card`} style={{ position: 'absolute', right: -4, top: -4, width: 7, height: 10, borderRadius: 1, backgroundColor: '#f6d32d', borderWidth: 1, borderColor: '#111111' }} />}
       {/* A team-mate to pick stands up as a person. */}
       {target && (
         <Svg width={size * 2} height={size * 2.4} viewBox="-30 -72 60 76" style={{ position: 'absolute', bottom: size * 0.3, left: -size / 2 }}>
@@ -214,7 +215,7 @@ export interface LivePitchProps {
   celebration?: string;
 }
 
-const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'BACK' } as const;
+const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'PRESS' } as const;
 // Real seconds play waits while the user's player has the ball, so he can
 // shoot, pass or take his man on.
 const ON_BALL_WAIT = 1.4;
@@ -434,6 +435,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
           glow={me || has}
           tag={me && shout ? SHOUT_TAG[shout] : undefined}
           keeper={keeper}
+          booked={!!live.yellows[id] && !live.sentOff[id]}
           target={targets?.[id]}
           onTarget={onTarget}
         />

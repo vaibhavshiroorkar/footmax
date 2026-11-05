@@ -253,9 +253,9 @@ moments to play, not a wall of information.
     end in a shot.
 - **Long shots:** the chance of a goal falls exponentially with distance
   (`distanceChance`), about 1 in 600 from halfway for an average shooter, and
-  stray grows the same way. From 35 m a side-on scene opens (`LongShotGame`):
-  read how far off his line the keeper is, choose lob or driven, and stop the bar
-  in a window that narrows with distance. A keeper off his line is the real chance.
+  stray grows the same way. Every distance uses the normal two-tap shot controls.
+  The measured distance feeds flight time and accuracy. The Long Range technique
+  still boosts shooting from far out. There is no separate long-range mini-game.
 - **Tempers:** each booking raises the match's heat, and a hot match can flare up
   (`flareUp`). Most calm down; some end with both booked, one off or both off,
   which is violent conduct and a three-game ban. Composure helps. If the user is
@@ -323,8 +323,9 @@ moments to play, not a wall of information.
   he carries it, so there is time to choose.
 - **Calls** (off the ball, 8 minutes each, no cooldown, switch any time),
   left to right:
-  - Track back: he drops goal-side and presses, and gets tackle moments
-    to win the ball;
+  - Press: he closes down the opponent on the ball, even from farther than 22 metres,
+    and gets tackle moments to win it. Restart spacing still applies. Goalkeepers
+    keep their position. Saves retain the internal `track` key for compatibility;
   - Call for it: he comes short and a team-mate usually passes to him;
     he is picked as the passer for chances about four and a half times as
     often, every pass lane is more open and more dangerous, and the pass
@@ -332,7 +333,7 @@ moments to play, not a wall of information.
   - Make a run: he runs into the box (held onside by the line) and balls
     are played in behind to him there. He is on the end of about 3.4 times
     as many chances, and they are better ones: closer in, often one on one.
-  A tag (RUN, CALL, BACK) shows over him while a call lasts.
+  A tag (RUN, CALL, PRESS) shows over him while a call lasts.
 - **Zone slider (Defend, Middle, Attack):** above the action buttons,
   starting at the role's zone (strikers, wingers and CAMs attack; CMs,
   CDMs and wide mids play the middle; defenders defend; keepers have
@@ -355,13 +356,19 @@ moments to play, not a wall of information.
   and red cards cut straight in.
 - **Before kick-off:** Play match opens the lineups with each XI on a formation
   board, Back and Kick off. Back leaves everything as it was.
+- **Quick Sim:** Sim opens the full-time result screen with the completed match.
+  That screen records rewards and advances the week. Reopening the same result
+  cannot award it twice or advance another week.
 - **Screen:** one scoreboard row with speed (1x by default, 2x, 4x), pause, sound
   and skip (to half time or to full time), scorers under it, the pitch,
   the zone slider, the action buttons (on the bench: "Skip to when I come
   on", which stops when the coach brings him on, or plays to full time if
   he never does), then two tabs: Feed, and Teams
   (possession and shots, then one team at a time, picked by its crest,
-  with team OVR, each player's OVR, live rating, goals and assists). No
+  with team OVR, each player's OVR, live rating, goals and assists).
+  Yellow cards appear beside player dots and in the team statistics.
+  Sent-off players remain under Off the pitch, greyed out with a red-card marker.
+  Substituted players also remain listed. No
   pop-up after goals. Full time shows Rating, XP, Fame and Bonus in one row,
   including a zero bonus. Player-of-the-match, goals and assists sit below.
   The XP bar fills from where it was. Full time also shows what the match
@@ -377,6 +384,10 @@ moments to play, not a wall of information.
   (`scripts/makeSounds.py`), with a setting and a button in the match to
   turn it off. The referee shouts his calls (`ref-*.wav`, built by
   `scripts/makeRefVoice.py`), with its own setting, and stays quiet at 4x.
+  Clips wait for rewind before playing. A single referee channel suppresses
+  duplicate requests and lets a new call replace an older one. Muting cancels
+  pending playback and stops active clips. The referee setting survives reloads.
+  Free kicks announce once, including chances that open directly at the restart.
 
 ### Knockouts
 

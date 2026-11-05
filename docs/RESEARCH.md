@@ -29,6 +29,16 @@ Sources: [Box2D simulation](https://box2d.org/documentation/md_simulation.html),
 The halftime regression now skips a pending chance, invalidates its callback and accepts a fresh second-half chance.
 Open: full transition measurements, real-phone frame times and reproduction of the reported audio failures.
 
+The audio path reused idle players without waiting for `seekTo(0)` to finish.
+Two requests could reserve the same player before its playing flag changed.
+Playback now reserves the player while rewinding and rejects cancelled requests.
+SDK 58 declares `seekTo` as a promise; the implementation now awaits it.
+Tests cover delayed rewind, duplicate calls, muting, failed seeks and voice replacement.
+The referee preference was missing from saved settings and now survives reloads.
+Free-kick scenes without a preceding foul animation previously had no voice call.
+They now announce once; a foul and booking followed by a restart do not repeat it.
+Clip clarity still needs the existing listening review on a phone.
+
 ## Baseline: v1.10.0 (measured 2026-11-04)
 
 Typecheck and lint are clean, and all 113 tests in 17 suites pass.

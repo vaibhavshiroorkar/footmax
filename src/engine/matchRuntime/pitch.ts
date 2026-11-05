@@ -177,6 +177,7 @@ export class PitchSim {
   // near goal) who stands in the wall.
   setPiece: { kind: Restart; side: 'home' | 'away'; x: number; y: number; wall: string[]; taker?: string | null } | null = null;
   private prevStep: PlayStep | null = null;
+  private announcedRestart: Restart | null = null;
   // Each side's offside line this frame (depth in metres from its own goal).
   offsideLine = { home: PL, away: PL };
 
@@ -356,6 +357,7 @@ export class PitchSim {
     this.varCheck = null;
     this.callout = null;
     this.prevStep = null;
+    this.announcedRestart = null;
     this.attacking = null;
     this.focus = null;
     this.layout = 'kickoff';
@@ -516,6 +518,8 @@ export class PitchSim {
     switch (step.act) {
       case 'start':
         if (step.restart) {
+          if (step.restart === 'freekick' && this.announcedRestart !== 'freekick') this.hooks.onSound?.('ref-freekick', 0.9);
+          this.announcedRestart = null;
           if (dist(this.ball.x, this.ball.y, target.x, target.y) > 3) {
             // Fetched back to where the restart is taken.
             const d = dist(this.ball.x, this.ball.y, target.x, target.y);
@@ -871,6 +875,7 @@ export class PitchSim {
             this.ball.vx = 0;
             this.ball.vy = 0;
             const pen = step.restart === 'penalty';
+            this.announcedRestart = pen ? 'penalty' : 'freekick';
             this.callout = { text: pen ? 'PENALTY!' : step.handball ? 'HANDBALL' : 'FREE KICK', tone: 'stop', signal: pen ? 'spot' : 'arm', until: this.clock + (pen ? 3.4 : 2.2) };
             this.hooks.onSound?.('whistle', pen ? 1 : 0.8);
             this.hooks.onSound?.(pen ? 'ref-penalty' : step.handball ? 'ref-handball' : 'ref-freekick', 0.9);
@@ -910,6 +915,7 @@ export class PitchSim {
           this.callout = { text: 'OFFSIDE', sub: this.name(step.other), tone: 'stop', signal: 'arm', until: this.clock + 2.2 };
           this.hooks.onSound?.('whistle', 0.7);
           this.hooks.onSound?.('ref-offside', 0.9);
+          this.announcedRestart = 'freekick';
           this.caption = `Flag up: ${this.name(step.other)} is offside`;
           return pause(1.9);
         }
@@ -1336,10 +1342,13 @@ export class PitchSim {
         pressing.set(named, 0.92);
         cover.delete(named);
       }
-      // Tracking back: the user's player hunts the ball too.
+      // Press overrides the user's formation target, even when starting far away.
       const f = this.focus;
       const me = f?.shout === 'track' ? this.bodies.get(f.id) : undefined;
-      if (me && me.side !== this.attacking && dist(me.x, me.y, ball.x, ball.y) < 22) pressing.set(me.id, Math.max(pressing.get(me.id) ?? 0, 0.7));
+      if (me && me.pos !== 'GK' && !me.leaving && me.down <= 0 && me.side !== this.attacking) {
+        pressing.set(me.id, 1);
+        cover.delete(me.id);
+      }
     }
     const attackers = live.filter((b) => b.side === this.attacking);
     // The man the next offside call is for.
@@ -1391,10 +1400,12 @@ export class PitchSim {
       }
       const press = pressing.get(b.id);
       if (press && !job) {
-        // Stop a yard short of the man on the ball.
-        const dx = ball.x - t.x;
-        const dy = ball.y - t.y;
-        t = { x: t.x + dx * press, y: t.y + dy * press };
+        if (press === 1) {
+          const gap = Math.max(1.2, dist(b.x, b.y, ball.x, ball.y));
+          t = { x: ball.x + (b.x - ball.x) * 1.2 / gap, y: ball.y + (b.y - ball.y) * 1.2 / gap };
+        } else {
+          t = { x: t.x + (ball.x - t.x) * press, y: t.y + (ball.y - t.y) * press };
+        }
         urgency = 0.85;
       } else if (!job && !covering && this.layout === 'play' && b.side !== this.attacking && b.pos === 'DEF' && attackers.length) {
         // Defenders pick up the nearest attacker, goal-side of him.
@@ -1451,7 +1462,7 @@ export class PitchSim {
         }
       }
       // A call is a sprint, not a stroll.
-      if (!job && this.focus?.id === b.id && this.focus.shout && this.layout === 'play') urgency = Math.max(urgency, 0.92);
+      if (!job && b.pos !== 'GK' && this.focus?.id === b.id && this.focus.shout && this.layout === 'play') urgency = Math.max(urgency, 0.92);
       if (this.celebrate && b.side !== this.celebrate.side) urgency = 0.3;
       if (this.holding) urgency *= 0.6;
       const dx = t.x - b.x;

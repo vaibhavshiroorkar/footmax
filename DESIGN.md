@@ -63,6 +63,8 @@ guidance:
   Keep zero values visible. Place match badges below the row.
 - Interaction buttons show action names without explanatory subtitles or recommendation highlights.
 - Training names all affected attributes in both the drill card and active session.
+- Cards use small rectangular markers on the pitch and in match statistics.
+  Sent-off players stay visible in grey rows, with a red-card marker and accessible label.
 
 ## Scenes
 

@@ -50,8 +50,8 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
   set: (patch) => {
     set(patch);
-    const { haptics, sound, reduceMotion, matchSpeed, autoMoments, seenTips } = { ...get(), ...patch };
-    AsyncStorage.setItem(KEY, JSON.stringify({ haptics, sound, reduceMotion, matchSpeed, autoMoments, seenTips })).catch(() => {});
+    const { haptics, sound, refVoice, reduceMotion, matchSpeed, autoMoments, seenTips } = { ...get(), ...patch };
+    AsyncStorage.setItem(KEY, JSON.stringify({ haptics, sound, refVoice, reduceMotion, matchSpeed, autoMoments, seenTips })).catch(() => {});
   },
 }));
 

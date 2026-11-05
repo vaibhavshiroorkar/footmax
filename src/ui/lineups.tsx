@@ -28,25 +28,28 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
     // The XI in formation order: keeper, then each line from the back, left to right.
     const slots = assignSlots(game.world, { ...team, formation: live[side].formation }, live[side].onPitch);
     const ids = [...live[side].onPitch].sort((a, b) => (slots[a]?.depth ?? 0.5) - (slots[b]?.depth ?? 0.5) || (slots[a]?.lat ?? 0.5) - (slots[b]?.lat ?? 0.5));
+    const departed = live[side].usedIds.filter((id) => !live[side].onPitch.includes(id) && !live[side].bench.includes(id));
     const row = (id: string, bench: boolean) => {
       const p = P[id];
       const me = id === focusId;
       const cameOn = live.cameOn[id] !== undefined;
+      const sentOff = !!live.sentOff[id];
       const ovr = overall(p);
       const rating = live.ratings[id];
       const rated = started && rating !== undefined && (!bench || cameOn);
       return (
-        <Row key={id} gap={8} style={[{ paddingVertical: 5, paddingHorizontal: 6, borderRadius: 8 }, me && { backgroundColor: alpha(colors.gold, 0.14) }]}>
-          <Text style={{ width: 22, textAlign: 'right', fontFamily: fonts.display, fontSize: 15, color: me ? colors.gold : colors.muted }}>{live.numbers?.[id] ?? ''}</Text>
-          <Text style={{ width: 36, fontFamily: fonts.bold, fontSize: 12, color: POSITION_COLORS[p.position] }}>{(!bench && slots[id]?.role) || p.role || p.position}</Text>
-          <Text style={{ flex: 1, fontFamily: me ? fonts.bold : fonts.medium, fontSize: 13.5, color: bench ? colors.muted : colors.text }} numberOfLines={1}>
+        <Row key={id} gap={8} style={[{ paddingVertical: 5, paddingHorizontal: 6, borderRadius: 8 }, me && !sentOff && { backgroundColor: alpha(colors.gold, 0.14) }, sentOff && { opacity: 0.6, backgroundColor: colors.bgElev }]}>
+          <Text style={{ width: 22, textAlign: 'right', fontFamily: fonts.display, fontSize: 15, color: me && !sentOff ? colors.gold : colors.muted }}>{live.numbers?.[id] ?? ''}</Text>
+          <Text style={{ width: 36, fontFamily: fonts.bold, fontSize: 12, color: sentOff ? colors.muted : POSITION_COLORS[p.position] }}>{(!bench && slots[id]?.role) || p.role || p.position}</Text>
+          <Text style={{ flex: 1, fontFamily: me ? fonts.bold : fonts.medium, fontSize: 13.5, color: bench || sentOff ? colors.muted : colors.text }} numberOfLines={1}>
             {shortName(p)}
           </Text>
-          {cameOn && <Icon name="arrow-up" size={12} color={colors.accent} />}
-          {live.goals[id] ? <Count icon="football" n={live.goals[id]} color={colors.accent} /> : null}
-          {live.assists[id] ? <Count icon="git-branch" n={live.assists[id]} color={colors.teal} /> : null}
-          <Text style={{ width: 28, textAlign: 'right', fontFamily: fonts.display, fontSize: 16, color: ratingColor(ovr) }}>{ovr}</Text>
-          <Text style={{ width: 32, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 12.5, color: rated ? matchRatingColor(rating) : colors.faint }}>{rated ? rating.toFixed(1) : '-'}</Text>
+          {(sentOff || !!live.yellows[id]) && <View accessible accessibilityLabel={sentOff ? 'Red card: sent off' : 'Yellow card'} style={{ width: 8, height: 12, borderRadius: 1, backgroundColor: sentOff ? colors.red : '#f6d32d' }} />}
+          {cameOn && !sentOff && <Icon name="arrow-up" size={12} color={colors.accent} />}
+          {live.goals[id] ? <Count icon="football" n={live.goals[id]} color={sentOff ? colors.muted : colors.accent} /> : null}
+          {live.assists[id] ? <Count icon="git-branch" n={live.assists[id]} color={sentOff ? colors.muted : colors.teal} /> : null}
+          <Text style={{ width: 28, textAlign: 'right', fontFamily: fonts.display, fontSize: 16, color: sentOff ? colors.muted : ratingColor(ovr) }}>{ovr}</Text>
+          <Text style={{ width: 32, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 12.5, color: sentOff ? colors.muted : rated ? matchRatingColor(rating) : colors.faint }}>{rated ? rating.toFixed(1) : '-'}</Text>
         </Row>
       );
     };
@@ -60,6 +63,8 @@ export function LineupsCard({ game, live, focusId }: { game: Game; live: MatchSt
           <Text style={[headStyle, { width: 32, textAlign: 'right' }]}>RAT</Text>
         </Row>
         {ids.map((id) => row(id, false))}
+        {departed.length > 0 && <Text style={[headStyle, { marginTop: 8, paddingHorizontal: 6 }]}>OFF THE PITCH</Text>}
+        {departed.map((id) => row(id, false))}
         <Text style={[headStyle, { marginTop: 8, paddingHorizontal: 6 }]}>BENCH</Text>
         {live[side].bench.map((id) => row(id, true))}
       </View>

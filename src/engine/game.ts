@@ -229,6 +229,15 @@ export function markKickOff(game: Game): void {
   if (game.world.pendingMatch) game.world.pendingMatch.kicked = true;
 }
 
+// Keep the finished state for the result screen, which commits rewards once.
+export function quickUserMatch(game: Game): MatchState | null {
+  const match = startUserMatch(game);
+  if (!match) return null;
+  markKickOff(game);
+  simToEnd(game.world, match);
+  return match;
+}
+
 // A match that was kicked off but never finished, e.g. after a reload.
 export function interruptedMatch(game: Game): boolean {
   const p = game.world.pendingMatch;
@@ -242,6 +251,8 @@ export interface FinishResult extends WeekResult {
 // Commits the user's match, then sims the rest of the week.
 export function finishUserMatch(game: Game, s: MatchState): FinishResult {
   const f = userFixture(game);
+  // A remounted result screen must not commit or advance the next fixture.
+  if (!f || f.id !== s.fixtureId) return { newSeason: false, summerStarted: false, levelUp: null };
   let levelUp: string | null = null;
   game.world.pendingMatch = undefined;
   if (f && f.id === s.fixtureId) {

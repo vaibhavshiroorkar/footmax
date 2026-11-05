@@ -27,7 +27,6 @@ import { acceptInteraction } from '../engine/matchRuntime/interaction';
 import type { PitchSnapshot } from '../engine/matchRuntime/snapshot';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
-import { LongShotGame } from '../ui/moments/LongShotGame';
 import { FightGame } from '../ui/moments/FightGame';
 import { SetPiece, SetPieceIntro } from '../ui/stage/SetPieceIntro';
 import { matchKits } from '../ui/moments/Keeper';
@@ -922,7 +921,7 @@ function BallBar({ onAct }: { onAct: (kind: 'shot' | 'pass' | 'dribble') => void
 
 // Back to front, left to right, like the zone slider.
 const SHOUTS: { kind: ShoutKind; label: string; hint: string; icon: IconName }[] = [
-  { kind: 'track', label: 'Track back', hint: 'Help defend', icon: 'shield' },
+  { kind: 'track', label: 'Press', hint: 'Close the ball', icon: 'shield' },
   { kind: 'call', label: 'Call for it', hint: 'More of the ball', icon: 'megaphone' },
   { kind: 'run', label: 'Make a run', hint: 'More shots', icon: 'flash' },
 ];
@@ -1188,9 +1187,8 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2 + (hasTechnique(actor, 'target') ? 12 : 0)} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
-      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting + (hasTechnique(actor, 'longrange') ? 22 : 0)} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); })} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
-      {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && moment.view !== 'long' && (
-        <ShotGame kind={moment.kind} edge={shotEdge(actor, moment, live)} foot={actor.foot ?? 'R'} scene={scene} kits={shotKit} composure={actor.attrs.composure + formShift(actor) + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting + formShift(actor)} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); }) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+      {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
+        <ShotGame kind={moment.kind} edge={shotEdge(actor, moment, live)} foot={actor.foot ?? 'R'} scene={scene} kits={shotKit} composure={actor.attrs.composure + formShift(actor) + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={Math.min(99, actor.attrs.shooting + formShift(actor) + (moment.view === 'long' && hasTechnique(actor, 'longrange') ? 22 : 0))} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'long' ? 'outside' : moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} distance={moment.metres} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); }) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}

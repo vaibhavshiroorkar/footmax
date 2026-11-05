@@ -57,7 +57,7 @@ const EASE = 1.7;
 // the colours of this match (see PitchSim.shotScene).
 // onPass: give it to a team-mate instead, before the aim is set.
 // fake and curler: techniques from the skill tree (see skillTree.ts).
-export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, defenders, angle = 0, fake = false, curler = false, edge = 0, foot = 'R', scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; edge?: number; foot?: 'L' | 'R'; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
+export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, finesse = 0, keeper = 60, view = 'box', chip = false, range = 0, distance, defenders, angle = 0, fake = false, curler = false, edge = 0, foot = 'R', scene, kits, onPass, onDone }: { kind: Kind; composure: number; shooting?: number; weakFoot?: boolean; finesse?: number; keeper?: number; view?: ShotView; chip?: boolean; range?: number; distance?: number; defenders?: Lane[]; angle?: number; fake?: boolean; curler?: boolean; edge?: number; foot?: 'L' | 'R'; scene?: ShotScene; kits?: { own: string; opp: string; keeper: string }; onPass?: () => void; onDone: (q: number, text: string, outcome: ShotOutcome, played: { aim: number; blocker?: string; shape: ShotShape; over?: boolean; wall?: boolean; end?: ShotEnd }) => void }) {
   const GOAL = kind === 'shot' ? GOALS[view] : GOALS.box;
   const outside = kind === 'shot' && view === 'outside';
   const oneOnOne = kind === 'shot' && view === 'oneonone';
@@ -112,7 +112,7 @@ export function ShotGame({ kind, composure, shooting = 60, weakFoot = false, fin
   // 0 for a top shooter, near 1 for a poor one, and only from distance.
   const longWeak = kind === 'shot' && (outside || range > 0) ? (1 - shooting / 99) * (0.6 + range * 0.6) : 0;
   // How far out he is, and how long a shot of this power takes to get there.
-  const metres = kind === 'penalty' ? 11 : kind === 'freekick' ? 24 : outside ? 19 + range * 24 : oneOnOne ? 9 : 14;
+  const metres = distance ?? (kind === 'penalty' ? 11 : kind === 'freekick' ? 24 : outside ? 19 + range * 24 : oneOnOne ? 9 : 14);
   // Stray grows exponentially with distance, as the chance of a goal falls.
   const longStray = Math.exp(0.05 * Math.max(0, metres - 20));
   const flightAt = (p: number) => metres / (ballSpeed(p) * (shape === 'curl' ? 0.88 : shape === 'low' ? 0.95 : 1) * (1 - longWeak * 0.3));

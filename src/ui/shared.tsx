@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Game, Nation, World } from '../engine/types';
-import { FinishResult, interruptedMatch, userFixture, startUserMatch, skipSummer, skipWeek } from '../engine/game';
+import { FinishResult, interruptedMatch, userFixture, startUserMatch, quickUserMatch, skipSummer, skipWeek } from '../engine/game';
 import { leagueOf, tablePosition } from '../engine/league';
 import { ordinal } from '../engine/manager';
 import { inTransferWindow } from '../engine/transfers';
@@ -142,7 +142,12 @@ export function MatchdayButton({ game }: { game: Game }) {
           router.push('/match');
         }}
       />
-      <Button label="Sim" icon="flash" sub="Instant result" variant="secondary" style={{ flex: 1 }} onPress={next} />
+      <Button label="Sim" icon="flash" sub="Instant result" variant="secondary" style={{ flex: 1 }} onPress={() => {
+        const match = mutate((g) => quickUserMatch(g));
+        if (!match) return;
+        setLive(match);
+        router.push('/match');
+      }} />
     </Row>
   );
 }
