@@ -557,7 +557,8 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
     claims), `skills.ts` (abilities and skill moves), `roles.ts`
     (formations and slots), `save.ts` (migrations; `SAVE_VERSION` in
     `game.ts`), `alerts.ts` (badges).
-  - `src/ui/pitchSim.ts`: the live pitch simulation (no React, tested);
+  - `src/engine/matchRuntime/pitch.ts`: physical pitch simulation (no React, tested).
+    `src/ui/pitchSim.ts` keeps existing imports working;
     `src/ui/livePitch.tsx` draws it.
   - `src/ui/rig/`: the jointed body. `skeleton.ts` (no React, tested),
     `poses.ts`, `Figure.tsx` (`RigFigure`, `RefereeFigure`, `Person`).
