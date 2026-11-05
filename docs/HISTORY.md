@@ -255,8 +255,8 @@ Human figures were once for moment games only, and goals had no pop-up. Requests
   must count on `a.t` instead.
 - A set piece left on `sim.setPiece` affects the next restart: it must be cleared
   at kick-off, or the taker is pushed off the ball.
-- The pitch uses `Math.random`, so a test on it needs a margin, or several seeds. A
-  single seed breaks when anything changes the random stream.
+- The physical pitch now owns a seeded random stream. Compare identical commands
+  at different display frame rates to catch timing-dependent movement.
 - Never ship past a red test. A gate that stops the push on any failure caught
   three real problems across these versions.
 - In GNU sed, a backslash before a backtick means the start of the buffer. Use a

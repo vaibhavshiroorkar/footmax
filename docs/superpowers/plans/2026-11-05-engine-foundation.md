@@ -64,7 +64,7 @@
 ## Task 4: Interaction and period transition lifecycle
 
 **Files:** `src/engine/matchRuntime/pitch.ts`, `src/app/match.tsx`, `src/ui/livePitch.tsx`, new `__tests__/ui/matchTransitions.test.ts`.
-**Interfaces:** `beginInteraction(id: string): PitchSnapshot | null`, `endInteraction(id: string): boolean`, and `resetForPeriod(side: 'home' | 'away'): void`. The engine owns the active interaction ID. Existing halfTime delegates to period reset.
+**Interfaces:** `beginInteraction(id: string): PitchSnapshot | null`, `endInteraction(id: string, revision: number): boolean`, and `resetForPeriod(side: 'home' | 'away'): void`. The engine owns the active interaction ID and revision. A revision rejects stale callbacks even when a label is reused. Existing halfTime delegates to period reset.
 
 - [ ] Test a stale completion after a skip: old ID returns false and leaves the new snapshot unchanged.
 - [ ] Test repeated completion: only the first succeeds.
@@ -77,7 +77,7 @@
 ## Task 5: Fixed-step advancement
 
 **Files:** New `src/engine/matchRuntime/clock.ts`, `src/engine/matchRuntime/pitch.ts`, `src/ui/livePitch.tsx`, new `__tests__/engine/runtimeClock.test.ts`.
-**Interfaces:** `FixedClock.advance(seconds: number, tick: (dt: number) => void): number`; `reset(): void`. Steps are 1/60 second with bounded work per call; unconsumed time remains queued.
+**Interfaces:** `FixedClock.advance(seconds: number, tick: (dt: number) => void): number`; `reset(): void`. Steps are 1/60 second, with up to 32 per call. Unconsumed time remains queued. Decisions, pauses and period resets discard the remainder.
 
 - [ ] Test equal physical advancement at 30, 60 and 120 display fps with the same seed.
 - [ ] Test that a long frame has bounded work and retains its remainder for later calls.

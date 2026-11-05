@@ -224,7 +224,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
-  const sim = useState(() => new PitchSim())[0];
+  const sim = useState(() => new PitchSim(live.rngState))[0];
   const registry = useState<Registry>(() => new Map())[0];
   // z is the ball's height: it lifts the ball off its shadow and grows it,
   // and the shadow shrinks and fades, so a lob reads clearly against a pass
@@ -280,6 +280,14 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
   // card or a sub adds events but must not replay the move.
   const asked = useRef(false);
   const queued = useRef<unknown>(null);
+  const period = useRef(live.half);
+  useEffect(() => {
+    if (period.current === live.half) return;
+    period.current = live.half;
+    sim.halfTime(live.half === 2 ? 'away' : 'home');
+    asked.current = false;
+    queued.current = null;
+  }, [live.half, sim]);
   const play = moveToShow(live);
   useEffect(() => {
     if (play && play !== queued.current) {
@@ -288,12 +296,6 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     }
     asked.current = false;
   }, [play, live.minute, sim]);
-
-  // The break: both teams line up again.
-  useEffect(() => {
-    if (live.half === 2 && live.minute <= 46) sim.halfTime('away');
-    if (live.half === 3 && live.minute <= 91) sim.halfTime('home');
-  }, [live.half, live.minute, sim]);
 
   useEffect(() => {
     sim.setHooks({
@@ -323,12 +325,13 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       return { x: ((y - VX) / VW) * w, y: ((x - VY) / VH) * hh };
     };
     const frame = (now: number) => {
-      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      const elapsed = last ? (now - last) / 1000 : 0;
+      // Returning from the background must not fast-forward the match.
+      const dt = elapsed > 0.25 ? 0 : elapsed;
       last = now;
       const p = props.current;
-      sim.focus = p.focusId && p.zone ? { id: p.focusId, zone: p.zone, shout: p.shout ?? null } : null;
-      // A key moment plays in slow motion while the user decides.
-      // On the ball, play eases to slow motion so the choice is his.
+      if (!p.frozen && !sim.holding) sim.focus = p.focusId && p.zone ? { id: p.focusId, zone: p.zone, shout: p.shout ?? null } : null;
+      // Decisions hold the physical state captured by the engine.
       // On the ball play eases off so the choice is his, but at 4x
       // it stays at full 1x instead of dropping to slow motion.
       const scale = p.paused || p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.8) : p.speed;

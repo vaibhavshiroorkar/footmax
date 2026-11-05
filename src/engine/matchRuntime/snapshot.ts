@@ -14,6 +14,7 @@ export interface PitchSnapshot {
   kickoffSide: PitchSim['kickoffSide'];
   attacking: PitchSim['attacking'];
   holding: boolean;
+  interaction: { id: string; revision: number } | null;
   action: Active | null;
   queue: PlayStep[];
   setPiece: PitchSim['setPiece'];

@@ -3,6 +3,7 @@ import { PlayStep, Restart, Spot, defendingSide, toPitch } from '../play';
 import { CELEBRATIONS, celebrationText } from '../creation';
 import { Rng } from '../rng';
 import { PitchSnapshot } from './snapshot';
+import { FixedClock } from './clock';
 
 // A small football simulation for the live pitch. The match engine decides
 // what happens (who passes, who shoots, whether it goes in); this moves 22
@@ -115,6 +116,8 @@ const VAR_HOLD = 3.4 * HOLD;
 export class PitchSim {
   private readonly rng: Rng;
   private revision = 0;
+  private fixedClock = new FixedClock();
+  private interaction: { id: string; revision: number } | null = null;
 
   constructor(seed = 1) {
     this.rng = new Rng(seed);
@@ -132,6 +135,7 @@ export class PitchSim {
       kickoffSide: this.kickoffSide,
       attacking: this.attacking,
       holding: this.holding,
+      interaction: this.interaction ? { ...this.interaction } : null,
       action: this.act ? { ...this.act, step: { ...this.act.step } } : null,
       queue: this.queue.map((step) => ({ ...step })),
       setPiece: this.setPiece ? { ...this.setPiece, wall: [...this.setPiece.wall] } : null,
@@ -335,16 +339,46 @@ export class PitchSim {
   }
 
   halfTime(side: 'home' | 'away') {
+    this.resetForPeriod(side);
+    this.caption = 'Half time.';
+    this.hooks.onSound?.('whistle-end', 0.8);
+  }
+
+  resetForPeriod(side: 'home' | 'away') {
+    this.fixedClock.reset();
     this.revision++;
+    this.interaction = null;
     this.queue = [];
     this.act = null;
     this.holding = false;
     this.celebrate = null;
+    this.setPiece = null;
+    this.varCheck = null;
+    this.callout = null;
+    this.prevStep = null;
+    this.attacking = null;
+    this.focus = null;
     this.layout = 'kickoff';
     this.kickoffSide = side;
     this.ball = { ...this.ball, x: PW / 2, y: PL / 2, z: 0, owner: null, flight: null, vx: 0, vy: 0 };
-    this.caption = 'Half time.';
-    this.hooks.onSound?.('whistle-end', 0.8);
+  }
+
+  beginInteraction(id: string): PitchSnapshot | null {
+    if (!this.holding) return null;
+    this.fixedClock.reset();
+    if (!this.interaction || this.interaction.id !== id) {
+      this.interaction = { id, revision: ++this.revision };
+    }
+    return this.snapshot();
+  }
+
+  endInteraction(id: string, revision: number): boolean {
+    if (this.interaction?.id !== id || this.interaction.revision !== revision) return false;
+    this.interaction = null;
+    this.revision++;
+    this.holding = false;
+    this.act = null;
+    return true;
   }
 
   enqueue(steps: PlayStep[]) {
@@ -352,6 +386,7 @@ export class PitchSim {
     if (this.holding) {
       // The user played the moment; carry on from here.
       this.holding = false;
+      this.interaction = null;
       this.act = null;
     }
     this.queue.push(...steps);
@@ -371,6 +406,7 @@ export class PitchSim {
     const b = this.bodies.get(playerId);
     if (!b) return;
     this.revision++;
+    this.interaction = null;
     this.queue = [];
     this.ball.owner = playerId;
     this.ball.flight = null;
@@ -402,15 +438,20 @@ export class PitchSim {
   }
 
   update(rawDt: number) {
-    const dt = rawDt * TIME;
-    if (dt <= 0) return;
-    this.revision++;
-    this.clock += dt;
-    if (this.callout && this.clock > this.callout.until) this.callout = null;
-    this.runAction(dt);
-    this.moveBall(dt);
-    this.moveBodies(dt);
-    this.moveRef(dt);
+    if (this.interaction || rawDt === 0) {
+      this.fixedClock.reset();
+      return;
+    }
+    this.fixedClock.advance(rawDt * TIME, (dt) => {
+      this.revision++;
+      this.clock += dt;
+      if (this.callout && this.clock > this.callout.until) this.callout = null;
+      this.runAction(dt);
+      if (this.interaction) return;
+      this.moveBall(dt);
+      this.moveBodies(dt);
+      this.moveRef(dt);
+    });
   }
 
   private moveRef(dt: number) {

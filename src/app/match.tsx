@@ -23,6 +23,8 @@ import { DribbleGame } from '../ui/moments/DribbleGame';
 import { ComboDribble, GapDribble, RaceDribble } from '../ui/moments/DribbleMore';
 import { LivePitch, PitchTarget } from '../ui/livePitch';
 import { PL, PW, PitchSim } from '../ui/pitchSim';
+import { acceptInteraction } from '../engine/matchRuntime/interaction';
+import type { PitchSnapshot } from '../engine/matchRuntime/snapshot';
 import { crowdAmbience, playSound } from '../ui/sound';
 import { HeaderGame } from '../ui/moments/HeaderGame';
 import { LongShotGame } from '../ui/moments/LongShotGame';
@@ -122,6 +124,7 @@ export default function MatchScreen() {
   const [shownGoals, setShownGoals] = useState(() => useStore.getState().live?.scorers.length ?? 0);
   // A key moment opens once the move that led to it has played out.
   const [readyMoment, setReadyMoment] = useState<string | null>(null);
+  const [capture, setCapture] = useState<PitchSnapshot | null>(null);
   const pendingKey = live?.pending ? momentKey(live) : null;
   const watching = kicked;
 
@@ -173,7 +176,7 @@ export default function MatchScreen() {
     sim.takeOver(me);
     setOnBall(false);
     const now = useStore.getState().live;
-    if (now?.pending) setReadyMoment(momentKey(now));
+    if (now?.pending) openInteraction(sim, now);
   };
   // A shoot-out can end on the user's own kick, with no minute left to tick.
   const whistled = !!live?.finished;
@@ -228,17 +231,47 @@ export default function MatchScreen() {
   const intro = momentOpen && !autoMoments && !!live?.pending && setPieceOf(live.pending) && introSeen !== pendingKey ? setPieceOf(live.pending) : null;
   const passing = momentOpen && !intro && !autoMoments && live?.pending?.kind === 'pass';
   const [passPick, setPassPick] = useState<string | null>(null);
+  const displayedMoment = live?.pending;
+  const openInteraction = (sim: PitchSim, m: MatchState) => {
+    const key = momentKey(m);
+    const frame = sim.beginInteraction(key);
+    if (!frame) return;
+    setCapture(frame);
+    setReadyMoment(key);
+    setPassPick(null);
+  };
+  const completeMoment = (expected: KeyMoment, q: number | null, chosen?: string, moveId?: string, played?: Played) => {
+    const sim = simRef.current;
+    if (!sim || !capture) return;
+    if (!acceptInteraction(sim, capture, expected, useStore.getState().live?.pending ?? null)) return;
+    mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, played));
+  };
+  const skip = (advance: (m: MatchState, g: Game) => void) => {
+    mutateLive(advance);
+    const m = useStore.getState().live;
+    simRef.current?.resetForPeriod(m?.half === 2 ? 'away' : 'home');
+    setCapture(null);
+    setReadyMoment(null);
+    setIntroSeen(null);
+    setPassPick(null);
+    setOnBall(false);
+    setPaused(false);
+    setChanging(false);
+    setSkipArmed(false);
+    setShownGoals(m?.scorers.length ?? 0);
+    commitIfDone();
+  };
   const onMomentReady = () => {
     const sim = simRef.current;
     if (sim) mutateLive((m) => placeMoment(m, { x: sim.ball.x / PW, y: sim.ball.y / PL }));
     const m = useStore.getState().live;
-    if (m?.pending) setReadyMoment(momentKey(m));
+    if (m?.pending && sim) openInteraction(sim, m);
   };
 
   // With auto moments on, the sim resolves moments by itself.
   useEffect(() => {
-    if (momentOpen && autoMoments) mutateLive((m, g) => resolveMoment(g.world, m, null));
-  }, [momentOpen, autoMoments, mutateLive]);
+    if (momentOpen && autoMoments && displayedMoment) completeMoment(displayedMoment, null);
+  });
 
   // Goals: the pitch plays the move, then the scoreboard ticks over with a
   // flash. Your own goals get the big celebration.
@@ -359,7 +392,7 @@ export default function MatchScreen() {
             width={pitchWidth}
             running={running}
             paused={paused}
-            frozen={momentOpen && !passing}
+            frozen={momentOpen}
             onNeedMinute={tick}
             onGoal={onGoalShown}
             onMomentReady={onMomentReady}
@@ -379,10 +412,7 @@ export default function MatchScreen() {
                 game={game}
                 live={live}
                 onSkip={() => {
-                  mutateLive((m, g) => simUntilOn(g.world, m));
-                  // The pitch did not show these goals; the board shows them now.
-                  setShownGoals(useStore.getState().live?.scorers.length ?? 0);
-                  commitIfDone();
+                  skip((m, g) => simUntilOn(g.world, m));
                 }}
               />)}
           {kicked && !live.finished && !live.pausedAtHalf && !changing && game.mode === 'manager' && (
@@ -398,7 +428,7 @@ export default function MatchScreen() {
         )}
         {momentOpen && !intro && !autoMoments && !passing && live.pending && (
           <View style={[styles.overlay, { top: 0 }]}>
-            <MomentPanel key={pendingKey} game={game} live={live} moment={live.pending} getSim={() => simRef.current} />
+            <MomentPanel key={pendingKey} game={game} live={live} moment={live.pending} getSim={() => simRef.current} onResolve={completeMoment} />
           </View>
         )}
         {passing && live.pending && (
@@ -426,12 +456,12 @@ export default function MatchScreen() {
                 ? undefined
                 : () => {
                     setPassPick(null);
-                    mutateLive((m) => shootInstead(m));
+                    mutateLive((m) => { if (m.pending === displayedMoment) shootInstead(m); });
                   }
             }
             onDone={(q, _t, id, outcome) => {
               setPassPick(null);
-              mutateLive((m, g) => resolveMoment(g.world, m, q, id, undefined, { passed: outcome }));
+              if (displayedMoment) completeMoment(displayedMoment, q, id, undefined, { passed: outcome });
             }}
               />
             </Card>
@@ -449,11 +479,7 @@ export default function MatchScreen() {
                 small
                 variant="secondary"
                 onPress={() => {
-                  setSkipArmed(false);
-                  mutateLive((m, g) => simToHalf(g.world, m));
-                  // The pitch did not show these goals; the board shows them now.
-                  setShownGoals(useStore.getState().live?.scorers.length ?? 0);
-                  commitIfDone();
+                  skip((m, g) => simToHalf(g.world, m));
                 }}
               />
             )}
@@ -463,9 +489,7 @@ export default function MatchScreen() {
               small
               variant="gold"
               onPress={() => {
-                setSkipArmed(false);
-                mutateLive((m, g) => simToEnd(g.world, m));
-                commitIfDone();
+                skip((m, g) => simToEnd(g.world, m));
               }}
             />
               </Card>
@@ -1076,17 +1100,17 @@ const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }
   clear: { title: 'Head it clear!', icon: 'arrow-up-circle' },
 };
 
-function MomentPanel({ game, live, moment, getSim }: { game: Game; live: MatchState; moment: KeyMoment; getSim: () => PitchSim | null }) {
+function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; live: MatchState; moment: KeyMoment; getSim: () => PitchSim | null; onResolve: (expected: KeyMoment, q: number | null, chosen?: string, moveId?: string, played?: Played) => void }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const actor = game.world.players[moment.actorId];
   const [move, setMove] = useState<string | null>(null);
-  const resolve = (q: number | null, chosen?: string, moveId?: string, played?: Played) => mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, played));
+  const resolve = (q: number | null, chosen?: string, moveId?: string, played?: Played) => onResolve(moment, q, chosen, moveId, played);
   // The defenders in the way on the pitch as the moment opens.
-  const [lanes] = useState(() => (moment.kind === 'shot' ? getSim()?.laneDefenders(moment.actorId) : undefined));
+  const [lanes] = useState(() => getSim()?.laneDefenders(moment.actorId));
   // Where he stands across the goal, so the shot starts from there.
-  const [angle] = useState(() => (moment.kind === 'shot' || moment.kind === 'freekick' ? getSim()?.shotAngle(moment.actorId) ?? 0 : 0));
+  const [angle] = useState(() => getSim()?.shotAngle(moment.actorId) ?? 0);
   // The keeper, the wall and team-mates as the pitch has them right now.
-  const [scene] = useState(() => (moment.kind === 'shot' || moment.kind === 'freekick' ? getSim()?.shotScene(moment.actorId) : undefined));
+  const [scene] = useState(() => getSim()?.shotScene(moment.actorId));
   const looks = useLooks();
   const shotKit = { own: looks.own, opp: looks.opp, keeper: looks.oppKeeper };
   const names: Record<string, string> = {};
@@ -1154,7 +1178,7 @@ function MomentPanel({ game, live, moment, getSim }: { game: Game; live: MatchSt
                 accessibilityLabel={c.label}
                 onPress={() => {
                   haptic('medium');
-                  mutateLive((m, g) => chooseMoment(g.world, m, k));
+                  mutateLive((m, g) => { if (m.pending === moment) chooseMoment(g.world, m, k); });
                 }}
                 style={({ pressed }) => [styles.choiceBtn, better && { borderColor: colors.accent }, pressed && { backgroundColor: alpha(colors.accent, 0.16) }]}
               >
@@ -1173,9 +1197,9 @@ function MomentPanel({ game, live, moment, getSim }: { game: Game; live: MatchSt
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2 + (hasTechnique(actor, 'target') ? 12 : 0)} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
-      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting + (hasTechnique(actor, 'longrange') ? 22 : 0)} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => passInstead(g.world, m))} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
+      {moment.kind === 'shot' && moment.view === 'long' && <LongShotGame metres={moment.metres ?? 40} shooting={actor.attrs.shooting + (hasTechnique(actor, 'longrange') ? 22 : 0)} keeperOut={scene?.out} onPass={() => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); })} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && moment.view !== 'long' && (
-        <ShotGame kind={moment.kind} edge={shotEdge(actor, moment, live)} foot={actor.foot ?? 'R'} scene={scene} kits={shotKit} composure={actor.attrs.composure + formShift(actor) + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting + formShift(actor)} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => passInstead(g.world, m)) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
+        <ShotGame kind={moment.kind} edge={shotEdge(actor, moment, live)} foot={actor.foot ?? 'R'} scene={scene} kits={shotKit} composure={actor.attrs.composure + formShift(actor) + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={actor.attrs.shooting + formShift(actor)} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); }) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
       {moment.kind === 'dribble' && <DribbleFor key={move ?? 'none'} actor={actor} move={move} seed={moment.minute + moment.actorId.length} onDone={(q) => resolve(q, undefined, move ?? undefined)} />}
@@ -1410,3 +1434,4 @@ const styles = StyleSheet.create({
   ratingRow: { gap: 8, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
   ratingChip: { minWidth: 42, paddingVertical: 3, borderRadius: 8, alignItems: 'center' },
 });
+

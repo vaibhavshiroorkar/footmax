@@ -561,6 +561,16 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
     `src/ui/pitchSim.ts` keeps existing imports working;
     its snapshots copy every player, the ball, restart and active movement.
     Physical variation uses a per-match seeded RNG, independent of rendering.
+    Interaction captures freeze physical movement until a matching completion arrives.
+    Completion checks both the capture revision and the current choice.
+    Skipping clears the capture, queued actions and paused controls before play resumes.
+    Period changes reset once, before the next move is queued.
+    Movement advances at 60 fixed physics steps per second.
+    At 1x, one wall-clock second advances 1.95 physics seconds.
+    A frame runs at most 32 steps and keeps any remaining time.
+    Decisions, period resets and pauses discard that remaining time.
+    Rendering gaps over 250 ms count as suspension, not match time.
+    Legacy interaction animations still calculate separate outcomes while their migration is pending.
     `src/ui/livePitch.tsx` draws it.
   - `src/ui/rig/`: the jointed body. `skeleton.ts` (no React, tested),
     `poses.ts`, `Figure.tsx` (`RigFigure`, `RefereeFigure`, `Person`).
