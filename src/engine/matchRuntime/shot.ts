@@ -25,8 +25,10 @@ export interface ShotBody {
 export interface ShotOutcome {
   kind: 'goal' | 'save' | 'block' | 'woodwork' | 'out' | 'stopped';
   playerId?: string;
+  colliderId?: string;
 }
 export interface ShotState {
+  shape?: ShotAttempt['shape'];
   ball: ShotBall;
   bodies: ShotBody[];
   actorId: string;
@@ -68,7 +70,7 @@ export function createShot(ball: ShotBall, bodies: readonly ShotBody[], input: S
   return {
     ball: { ...ball, vx: Math.sin(angle + deviation * input.direction) * speed, vy: Math.cos(angle + deviation * input.direction) * speed, vz, spin: input.shape === 'curl' ? input.direction * 4 : 0 },
     bodies: bodies.map((body) => ({ ...body })), actorId: input.actorId,
-    direction: input.direction, elapsed: 0, outcome: null,
+    direction: input.direction, shape: input.shape, elapsed: 0, outcome: null,
   };
 }
 
@@ -138,7 +140,7 @@ function tick(state: ShotState, dt: number): void {
   state.elapsed += seconds;
   if (hit && fraction === hit.fraction) {
     reflect(b, hit, hitBody);
-    state.outcome = hitBody ? { kind: hitBody.keeper === undefined ? 'block' : 'save', playerId: hitBody.id } : { kind: 'woodwork' };
+    state.outcome = hitBody ? { kind: hitBody.keeper === undefined ? 'block' : 'save', playerId: hitBody.id } : { kind: 'woodwork', colliderId: hit.id };
     return;
   }
   if (boundary && fraction === boundary.fraction) {

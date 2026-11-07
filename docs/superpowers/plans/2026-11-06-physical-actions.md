@@ -66,3 +66,10 @@ Snapshots detach the full action. Resolution preserves ball velocity and accepts
 Takeover and legacy enqueue requests cannot interrupt an accepted shot.
 The independent core review found an orphaned-token takeover bug; its regression now passes.
 This review covers the engine core only. Camera and statistics integration still need review.
+
+The engine statistics bridge commits a terminal physical shot once and drops legacy
+reconstruction. It preserves ball velocity and normalized pitch positions. Contact
+facts determine save, block and woodwork commentary. Physical goals bypass legacy
+random flag, foul and VAR generation; later rule decisions must use recorded match facts.
+Watched-match regressions cover goal, save, block, duplicate and stale commits.
+The UI still uses the legacy shot scene until shared camera and control integration lands.
