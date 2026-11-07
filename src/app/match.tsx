@@ -9,6 +9,7 @@ import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } fr
 import { CALL_PASSING, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
+import { gameForMatchResult } from '../engine/matchResult';
 import { FORMATIONS, teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
 import { groupTable } from '../engine/international';
@@ -88,10 +89,11 @@ function useRunningMinute(target: number): number {
 }
 
 export default function MatchScreen() {
-  const game = useGame();
+  const currentGame = useGame();
   const router = useRouter();
   const liveRev = useStore((s) => s.liveRev);
   const live = useStore((s) => s.live);
+  const game = currentGame ? gameForMatchResult(currentGame, live) : null;
   const mutateLive = useStore((s) => s.mutateLive);
   const mutate = useStore((s) => s.mutate);
   const setLive = useStore((s) => s.setLive);

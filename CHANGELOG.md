@@ -2,6 +2,19 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.5.0
+
+- Quick Sim opens match results. Final-match lineups survive season rollover and retirements.
+- Skip to Halftime restores input correctly.
+- Press replaces Track back and closes down the ball carrier from farther away.
+- Yellow cards appear on players and in lineups. Sent-off players remain visible with greyed-out statistics.
+- Referee audio cancels stale playback and avoids repeated free-kick calls.
+- All shots use the normal shooting controls, including long-range attempts.
+- Training names every affected attribute and explains the position marker.
+- Interaction buttons omit descriptions and better-option labels.
+- Rating, XP, Fame and Bonus share one result row.
+- Match decisions capture the live pitch and reject stale callbacks. Full physical-action migration remains in development.
+
 ## 2.4.0
 
 - Shooting is two taps again: one to aim, one to strike. Long shots too.

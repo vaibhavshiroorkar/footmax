@@ -1,11 +1,15 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.4.0. Open work is collected in [pending.md](pending.md). Status keys:
+v2.5.0. Open work is collected in [pending.md](pending.md). Status keys:
 `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Active work
+
+Request: "push and release as we go, make sure to mark these as done by codex and make sure it is documented properly, continue with the remaining tasks"
+Status: doing. Release completed batches to main with version tags and changelog entries.
+Record "done by Codex" in documentation completion entries. Keep incomplete work pending.
 
 Request: "can you do all the pending work?"
 Version: staged releases, unassigned. Status: doing, approved on 2026-11-05.
@@ -13,13 +17,14 @@ The [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency
 sets the dependency order for the full backlog. The
 [foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is implemented and verified.
 The [usability plan](superpowers/plans/2026-11-05-match-usability.md) covers the completed presentation changes.
+The [match-flow plan](superpowers/plans/2026-11-06-match-flow.md) covers simulation results, cards, Press and audio.
 Human reviews, historical data and Legends remain in scope.
 
 ## Complete Football Game Update List (2026-11-05)
 
 Open requests and their original wording are in
 [pending.md](pending.md#complete-football-game-update-list).
-36 entries remain open. Six requests below are done and awaiting release. C0 identifies the first of the two items numbered 1;
+29 entries remain open. Thirteen requests below are done in v2.5.0. C0 identifies the first of the two items numbered 1;
 C1 through C40 preserve the remaining supplied numbers.
 C41 records the follow-up request.
 
@@ -27,25 +32,39 @@ C41 records the follow-up request.
 | --- | --- | --- |
 | C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation verified; action migration next |
 | C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
-| C41: change track back into press instead | Unassigned | todo |
+| C41: change track back into press instead | v2.5.0 | done |
 
 C0 expands the earlier planning request below. C27 requests removal of the
 dedicated long-range interaction previously shipped for original request 16.
 Earlier completion entries describe those releases, not completion of this new list.
 
-### Completed requests awaiting release
+### Completed requests in v2.5.0
 
-- **done, unreleased.** **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
+- **done by Codex, v2.5.0.** **C8. Fix Repeating Voice Lines:** Fix the audio issue where certain voice lines repeat unnecessarily or become inaudible.
 
-- **done, unreleased.** **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
+- **done by Codex, v2.5.0.** **C9. Quick Sim Result Screen:** Quick Sim should still display the match result screen after simulating a match.
 
-- **done, unreleased.** **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
+- **done by Codex, v2.5.0.** **C20. Yellow Card Indicators:** Make yellow cards clearly visible as small indicators on players and within the match statistics.
 
-- **done, unreleased.** **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
+- **done by Codex, v2.5.0.** **C22. Free Kick Voice Line:** Fix the incorrect or malfunctioning free kick voice line.
 
-- **done, unreleased.** **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
+- **done by Codex, v2.5.0.** **C25. Red Card Statistics:** Players who receive red cards should appear greyed out in the match statistics to indicate that they have been sent off.
 
-- **done, unreleased.** **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
+- **done by Codex, v2.5.0.** **C27. Remove Long-Range Interaction:** Remove the dedicated long-range shooting interaction.
+
+- **done by Codex, v2.5.0.** **C41.** change track back into press instead
+
+- **done by Codex, v2.5.0.** **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
+
+- **done by Codex, v2.5.0.** **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
+
+- **done by Codex, v2.5.0.** **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
+
+- **done by Codex, v2.5.0.** **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
+
+- **done by Codex, v2.5.0.** **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
+
+- **done by Codex, v2.5.0.** **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
 
 ## Requests recovered from chats
 

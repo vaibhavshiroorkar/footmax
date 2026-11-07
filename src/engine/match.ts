@@ -182,6 +182,8 @@ export interface MatchFocus {
 
 export interface MatchState {
   fixtureId: string;
+  // Results outlive season rollover, which can delete retired participants.
+  resultPlayers?: Record<string, Player>;
   minute: number;
   endMinute: number;
   // 3 is extra time.

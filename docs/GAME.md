@@ -357,6 +357,8 @@ moments to play, not a wall of information.
 - **Before kick-off:** Play match opens the lineups with each XI on a formation
   board, Back and Kick off. Back leaves everything as it was.
 - **Quick Sim:** Sim opens the full-time result screen with the completed match.
+  Finished matches retain participant records before advancing the calendar.
+  Results and lineups keep match-time attributes, including players who retire at rollover.
   That screen records rewards and advances the week. Reopening the same result
   cannot award it twice or advance another week.
 - **Screen:** one scoreboard row with speed (1x by default, 2x, 4x), pause, sound

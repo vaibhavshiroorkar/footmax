@@ -12,7 +12,7 @@ Later releases and requests take precedence over earlier unfinished lists.
 
 ## Complete Football Game Update List
 
-Source: the user's update list of 2026-11-05 and follow-up. 36 entries remain open,
+Source: the user's update list of 2026-11-05 and follow-up. 29 entries remain open,
 with release versions unassigned. C0 is in implementation; the others are `todo`.
 C0 is the highest priority. See the approved
 [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md).
@@ -37,10 +37,6 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C7. Dynamic Retirement Age:** Retirement should vary depending on the player's career and circumstances. Some players may retire around age 30, while others can continue playing until approximately 40.
 
-- [ ] **C8. Fix Repeating Voice Lines:** Fix the audio issue where certain voice lines repeat unnecessarily or become inaudible.
-
-- [ ] **C9. Quick Sim Result Screen:** Quick Sim should still display the match result screen after simulating a match.
-
 - [ ] **C11. Defensive Actions and Tutorial:** Make defensive contributions such as tracking back, pressing, marking, and positioning equally important as attacking actions. Emphasize these mechanics during the tutorial.
 
 - [ ] **C12. Realistic Award Eligibility:** Players in local leagues should not be able to win major global awards like the Ballon d'Or. Award eligibility should depend on league reputation, competition level, individual performance, and career achievements.
@@ -57,21 +53,13 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C19. Volley Animations:** Add dedicated volley animations, including volley attempts from the edge of the penalty area following corners or loose balls.
 
-- [ ] **C20. Yellow Card Indicators:** Make yellow cards clearly visible as small indicators on players and within the match statistics.
-
 - [ ] **C21. Realistic Shooting and Ball Physics:** Improve shooting animations and ball movement. The ball should visually scale down as it travels farther from the camera, rotate naturally, and follow believable trajectories rather than simply moving across the screen.
-
-- [ ] **C22. Free Kick Voice Line:** Fix the incorrect or malfunctioning free kick voice line.
 
 - [ ] **C23. Dynamic Interaction Animations:** Interaction animations should adapt to the actual pitch situation instead of using fixed player positions and static animations. Player movement, orientation, spacing, and positioning must reflect the current match state.
 
 - [ ] **C24. VAR Suspense:** VAR decisions should include realistic pauses and suspense to increase tension before revealing the final decision.
 
-- [ ] **C25. Red Card Statistics:** Players who receive red cards should appear greyed out in the match statistics to indicate that they have been sent off.
-
 - [ ] **C26. Fix Corner Kick System:** Fix the corner kick system, which is currently bugged, and ensure corners behave consistently across different match situations.
-
-- [ ] **C27. Remove Long-Range Interaction:** Remove the dedicated long-range shooting interaction.
 
 - [ ] **C28. Rework Heading Interaction:** Redesign the heading interaction to make aerial challenges more realistic, engaging, and dependent on player positioning, timing, and heading ability.
 
@@ -91,12 +79,10 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C40.** Model size consistency with respect to distance to keep things real
 
-- [ ] **C41.** change track back into press instead
-
 C0 expands the earlier engine planning request from chat
 `bb12309d-e778-4928-a710-79d1028a137d` into planning and development.
 That earlier reply stopped at a usage limit before delivering a plan.
-C27 replaces the earlier request for a dedicated long-range scene.
+C27 removed the earlier dedicated long-range scene. Its completion is recorded in ROADMAP.md.
 The old release entries remain historical records; these new requests remain open
 even where a previous release claimed related fixes.
 
