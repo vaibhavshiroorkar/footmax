@@ -357,8 +357,6 @@ moments to play, not a wall of information.
 - **Before kick-off:** Play match opens the lineups with each XI on a formation
   board, Back and Kick off. Back leaves everything as it was.
 - **Quick Sim:** Sim opens the full-time result screen with the completed match.
-  Finished matches retain participant records before advancing the calendar.
-  Results and lineups keep match-time attributes, including players who retire at rollover.
   That screen records rewards and advances the week. Reopening the same result
   cannot award it twice or advance another week.
 - **Screen:** one scoreboard row with speed (1x by default, 2x, 4x), pause, sound
@@ -609,18 +607,3 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
 - **Shipping:** commit and push to `main`; Vercel deploys
   footmax.vercel.app. The user wants every change pushed so they can see
   it live, and the docs updated in the same commit (`docs/README.md`).
-
-## Ordinary shots in the shared runtime
-
-Owned-ball ordinary shots now read the live ball and all active players.
-Set aim, choose Drive, Curl or Low, then tap Shoot to select power.
-Shooting ability, timing, pressure and weak foot affect the attempted trajectory.
-The live pitch advances the physical action. The shot camera reads that same state.
-Depth sets both figure height and ball size. The ball rotates with its movement.
-A late Skip callback cannot replace a shot in flight or its completed result.
-Pass instead remains available before shooting.
-
-Goals, saves and blocks update statistics once after the displayed physical outcome.
-Results return to the same ball position and velocity without replaying the shot.
-Penalties, free kicks, shootouts and legacy non-owning opportunities still use their previous controls.
-Keeper hand reach, catching and the remaining interactions are still in development.

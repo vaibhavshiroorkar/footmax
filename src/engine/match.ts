@@ -1,5 +1,4 @@
 import { Fixture, Player, Position, Style, World, Formation, Club } from './types';
-import type { PitchSim } from './matchRuntime/pitch';
 import { Rng, clamp } from './rng';
 import { matchRating, shortName } from './player';
 import { bench, startingXI, teamById } from './lineup';
@@ -183,8 +182,6 @@ export interface MatchFocus {
 
 export interface MatchState {
   fixtureId: string;
-  // Results outlive season rollover, which can delete retired participants.
-  resultPlayers?: Record<string, Player>;
   minute: number;
   endMinute: number;
   // 3 is extra time.
@@ -455,10 +452,10 @@ const VAR_REVIEW = 0.08;
 const VAR_OVERTURN = 0.4;
 const VAR_REASONS = ['Offside in the build-up', 'A foul in the build-up', 'Handball'];
 
-function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Player, assister: Player | undefined, kind: LineKind, played: boolean, facts?: ShotFacts, physical = false) {
+function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Player, assister: Player | undefined, kind: LineKind, played: boolean, facts?: ShotFacts) {
   const side = s[sideKey];
   const keeper = keeperOf(world, s[other(sideKey)]);
-  if (!physical && s.visual && facts && kind !== 'penaltyGoal') {
+  if (s.visual && facts && kind !== 'penaltyGoal') {
     const vr = new Rng(s.rngState);
     // The officials can take it away on the spot, in any season.
     const roll = vr.next();
@@ -557,7 +554,7 @@ function factsFrom(rng: Rng, result: 'goal' | 'save' | 'miss', p: Played, how: {
     penalty: how.penalty,
     freekick: how.freekick,
     blocker: result === 'miss' ? (p.wall ? 'wall' : p.blocker) : undefined,
-    blockOut: result === 'miss' && (p.wall || p.blocker) ? p.blockResult ?? blockOut(rng) : undefined,
+    blockOut: result === 'miss' && (p.wall || p.blocker) ? blockOut(rng) : undefined,
     over: result === 'miss' && !p.blocker && !p.wall && !frame && (p.over ?? inside),
     tipped: result === 'save' && (p.end ? p.end === 'tipRound' || p.end === 'tipOver' : rng.chance(0.33)),
     parried: result === 'save' && p.end === 'parry',
@@ -942,7 +939,6 @@ export interface Played {
   end?: ShotEnd;
   aim?: number;
   blocker?: string;
-  blockResult?: ShotFacts['blockOut'];
   passed?: PassOutcome;
   shape?: ShotShape;
   // The shot game showed it going over the bar, or into the wall.
@@ -969,33 +965,7 @@ export function resolveMoment(world: World, s: MatchState, quality: number | nul
   visualizeMoment(world, s, m, from);
 }
 
-export function resolvePhysicalShot(world: World, s: MatchState, sim: PitchSim, id: string, revision: number): boolean {
-  const m = s.pending;
-  const shot = sim.physicalShot;
-  const outcome = shot?.outcome;
-  if (s.finished || !m || m.shootout || !['shot', 'penalty', 'freekick'].includes(m.kind) || !shot || !outcome || shot.actorId !== m.actorId) return false;
-  if (!world.players[m.actorId] || !world.players[m.keeperId] || !sim.endInteraction(id, revision)) return false;
-  s.pending = null;
-  const result = outcome.kind === 'goal' ? 'goal' : outcome.kind === 'save' ? 'save' : 'miss';
-  // Reuse statistics and commentary without replaying an action already shown by the runtime.
-  resolveMomentInner(world, s, m, 1, undefined, undefined, {
-    forced: result,
-    aim: 0.5 + shot.direction * (shot.ball.x - 34) / 7.32,
-    shape: shot.shape,
-    end: outcome.kind === 'woodwork' ? outcome.colliderId?.startsWith('bar:') ? 'bar' : 'post' : outcome.kind === 'save' ? 'parry' : result === 'goal' ? 'net' : 'wide',
-    blocker: outcome.kind === 'block' ? outcome.playerId : undefined,
-    blockResult: outcome.kind === 'block' ? 'loose' : undefined,
-    over: shot.ball.z > 2.44,
-  }, true);
-  s.ball = { x: sim.ball.x / 68, y: sim.ball.y / 105 };
-  s.bodies = sim.positions();
-  s.play = [];
-  s.shown = undefined;
-  s.rebound = ['block', 'save', 'woodwork'].includes(outcome.kind) ? m.side : undefined;
-  return true;
-}
-
-function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, user: Played = {}, physical = false): void {
+function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: number | null, chosenPlayerId?: string, moveId?: string, user: Played = {}): void {
   const { forced, passed } = user;
   const rng = new Rng(s.rngState);
   const played = quality !== null;
@@ -1019,7 +989,7 @@ function resolveMomentInner(world: World, s: MatchState, m: KeyMoment, quality: 
     if (scored) {
       const f = { ...factsFrom(rng, 'goal', user, how), pattern: m.pattern };
       s.rngState = rng.state;
-      recordGoal(world, s, m.side, actor, assistId ? world.players[assistId] : undefined, kind, played, f, physical);
+      recordGoal(world, s, m.side, actor, assistId ? world.players[assistId] : undefined, kind, played, f);
       return;
     }
     const onTarget = forced ? forced === 'save' : q > 0.35;

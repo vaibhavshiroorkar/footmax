@@ -10,7 +10,6 @@ export function acceptInteraction(
   expected: KeyMoment,
   current: KeyMoment | null,
 ): boolean {
-  if (sim.physicalShot) return false;
   const token = capture.interaction;
   return current === expected && !!token && sim.endInteraction(token.id, token.revision);
 }

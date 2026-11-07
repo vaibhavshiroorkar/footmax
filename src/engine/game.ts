@@ -10,7 +10,6 @@ import { managerAfterMatch } from './manager';
 import { advanceWeek, userClubId, WeekResult } from './season';
 import { europeFixtureFor } from './europe';
 import { pickNationalSquad, refreshNationalSquads, tournamentFixtureFor } from './international';
-import { captureResultPlayers } from './matchResult';
 import { DataPack } from '../data/pack';
 import { formCheck } from './relations';
 import { checkMilestones, progressOf, recordMatchProgress } from './progress';
@@ -283,7 +282,6 @@ export function finishUserMatch(game: Game, s: MatchState): FinishResult {
     if (game.mode === 'manager' && game.manager) managerAfterMatch(game, f);
   }
   // A midweek game: the league match is still to come this week.
-  captureResultPlayers(game.world, s);
   if (f?.europe && userFixture(game)) return { newSeason: false, summerStarted: false, levelUp };
   return { ...advanceWeek(game), levelUp };
 }

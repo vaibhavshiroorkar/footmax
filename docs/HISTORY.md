@@ -18,28 +18,6 @@ see differs from what counts, it reads as broken.
 
 ## Stages
 
-### Shared ordinary shots (v2.6.0, 2026-11-07)
-
-Completed by Codex: the ordinary-shot control, camera and statistics handoff for C0.
-The runtime owns the flight and collisions. Both views read the same bodies and ball.
-This release keeps the rest of C0 open, including restart shots and other interaction types.
-The review caught a late-Skip callback that could replace a resolved physical outcome.
-Legacy completion now rejects physical shots, including completed ones awaiting acknowledgement.
-Keeper hand reach, catching, native visuals and performance still need work and review.
-
-### Match flow and engine foundation (v2.5.0, 2026-11-07)
-
-Completed by Codex: C8, C9, C10, C15, C20, C22, C25, C27, C30, C31, C35, C36 and C41.
-The first incremental release combines match controls, results, audio and presentation fixes.
-The physical pitch moved into the engine, with seeded movement and guarded decision snapshots.
-This foundation does not complete C0. Physical shots and camera integration remain in development.
-
-Result screens now retain participant records before calendar advancement.
-A tournament final can trigger retirement cleanup while its lineup is still visible.
-Those records belong to the finished match and do not restore retired players to active squads.
-
-Releases now ship completed batches as requested. Phone audio, visual and performance reviews remain pending.
-
 ### 1. Foundations (2026-11-01 to 11-02)
 
 `ced0649` to `34557f1`.
