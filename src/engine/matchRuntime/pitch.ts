@@ -4,6 +4,7 @@ import { CELEBRATIONS, celebrationText } from '../creation';
 import { Rng } from '../rng';
 import { PitchSnapshot } from './snapshot';
 import { FixedClock } from './clock';
+import { createShot, stepShot, ShotAttempt, ShotState } from './shot';
 
 // A small football simulation for the live pitch. The match engine decides
 // what happens (who passes, who shoots, whether it goes in); this moves 22
@@ -118,6 +119,7 @@ export class PitchSim {
   private revision = 0;
   private fixedClock = new FixedClock();
   private interaction: { id: string; revision: number } | null = null;
+  physicalShot: ShotState | null = null;
 
   constructor(seed = 1) {
     this.rng = new Rng(seed);
@@ -136,6 +138,7 @@ export class PitchSim {
       attacking: this.attacking,
       holding: this.holding,
       interaction: this.interaction ? { ...this.interaction } : null,
+      physicalShot: this.physicalShot ? { ...this.physicalShot, ball: { ...this.physicalShot.ball }, bodies: this.physicalShot.bodies.map((body) => ({ ...body })), outcome: this.physicalShot.outcome ? { ...this.physicalShot.outcome } : null } : null,
       action: this.act ? { ...this.act, step: { ...this.act.step } } : null,
       queue: this.queue.map((step) => ({ ...step })),
       setPiece: this.setPiece ? { ...this.setPiece, wall: [...this.setPiece.wall] } : null,
@@ -148,7 +151,7 @@ export class PitchSim {
   }
   bodies = new Map<string, Body>();
   // rot: how far the ball has turned (degrees), so it spins as it rolls.
-  ball = { x: PW / 2, y: PL / 2, z: 0, rot: 0, owner: null as string | null, flight: null as Flight | null, vx: 0, vy: 0 };
+  ball = { x: PW / 2, y: PL / 2, z: 0, rot: 0, owner: null as string | null, flight: null as Flight | null, vx: 0, vy: 0, vz: 0, spin: 0 };
   queue: PlayStep[] = [];
   act: Active | null = null;
   clock = 0;
@@ -349,6 +352,7 @@ export class PitchSim {
     this.fixedClock.reset();
     this.revision++;
     this.interaction = null;
+    this.physicalShot = null;
     this.queue = [];
     this.act = null;
     this.holding = false;
@@ -362,11 +366,11 @@ export class PitchSim {
     this.focus = null;
     this.layout = 'kickoff';
     this.kickoffSide = side;
-    this.ball = { ...this.ball, x: PW / 2, y: PL / 2, z: 0, owner: null, flight: null, vx: 0, vy: 0 };
+    this.ball = { ...this.ball, x: PW / 2, y: PL / 2, z: 0, owner: null, flight: null, vx: 0, vy: 0, vz: 0, spin: 0 };
   }
 
   beginInteraction(id: string): PitchSnapshot | null {
-    if (!this.holding) return null;
+    if (!this.holding || this.physicalShot) return null;
     this.fixedClock.reset();
     if (!this.interaction || this.interaction.id !== id) {
       this.interaction = { id, revision: ++this.revision };
@@ -376,6 +380,8 @@ export class PitchSim {
 
   endInteraction(id: string, revision: number): boolean {
     if (this.interaction?.id !== id || this.interaction.revision !== revision) return false;
+    if (this.physicalShot && !this.physicalShot.outcome) return false;
+    this.physicalShot = null;
     this.interaction = null;
     this.revision++;
     this.holding = false;
@@ -383,7 +389,37 @@ export class PitchSim {
     return true;
   }
 
+  submitShot(id: string, revision: number, attempt: Omit<ShotAttempt, 'direction'>, profiles: Record<string, { height?: number; keeper?: number }> = {}): boolean {
+    if (this.interaction?.id !== id || this.interaction.revision !== revision || this.physicalShot) return false;
+    const actor = this.bodies.get(attempt.actorId);
+    if (!actor || actor.leaving || actor.down > 0 || this.ball.owner !== actor.id || dist(actor.x, actor.y, this.ball.x, this.ball.y) > 2.5) return false;
+    if (![attempt.aim, attempt.power, attempt.timing, attempt.shooting, attempt.pressure].every(Number.isFinite)) return false;
+    const bodies = this.active().map((body) => ({
+      id: body.id, x: body.x, y: body.y, vx: body.vx, vy: body.vy,
+      radius: 0.3, height: body.down > 0 ? 0.6 : profiles[body.id]?.height ?? 1.8,
+      keeper: body.pos === 'GK' && body.side !== actor.side ? profiles[body.id]?.keeper ?? 60 : undefined,
+    }));
+    this.physicalShot = createShot({ ...this.ball, z: this.ball.z + 0.11, rotation: this.ball.rot * Math.PI / 180 }, bodies, { ...attempt, direction: actor.side === 'home' ? 1 : -1 }, this.rng);
+    this.queue = [];
+    this.act = null;
+    this.fixedClock.reset();
+    this.revision++;
+    this.copyShotState();
+    return true;
+  }
+
+  private copyShotState(): void {
+    const shot = this.physicalShot!;
+    const b = shot.ball;
+    Object.assign(this.ball, { x: b.x, y: b.y, z: Math.max(0, b.z - 0.11), vx: b.vx, vy: b.vy, vz: b.vz, spin: b.spin, rot: b.rotation * 180 / Math.PI, owner: null, flight: null });
+    for (const body of shot.bodies) {
+      const live = this.bodies.get(body.id);
+      if (live) Object.assign(live, { x: body.x, y: body.y, vx: body.vx, vy: body.vy });
+    }
+  }
+
   enqueue(steps: PlayStep[]) {
+    if (this.physicalShot) return;
     this.revision++;
     if (this.holding) {
       // The user played the moment; carry on from here.
@@ -405,6 +441,7 @@ export class PitchSim {
   // The user acts on the ball: drop the rest of the move and hold play
   // around him while he decides.
   takeOver(playerId: string) {
+    if (this.physicalShot) return;
     const b = this.bodies.get(playerId);
     if (!b) return;
     this.revision++;
@@ -440,11 +477,20 @@ export class PitchSim {
   }
 
   update(rawDt: number) {
-    if (this.interaction || rawDt === 0) {
+    if ((this.interaction && !this.physicalShot) || this.physicalShot?.outcome || rawDt === 0) {
       this.fixedClock.reset();
       return;
     }
     this.fixedClock.advance(rawDt * TIME, (dt) => {
+      if (this.physicalShot) {
+        const before = this.physicalShot.elapsed;
+        stepShot(this.physicalShot, dt);
+        this.clock += this.physicalShot.elapsed - before;
+        this.revision++;
+        this.copyShotState();
+        if (this.physicalShot.outcome) this.fixedClock.reset();
+        return;
+      }
       this.revision++;
       this.clock += dt;
       if (this.callout && this.clock > this.callout.until) this.callout = null;

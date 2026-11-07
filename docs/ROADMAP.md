@@ -18,6 +18,8 @@ sets the dependency order for the full backlog. The
 [foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is implemented and verified.
 The [usability plan](superpowers/plans/2026-11-05-match-usability.md) covers the completed presentation changes.
 The [match-flow plan](superpowers/plans/2026-11-06-match-flow.md) covers simulation results, cards, Press and audio.
+The [physical-actions plan](superpowers/plans/2026-11-06-physical-actions.md) continues C0.
+Its collision and shot core is implemented, with camera and statistics integration still pending.
 Human reviews, historical data and Legends remain in scope.
 
 ## Complete Football Game Update List (2026-11-05)
