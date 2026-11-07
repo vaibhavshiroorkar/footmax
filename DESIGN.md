@@ -82,3 +82,11 @@ for more than a moment can be skipped with a tap, and reduced motion shortens it
 - Centred screen titles with an empty side; titles sit on the left.
 - Cards inside cards. A card holds content, not more cards.
 - Bouncy entrance animations. Things appear where they stay.
+
+## Shared ordinary-shot camera
+
+Capture the camera behind the actual ball, looking toward the attacked goal.
+Keep that camera fixed during the attempt. Project all forward-visible players.
+Use metres and one perspective scale for figures, ball, aim marker and goal frame.
+Depth sorting lets nearby bodies cover a farther ball. Do not cap the player count.
+Input controls submit an attempt. They never supply its outcome.

@@ -73,3 +73,17 @@ facts determine save, block and woodwork commentary. Physical goals bypass legac
 random flag, foul and VAR generation; later rule decisions must use recorded match facts.
 Watched-match regressions cover goal, save, block, duplicate and stale commits.
 The UI still uses the legacy shot scene until shared camera and control integration lands.
+
+Ordinary owned-ball shots now submit aim, power, timing and shape through the active
+capture token. The live-pitch loop is the sole flight clock. The shot camera reads
+the same bodies and ball, with one depth scale for figures and ball size.
+A frozen camera keeps the captured origin through flight. All forward-visible
+players are depth sorted; there is no player-count cap.
+Other shot types and legacy non-owning cases retain their previous controls.
+The ordinary-shot handoff is in validation and does not close C0, C21, C23 or C40.
+
+The camera review found a late-Skip race and checked the Pass instead control.
+Both paths are now guarded and the passing option is retained. The stale legacy
+callback regression covers goals, saves and blocks after the physical result exists.
+Ordinary-shot camera and control integration is implemented. Other interaction paths
+and keeper hand reach remain open, so the full physical-actions plan is unfinished.

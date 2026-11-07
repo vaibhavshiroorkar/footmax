@@ -609,3 +609,18 @@ when its pack lands (format in `docs/SEASON_DATA.md`, checked by
 - **Shipping:** commit and push to `main`; Vercel deploys
   footmax.vercel.app. The user wants every change pushed so they can see
   it live, and the docs updated in the same commit (`docs/README.md`).
+
+## Ordinary shots in the shared runtime
+
+Owned-ball ordinary shots now read the live ball and all active players.
+Set aim, choose Drive, Curl or Low, then tap Shoot to select power.
+Shooting ability, timing, pressure and weak foot affect the attempted trajectory.
+The live pitch advances the physical action. The shot camera reads that same state.
+Depth sets both figure height and ball size. The ball rotates with its movement.
+A late Skip callback cannot replace a shot in flight or its completed result.
+Pass instead remains available before shooting.
+
+Goals, saves and blocks update statistics once after the displayed physical outcome.
+Results return to the same ball position and velocity without replaying the shot.
+Penalties, free kicks, shootouts and legacy non-owning opportunities still use their previous controls.
+Keeper hand reach, catching and the remaining interactions are still in development.

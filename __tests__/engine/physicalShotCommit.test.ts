@@ -1,6 +1,7 @@
 import { newCareerGame, startUserMatch } from '../../src/engine/game';
 import { resolvePhysicalShot } from '../../src/engine/match';
 import { PitchSim } from '../../src/engine/matchRuntime/pitch';
+import { acceptInteraction } from '../../src/engine/matchRuntime/interaction';
 
 const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 183 });
 function setup(kind: 'goal' | 'save' | 'block') {
@@ -31,6 +32,7 @@ describe('physical shot statistics', () => {
     for (let i = 0; i < 120 && !sim.physicalShot?.outcome; i++) sim.update(1 / 60);
     expect(sim.physicalShot?.outcome?.kind).toBe(kind);
     const ball = { ...sim.ball };
+    expect(acceptInteraction(sim, sim.snapshot(), match.pending!, match.pending)).toBe(false);
     const shots = match.home.shots;
     expect(resolvePhysicalShot(game.world, match, sim, token.id, token.revision + 1)).toBe(false);
     expect(resolvePhysicalShot(game.world, match, sim, token.id, token.revision)).toBe(true);

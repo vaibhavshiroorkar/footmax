@@ -18,6 +18,15 @@ see differs from what counts, it reads as broken.
 
 ## Stages
 
+### Shared ordinary shots (v2.6.0, 2026-11-07)
+
+Completed by Codex: the ordinary-shot control, camera and statistics handoff for C0.
+The runtime owns the flight and collisions. Both views read the same bodies and ball.
+This release keeps the rest of C0 open, including restart shots and other interaction types.
+The review caught a late-Skip callback that could replace a resolved physical outcome.
+Legacy completion now rejects physical shots, including completed ones awaiting acknowledgement.
+Keeper hand reach, catching, native visuals and performance still need work and review.
+
 ### Match flow and engine foundation (v2.5.0, 2026-11-07)
 
 Completed by Codex: C8, C9, C10, C15, C20, C22, C25, C27, C30, C31, C35, C36 and C41.

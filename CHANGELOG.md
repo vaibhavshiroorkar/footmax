@@ -2,6 +2,15 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.6.0
+
+- Ordinary shots use the live ball and player positions through aim, flight and return to the pitch.
+- Shots hit moving bodies and the goal frame. Physical contact and goal-line crossing determine the result.
+- Player and ball sizes share a perspective scale. The ball rotates during flight.
+- Shooting ability, pressure, timing and weak foot affect accuracy and power.
+- A completed shot updates statistics once. Late Skip callbacks cannot replace its result.
+- Penalties, free kicks, shootouts and remaining interactions continue to use their existing controls.
+
 ## 2.5.0
 
 - Quick Sim opens match results. Final-match lineups survive season rollover and retirements.

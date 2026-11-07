@@ -6,7 +6,7 @@ import { Redirect, usePreventRemove, useRouter } from 'expo-router';
 import { useStore, useGame } from '../state/store';
 import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, Row, Screen, T, Tabs, haptic } from '../ui/kit';
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
-import { CALL_PASSING, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
+import { CALL_PASSING, resolvePhysicalShot, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
 import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
 import { gameForMatchResult } from '../engine/matchResult';
@@ -19,6 +19,8 @@ import { Club, Formation, Game, MatchReward, Player, Style } from '../engine/typ
 import { SKILL_MOVES, skillLevel, xpForLevel } from '../engine/skills';
 import { hasTechnique } from '../engine/skillTree';
 import { ShotGame } from '../ui/moments/ShotGame';
+import { RuntimeShotGame } from '../ui/moments/RuntimeShotGame';
+import type { ShotAttempt } from '../engine/matchRuntime/shot';
 import { PASS_LABEL, PassPanel } from '../ui/moments/PassGame';
 import { DribbleGame } from '../ui/moments/DribbleGame';
 import { ComboDribble, GapDribble, RaceDribble } from '../ui/moments/DribbleMore';
@@ -243,9 +245,37 @@ export default function MatchScreen() {
   };
   const completeMoment = (expected: KeyMoment, q: number | null, chosen?: string, moveId?: string, played?: Played) => {
     const sim = simRef.current;
-    if (!sim || !capture) return;
+    if (!sim || !capture || sim.physicalShot) return;
     if (!acceptInteraction(sim, capture, expected, useStore.getState().live?.pending ?? null)) return;
     mutateLive((m, g) => resolveMoment(g.world, m, q, chosen, moveId, played));
+  };
+  const submitPhysicalShot = (expected: KeyMoment, attempt: Omit<ShotAttempt, 'direction'>): boolean => {
+    const sim = simRef.current;
+    const token = capture?.interaction;
+    if (!sim || !token || useStore.getState().live?.pending !== expected) return false;
+    const profiles = Object.fromEntries(sim.active().map((body) => {
+      const player = useStore.getState().game!.world.players[body.id];
+      return [body.id, { height: (player.heightCm ?? 180) / 100, keeper: player.attrs.goalkeeping }];
+    }));
+    const accepted = sim.submitShot(token.id, token.revision, attempt, profiles);
+    if (accepted) {
+      mutateLive(() => {});
+      playSound('kick', 0.8);
+    }
+    return accepted;
+  };
+  const completePhysicalShot = (expected: KeyMoment) => {
+    const sim = simRef.current;
+    const token = capture?.interaction;
+    if (!sim || !token || useStore.getState().live?.pending !== expected) return;
+    const scored = sim.physicalShot?.outcome?.kind === 'goal';
+    let accepted = false;
+    mutateLive((m, g) => { accepted = resolvePhysicalShot(g.world, m, sim, token.id, token.revision); });
+    if (accepted) {
+      setShownGoals(useStore.getState().live?.scorers.length ?? 0);
+      playSound(scored ? 'goal' : 'ooh', 0.8);
+      haptic(scored ? 'success' : 'light');
+    }
   };
   const skip = (advance: (m: MatchState, g: Game) => void) => {
     mutateLive(advance);
@@ -429,7 +459,7 @@ export default function MatchScreen() {
         )}
         {momentOpen && !intro && !autoMoments && !passing && live.pending && (
           <View style={[styles.overlay, { top: 0 }]}>
-            <MomentPanel key={pendingKey} game={game} live={live} moment={live.pending} getSim={() => simRef.current} onResolve={completeMoment} />
+            <MomentPanel key={pendingKey} game={game} live={live} moment={live.pending} getSim={() => simRef.current} onResolve={completeMoment} onPhysicalSubmit={submitPhysicalShot} onPhysicalFinish={completePhysicalShot} />
           </View>
         )}
         {passing && live.pending && (
@@ -1094,7 +1124,7 @@ const MOMENT_TITLES: Record<KeyMoment['kind'], { title: string; icon: IconName }
   clear: { title: 'Head it clear!', icon: 'arrow-up-circle' },
 };
 
-function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; live: MatchState; moment: KeyMoment; getSim: () => PitchSim | null; onResolve: (expected: KeyMoment, q: number | null, chosen?: string, moveId?: string, played?: Played) => void }) {
+function MomentPanel({ game, live, moment, getSim, onResolve, onPhysicalSubmit, onPhysicalFinish }: { onPhysicalSubmit: (expected: KeyMoment, attempt: Omit<ShotAttempt, 'direction'>) => boolean; onPhysicalFinish: (expected: KeyMoment) => void; game: Game; live: MatchState; moment: KeyMoment; getSim: () => PitchSim | null; onResolve: (expected: KeyMoment, q: number | null, chosen?: string, moveId?: string, played?: Played) => void }) {
   const mutateLive = useStore((s) => s.mutateLive);
   const actor = game.world.players[moment.actorId];
   const [move, setMove] = useState<string | null>(null);
@@ -1105,6 +1135,10 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
   const [angle] = useState(() => getSim()?.shotAngle(moment.actorId) ?? 0);
   // The keeper, the wall and team-mates as the pitch has them right now.
   const [scene] = useState(() => getSim()?.shotScene(moment.actorId));
+  const physicalSim = getSim();
+  const physicalActor = physicalSim?.bodies.get(actor.id);
+  const sharedShot = moment.kind === 'shot' && physicalSim && physicalActor &&
+    (physicalSim.physicalShot?.actorId === actor.id || (physicalSim.ball.owner === actor.id && Math.hypot(physicalActor.x - physicalSim.ball.x, physicalActor.y - physicalSim.ball.y) <= 2.5));
   const looks = useLooks();
   const shotKit = { own: looks.own, opp: looks.opp, keeper: looks.oppKeeper };
   const names: Record<string, string> = {};
@@ -1189,7 +1223,8 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
       )}
       {moment.kind === 'header' && <HeaderGame from={moment.view === 'corner' ? 'corner' : 'cross'} air={(actor.attrs.physical + actor.attrs.shooting) / 2 + ((actor.heightCm ?? 180) - 180) / 2 + (hasTechnique(actor, 'target') ? 12 : 0)} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />}
       {moment.kind === 'fight' && <FightGame rival={shortName(game.world.players[moment.attackerId!])} onDone={(choice) => resolve(1, undefined, undefined, { fight: choice })} />}
-      {(moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
+      {sharedShot && <RuntimeShotGame sim={physicalSim!} actor={actor} shooting={Math.min(99, actor.attrs.shooting + formShift(actor) + (moment.view === 'long' && hasTechnique(actor, 'longrange') ? 22 : 0))} weakFoot={!!moment.weakFoot} onSubmit={(attempt) => onPhysicalSubmit(moment, attempt)} onFinish={() => onPhysicalFinish(moment)} onPass={() => mutateLive((m, g) => { if (m.pending === moment && !physicalSim?.physicalShot) passInstead(g.world, m); })} />}
+      {!sharedShot && (moment.kind === 'shot' || moment.kind === 'penalty' || moment.kind === 'freekick') && (
         <ShotGame kind={moment.kind} edge={shotEdge(actor, moment, live)} foot={actor.foot ?? 'R'} scene={scene} kits={shotKit} composure={actor.attrs.composure + formShift(actor) + (moment.kind === 'penalty' && hasTechnique(actor, 'spotkick') ? 25 : 0)} shooting={Math.min(99, actor.attrs.shooting + formShift(actor) + (moment.view === 'long' && hasTechnique(actor, 'longrange') ? 22 : 0))} weakFoot={!!moment.weakFoot} finesse={skillLevel(actor, 'finesse')} keeper={game.world.players[moment.keeperId]?.attrs.goalkeeping ?? 60} view={moment.view === 'long' ? 'outside' : moment.view === 'outside' || moment.view === 'oneonone' ? moment.view : 'box'} distance={moment.metres} range={moment.range ?? 0} chip={!!actor.moves?.includes('chip')} defenders={lanes} angle={angle} fake={hasTechnique(actor, 'fakeshot')} curler={hasTechnique(actor, 'curler')} onPass={moment.kind === 'shot' ? () => mutateLive((m, g) => { if (m.pending === moment) passInstead(g.world, m); }) : undefined} onDone={(q, _t, outcome, p) => resolve(q, undefined, undefined, { forced: outcome, ...p })} />
       )}
       {moment.kind === 'dribble' && <MovePicker actor={actor} value={move} onChange={setMove} />}
@@ -1199,7 +1234,7 @@ function MomentPanel({ game, live, moment, getSim, onResolve }: { game: Game; li
       {moment.kind === 'block' && <BlockGame defending={actor.attrs.defending} onDone={(q) => resolve(q)} />}
       {moment.kind === 'clear' && <ClearGame air={(actor.attrs.physical + actor.attrs.defending) / 2 + ((actor.heightCm ?? 180) - 180) / 2} onDone={(q) => resolve(q)} />}
       {moment.kind === 'save' && <SaveGame reflex={skillLevel(actor, 'shotstopper') + (hasTechnique(actor, 'sweeper') ? 2 : 0)} keeping={actor.attrs.goalkeeping + (hasTechnique(actor, 'commander') ? 10 : 0)} onDone={(q) => resolve(q)} />}
-      <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" onPress={() => resolve(null)} />
+      <Button label="Skip: let the sim decide" icon="play-skip-forward-outline" small variant="ghost" disabled={!!physicalSim?.physicalShot} onPress={() => resolve(null)} />
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.5.0. Open work is collected in [pending.md](pending.md). Status keys:
+v2.6.0. Open work is collected in [pending.md](pending.md). Status keys:
 `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
@@ -19,8 +19,12 @@ sets the dependency order for the full backlog. The
 The [usability plan](superpowers/plans/2026-11-05-match-usability.md) covers the completed presentation changes.
 The [match-flow plan](superpowers/plans/2026-11-06-match-flow.md) covers simulation results, cards, Press and audio.
 The [physical-actions plan](superpowers/plans/2026-11-06-physical-actions.md) continues C0.
-Its collision and shot core is implemented, with camera and statistics integration still pending.
+Its collision core and statistics bridge are implemented. Ordinary-shot camera integration is implemented in v2.6.0.
+Other interactions, restart shots and keeper reach work remain pending.
 Human reviews, historical data and Legends remain in scope.
+
+Completed by Codex in v2.6.0: ordinary-shot shared camera and controls, as a partial delivery of C0.
+No additional C request is closed by this release.
 
 ## Complete Football Game Update List (2026-11-05)
 

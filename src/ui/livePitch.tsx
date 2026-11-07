@@ -335,7 +335,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       // Decisions hold the physical state captured by the engine.
       // On the ball play eases off so the choice is his, but at 4x
       // it stays at full 1x instead of dropping to slow motion.
-      const scale = p.paused || p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.8) : p.speed;
+      const scale = p.paused ? 0 : sim.physicalShot ? 1 : p.frozen ? 0 : sim.holding ? 0.25 : lastOnBall ? (p.speed >= 4 ? 1 : Math.min(1, p.speed) * 0.8) : p.speed;
       sim.update(dt * scale);
       const c = sim.celebrate;
       for (const [id, body] of sim.bodies) {
