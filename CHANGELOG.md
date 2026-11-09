@@ -2,6 +2,19 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.6.0
+
+- Every ground looks its level. A local club plays on a worn pitch with a few hundred
+  people along the rail. The elite play on striped turf in front of full stands.
+- Crowds wear the home colours, with a separate away end in the visitors' colours.
+  At a final, half the ground is theirs.
+- European and international nights are floodlit.
+- The crowd is louder the bigger it is.
+- Before kick-off, a card shows the crowd, the away fans and the lights.
+- Bigger stages teach more: match XP grows as you climb, and more again on European
+  and international nights.
+- Better passers zip the ball; grassroots passes roll.
+
 ## 2.5.0
 
 - Quick Sim opens the full result screen.

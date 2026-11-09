@@ -62,7 +62,10 @@ moments to play, not a wall of information.
   of 75 offers one more pass. Composure talks you out of up to half of arrests.
   Passing makes skill move training up to 25% cheaper.
 - **Levels:** XP from matches, training and rewards fills levels; each
-  level gives a skill point.
+  level gives a skill point. Match XP grows with the stage (`xpStage`): 1x at
+  grassroots, 0.1x more per ladder rung up to 1.4x in an elite league, and 0.2x more
+  on a European or international night. Fame already scales with the club's
+  reputation.
 - **Rewards to claim:** finished season goals and milestones wait in a
   Rewards card; Claim pays them with a chime and celebrates a level-up.
   Unclaimed season goals pay out at the end of the season.
@@ -127,6 +130,32 @@ moments to play, not a wall of information.
     curlers start outside the post and bend in, low shots skim the grass,
     driven ones swerve a little. Height, bend and pace vary every time.
     Play runs at 1.95 times real time at 1x.
+  - Grounds and crowds (`src/engine/ground.ts`, `src/ui/stands.tsx`): the
+    home club and the competition set the ground, the same every time for
+    one fixture, and only the presentation reads it.
+    - Level: the ladder rung of the home club's reputation and its league's
+      strength together. A European night is at least top flight; a final or a
+      summer tournament is elite at a neutral venue.
+    - Capacity follows club reputation on a log curve (rep 35 about 1,500,
+      rep 60 about 20,000, rep 80 about 42,000). Big clubs sell out; small
+      ones fill half. The simulated Premier League averages about 43,000.
+    - Away fans: 3,000 or 10% of a ground under 30,000 in the professional
+      game, 5% in Europe and internationals, 45% each at a neutral venue, and
+      a few mixed in at grassroots and semi-pro.
+    - Stands: a rail with a grass bank at grassroots, one small stand at
+      semi-pro, four stands from professional, a bowl at the elite level. Every
+      row of fans is a dashed line per colour, in the home colours, with a
+      segregated away end (and a strip of empty seats) from professional up.
+    - Grass: dull and worn in the goalmouths at grassroots, faint stripes at
+      semi-pro, bands from professional, a checked hybrid pitch at the elite level.
+      Advertising boards from professional up; a white rail below that.
+    - Floodlights on every European and international night, and on some
+      evening kick-offs. Grassroots grounds have none.
+    - The crowd murmur's volume follows the attendance (about 0.06 for 100
+      people, 0.38 for 40,000). Before kick-off a card names the crowd, the away
+      fans and the lights.
+    - Passes leave the foot at 0.9x to 1.1x speed by the passer's passing, so the
+      top level plays crisper.
   - Goal celebrations: the scorer runs to the corner flag and does his
     celebration (knee slide, backflip, robot, shush, heart hands, ice
     cold; the career player does the one he picked) with a jump for joy,

@@ -71,7 +71,10 @@ guidance:
 Short scenes (a goal, a referee's call, a set piece, a flare-up) play inside the
 pitch's own block, over the pitch. They never move the page and they are not modals.
 The live pitch keeps its numbered dots in normal play; people are jointed figures
-in the match's real kits, and the user's figure has their look. Anything that plays
+in the match's real kits, and the user's figure has their look. The ground around
+the pitch shows the level: a rail and a grass bank at grassroots, full stands in the
+home colours, with an away end, at the elite level. It is drawn once per match, at a fixed
+size, so a grassroots and an elite match take the same space. Anything that plays
 for more than a moment can be skipped with a tap, and reduced motion shortens it.
 
 ## Do not

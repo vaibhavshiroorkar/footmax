@@ -1,11 +1,17 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.5.0. Open work is collected in [pending.md](pending.md). Status keys:
+v2.6.0. Open work is collected in [pending.md](pending.md). Status keys:
 `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Active work
+
+Request (2026-11-09): "continuee"
+Version: v2.6.0. Status: done. Took the next batch in the delivery order that does not
+wait on the user: C13 and C14 from batch 5. The
+[plan](superpowers/plans/2026-11-09-grounds-and-crowds.md) covers grounds, crowds in
+team colours, crowd noise, a matchday card and XP by stage.
 
 Request (2026-11-09): "check docs, deepp research, create a plan, perform it, update docs"
 Version: v2.5.0. Status: done. The [plan](superpowers/plans/2026-11-09-career-and-match-rules.md)
@@ -34,7 +40,7 @@ Human reviews, historical data and Legends remain in scope.
 
 Open requests and their original wording are in
 [pending.md](pending.md#complete-football-game-update-list).
-24 entries remain open. Eighteen requests below are done in v2.5.0. C0 identifies the first of the two items numbered 1;
+22 entries remain open. Eighteen requests below are done in v2.5.0 and two in v2.6.0. C0 identifies the first of the two items numbered 1;
 C1 through C40 preserve the remaining supplied numbers.
 C41 records the follow-up request.
 
@@ -42,11 +48,18 @@ C41 records the follow-up request.
 | --- | --- | --- |
 | C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation verified; action migration next |
 | C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
+| C13, C14: career progression you can feel, grounds and crowds | v2.6.0 | done |
 | C41: change track back into press instead | v2.5.0 | done by Codex |
 
 C0 expands the earlier planning request below. C27 requests removal of the
 dedicated long-range interaction previously shipped for original request 16.
 Earlier completion entries describe those releases, not completion of this new list.
+
+### Completed requests in v2.6.0
+
+- **done, v2.6.0.** **C13. Noticeable Career Progression:** Make the difference between local leagues and higher-tier football clearly noticeable through gameplay quality, player abilities, match intensity, stadium atmosphere, rewards, and overall presentation.
+
+- **done, v2.6.0.** **C14. Dynamic Pitches and Crowds:** Change pitches and stadium appearances based on the club, league, and competition. Audiences should reflect the participating teams' colors, with appropriate differences between home and away supporters.
 
 ### Completed requests in v2.5.0
 

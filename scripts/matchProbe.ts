@@ -31,7 +31,7 @@ for (let seed = 101; seed < 101 + count; seed++) {
       (['home', 'away'] as const).flatMap((side) => {
         const team = teamById(game.world, s[side].clubId);
         const spots = formationSpots(game.world, team, s[side].onPitch);
-        return s[side].onPitch.map((id) => ({ id, side, spot: spots[id], pos: game.world.players[id].position, pace: game.world.players[id].attrs.pace, name: id }));
+        return s[side].onPitch.map((id) => ({ id, side, spot: spots[id], pos: game.world.players[id].position, pace: game.world.players[id].attrs.pace, passing: game.world.players[id].attrs.passing, name: id }));
       }),
     );
   sync();

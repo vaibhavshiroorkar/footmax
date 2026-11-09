@@ -16,13 +16,15 @@ import { FootballIcon } from './football';
 import { RigFigure, useLooks } from './rig/Figure';
 import { FightScene, GoalScene, RefScene } from './stage/Scene';
 import { playSound } from './sound';
+import { Ground } from '../engine/ground';
+import { END, GroundArt, SIDE } from './stands';
 
 const NATIVE = Platform.OS !== 'web';
-// The drawing area in metres: the pitch plus a strip for the goals.
-const VX = -3;
-const VW = PL + 6;
-const VY = -1.5;
-const VH = PW + 3;
+// The drawing area in metres: the pitch, the goals and the stands around it.
+const VX = -END;
+const VW = PL + 2 * END;
+const VY = -SIDE;
+const VH = PW + 2 * SIDE;
 
 const kitFill = (c: Club) => c.colors[0];
 const kitRing = (c: Club) => (c.colors[1] && c.colors[1].toLowerCase() !== c.colors[0].toLowerCase() ? c.colors[1] : luminance(c.colors[0]) > 0.55 ? '#111111' : '#ffffff');
@@ -213,6 +215,8 @@ export interface LivePitchProps {
   shout?: 'call' | 'run' | 'track' | null;
   // Career: the celebration the user picked for his player.
   celebration?: string;
+  // The ground and its crowd (see ground.ts).
+  ground: Ground;
 }
 
 const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'PRESS' } as const;
@@ -221,7 +225,7 @@ const SHOUT_TAG = { call: 'CALL', run: 'RUN', track: 'PRESS' } as const;
 const ON_BALL_WAIT = 1.4;
 
 // The live pitch: 22 players and a ball, moving every frame (see pitchSim).
-export function LivePitch({ world, live, focusId, speed, width, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout, celebration }: LivePitchProps) {
+export function LivePitch({ world, live, focusId, speed, width, running, paused, frozen, onNeedMinute, onGoal, onMomentReady, targets, onTarget, onBall, onSim, zone, shout, celebration, ground }: LivePitchProps) {
   const h = (width * VH) / VW;
   const home = teamById(world, live.home.clubId);
   const away = teamById(world, live.away.clubId);
@@ -268,7 +272,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       for (const id of live[side].onPitch) {
         const p = world.players[id];
         if (!p) continue;
-        infos.push({ id, side, spot: spots[id] ?? { depth: 0.5, lat: 0.5 }, pos: id === live[side].standIn ? 'GK' : p.position, pace: p.attrs.pace, name: `#${live.numbers?.[id] ?? ''} ${shortName(p)}` });
+        infos.push({ id, side, spot: spots[id] ?? { depth: 0.5, lat: 0.5 }, pos: id === live[side].standIn ? 'GK' : p.position, pace: p.attrs.pace, passing: p.attrs.passing, name: `#${live.numbers?.[id] ?? ''} ${shortName(p)}` });
       }
     }
     sim.sync(infos);
@@ -448,9 +452,7 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
     <View style={{ gap: 6 }}>
       <View style={{ width, height: h, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.pitchDark }}>
         <Svg width={width} height={h} viewBox={`${VX} ${VY} ${VW} ${VH}`} style={StyleSheet.absoluteFill}>
-          {Array.from({ length: 10 }, (_, i) => (
-            <Rect key={i} x={i * 10.5} y={0} width={10.5} height={PW} fill={i % 2 ? colors.pitch : colors.pitchDark} />
-          ))}
+          <GroundArt ground={ground} />
           <Rect x={0} y={0} width={PL} height={PW} {...line} />
           <Line x1={PL / 2} y1={0} x2={PL / 2} y2={PW} {...line} />
           <Circle cx={PL / 2} cy={PW / 2} r={9.15} {...line} />

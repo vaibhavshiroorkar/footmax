@@ -254,6 +254,25 @@ shot engine, and researched each rule first.
   manual save) left a pointer to chunks the other write had deleted, and the save
   could not be read. Writes to one key now queue.
 
+### 27. v2.6.0: grounds and crowds (2026-11-09)
+
+The user said "continuee". The next batch that does not wait on the user was C13 and
+C14 (batch 5 of the delivery order). Codex had used the v2.6.0 label in a commit that
+the revert removed; no tag existed, so this release takes the number.
+
+- The live pitch had no surroundings: the same stripes for a Faroese amateur side and
+  for Liverpool. A pure `ground.ts` now sets the level, crowd and look from the home
+  club and the competition, and the pitch draws stands around the field.
+- A first capacity curve gave the Premier League 51,000 a match against a real
+  40,459, and the Championship 13,500 against 21,783. Flattening the top and lifting
+  the middle brought them to 43,000 and 16,000.
+- A crowd of thousands as SVG dots would cost too much on a phone. Each row is one
+  dashed line per colour, so a full stadium is a few dozen elements, drawn once.
+- XP now grows with the stage. The career probe (seed 7, full training) still left
+  a rep-34 club after one season and reached Manchester United at 20, as in v2.5.0.
+- The stands were too thin to read at 360 px at first. They grew by a metre a side,
+  which shrinks the pitch by about 2%.
+
 ## Decisions that still hold
 
 | Decision | Why |

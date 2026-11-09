@@ -1,4 +1,4 @@
-import { AttrKey, Game, Player } from './types';
+import { AttrKey, Club, Game, Player } from './types';
 import { Rng, clamp } from './rng';
 import { avgRating, formatMoney, overall, weightsFor } from './player';
 import { MatchState } from './match';
@@ -8,6 +8,8 @@ import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
 import { allNodes, applyNode, canUnlock, nodeCost, nodeLabel } from './skillTree';
 import { moveFee, moveWeeks, sessionEnergy } from './perks';
 import { closeCareer } from './retirement';
+import { rungOf } from './ground';
+import { leagueStrength } from './generator';
 
 export { addXp, careerPlayer, squadStatus };
 
@@ -277,12 +279,21 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
   const w = weightsFor(p);
   const young = p.age <= 19 ? 1 : p.age <= 23 ? 0.5 : 0.2;
   for (const k of Object.keys(w) as AttrKey[]) p.attrs[k] = clamp(p.attrs[k] + 0.06 * (w[k] ?? 0) * 4 * young * (overall(p) < p.potential ? 1 : 0), 1, 99);
-  const xp = Math.round(20 + goals * 15 + assists * 14 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0));
+  const xp = Math.round((20 + goals * 15 + assists * 14 + Math.max(0, rating - 6) * 10 + (result === 'W' ? 10 : 0)) * xpStage(game, team, s.fixtureId));
   const levelBefore = c.level;
   const xpBefore = c.xp;
   const lvl = addXp(game, xp);
   c.lastMatch = { fixtureId: s.fixtureId, played: true, result, rating, goals, assists, xp, fame: c.fame - fameBefore, money: bonus, levels: c.level - levelBefore, xpBefore, levelBefore, motm: rating >= best };
   return lvl;
+}
+
+// Bigger stages teach more: 1x at grassroots up to 1.4x in an elite league,
+// plus 0.2x for a European or international night.
+export function xpStage(game: Game, team: Club, fixtureId: string): number {
+  const league = team.leagueId ? game.world.leagues.find((l) => l.id === team.leagueId) : undefined;
+  const level = league ? rungOf(leagueStrength(game.world, league)) : rungOf(team.reputation);
+  const night = team.national || !!game.world.europe?.fixtures.some((f) => f.id === fixtureId);
+  return 1 + level * 0.1 + (night ? 0.2 : 0);
 }
 
 export function retire(game: Game): void {

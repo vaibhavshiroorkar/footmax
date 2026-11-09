@@ -96,16 +96,17 @@ export function playSound(name: SoundName, volume = 1): void {
 
 let crowdLoop: AudioPlayer | null = null;
 
-// The murmur of the crowd under a live match.
-export function crowdAmbience(on: boolean): void {
+// The murmur of the crowd under a live match. volume follows the size of
+// the crowd (see ground.ts).
+export function crowdAmbience(on: boolean, volume = 0.35): void {
   try {
     if (on && soundOn()) {
       void setMode().catch(() => {});
       if (!crowdLoop) {
         crowdLoop = createAudioPlayer(SOURCES.crowd);
         crowdLoop.loop = true;
-        crowdLoop.volume = 0.35;
       }
+      crowdLoop.volume = volume;
       if (!crowdLoop.playing) crowdLoop.play();
     } else {
       crowdLoop?.pause();

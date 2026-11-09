@@ -12,7 +12,7 @@ Later releases and requests take precedence over earlier unfinished lists.
 
 ## Complete Football Game Update List
 
-Source: the user's update list of 2026-11-05 and follow-up. 24 entries remain open,
+Source: the user's update list of 2026-11-05 and follow-up. 22 entries remain open,
 with release versions unassigned. C0 is in implementation; the others are `todo`.
 C0 is the highest priority. See the approved
 [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md).
@@ -34,10 +34,6 @@ The request text below is preserved, including overlapping corner and consistenc
 - [ ] **C5. New Game Plus (Rebirth):** In New Game Plus, players should have the opportunity to join bigger clubs directly from the youth academy instead of always starting at the lowest level.
 
 - [ ] **C11. Defensive Actions and Tutorial:** Make defensive contributions such as tracking back, pressing, marking, and positioning equally important as attacking actions. Emphasize these mechanics during the tutorial.
-
-- [ ] **C13. Noticeable Career Progression:** Make the difference between local leagues and higher-tier football clearly noticeable through gameplay quality, player abilities, match intensity, stadium atmosphere, rewards, and overall presentation.
-
-- [ ] **C14. Dynamic Pitches and Crowds:** Change pitches and stadium appearances based on the club, league, and competition. Audiences should reflect the participating teams' colors, with appropriate differences between home and away supporters.
 
 - [ ] **C16. Corner Kick Interaction Glitches:** Fix the glitchy corner kick interactions and ensure they function smoothly.
 
@@ -162,6 +158,8 @@ Removing the old Legends card is already done.
 - [ ] Confirm request 10 meant the Play player card and that its spacing now feels right.
 - [ ] Watch the VAR beats on a phone and judge whether the wait feels tense or slow.
 - [ ] Look at the career-over screen at 360 px after a long career with many clubs.
+- [ ] Watch a grassroots match and an elite one on a phone. Judge whether the
+  stands and crowds read at that size, and measure their draw cost.
 - [ ] Check national team call-ups for strong players. In one pre-fix career probe
   (seed 21), an English striker at 85 overall reached 28 with no caps, while seed 7
   gained caps from 20.

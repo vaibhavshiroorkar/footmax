@@ -22,6 +22,8 @@ export interface BodyInfo {
   pos: Position;
   // 0..99. Sets top speed.
   pace: number;
+  // 0..99. Sets how crisply he strikes a pass. Missing means average.
+  passing?: number;
   name: string;
 }
 
@@ -599,7 +601,9 @@ export class PitchSim {
         const thrown = prev?.act === 'start' && prev.restart === 'throw';
         const cross = step.act === 'cross';
         const lofted = !thrown && !cross && this.liftPass(fx, fy, tx, ty, from?.side ?? step.side, prev?.act === 'start' ? prev.restart : undefined);
-        const speed = thrown ? 14 : cross ? 20 : lofted ? (d > 30 ? 26 : 20) : d > 25 ? 21 : 18;
+        // A good passer zips it; a grassroots one rolls it. 0.9x to 1.1x.
+        const crisp = thrown || from?.passing === undefined ? 1 : 0.9 + clamp((from.passing - 30) / 60, 0, 1) * 0.2;
+        const speed = (thrown ? 14 : cross ? 20 : lofted ? (d > 30 ? 26 : 20) : d > 25 ? 21 : 18) * crisp;
         const peak = thrown ? 1.6 : cross ? 4 : lofted ? (d > 30 ? 3 : 1.6) : 0;
         // Crosses are whipped in and bend; long balls drift; passes along the
         // ground run almost straight. The draw keeps the old order so seeded

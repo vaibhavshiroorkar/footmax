@@ -410,6 +410,34 @@ Sources: [SI on Ballon d'Or voting](https://www.si.com/soccer/how-ballon-dor-vot
 [Opta Analyst on long balls](https://www.premierleague.com/en/news/4426039/opta-analyst-on-long-balls-long-throws-key-tactical-trends-spotted-in-2025-26-season),
 [The Analyst on style by division](https://theanalyst.com/articles/how-does-the-style-of-football-change-as-you-journey-down-the-english-football-league).
 
+## Grounds and crowds (v2.6.0)
+
+**Attendance.** The Premier League averaged 40,459 a match in 2024/25, at 98.8% of
+capacity. The Championship averaged 21,783 (a record 22,845 the season before).
+League Two clubs range from about 2,500 (Accrington) to 17,766 (Bradford). The
+National League averaged 2,770 in 2023/24 and National League South 1,221 in
+2024/25. The game's capacity curve gives about 43,000 for its Premier League and
+16,000 for its Championship (seed 42), because its club reputations spread less than
+real crowds. Crowds below the fifth tier are a design choice: a few hundred.
+
+**Away fans.** Premier League Rule R.9 asks the home club for 3,000 tickets, or 10%
+of a ground under 30,000. Sources disagree on that threshold (one says 20,000), and
+clubs often give fewer. UEFA requires at least 5% of capacity for visiting fans in
+its club competitions.
+
+**What is a design choice.** Fill rates below the top flight, the grass and stand
+looks by level, floodlit evening kick-offs, the crowd volume curve and the XP stage
+bonus have no source. They exist to make each rung look and feel different, as C13
+and C14 ask.
+
+Sources: [CaughtOffside on 2024/25 Premier League crowds](https://www.caughtoffside.com/2025/12/10/premier-league-average-spectators-per-match/),
+[Deloitte on Football League finance](https://www.deloitte.com/global/en/industries/telecom-media-entertainment/perspectives/annual-review-of-football-finance-football-league-clubs.html),
+[Football Ground Guide on League Two crowds](https://footballgroundguide.com/news/league-two-attendances-this-weekends-highest-and-2024-25-averages-2.html),
+[Non League Insider on the National League](https://www.nonleagueinsider.com/leagues/how-big-is-the-national-league/),
+[WSC on non-League crowds](https://wsc.co.uk/?p=17566),
+[ONTOUR on away end rules](https://ontourfootball.com/news/away-end-capacity-at-english-grounds-the-rules-the-real-numbers-and-how-to-check-before-you-travel),
+[UEFA Champions League regulations, Article 45](https://documents.uefa.com/r/Regulations-of-the-UEFA-Champions-League-2025/26/Article-45-Visiting-team-tickets-Online).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

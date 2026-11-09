@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formShift } from '../engine/mood';
 import { dribblePick } from '../ui/moments/dribblePick';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -8,7 +8,8 @@ import { AnimatedNumber, Badge, Button, Card, Choice, H2, Icon, IconName, Pill, 
 import { alpha, colors, fonts, matchRatingColor, POSITION_COLORS, teamColor } from '../ui/theme';
 import { CALL_PASSING, placeMoment, spamCost, setFormation, KeyMoment, MatchEvent, MatchState, MomentKind, Played, ShoutKind, SideKey, Zone, chooseMoment, setZone, zoneOf, makeSub, shootInstead, passInstead, takeAction, possessionPct, resolveMoment, resumeFromHalf, shout, simToEnd, simToHalf, simUntilOn, stepMinute } from '../engine/match';
 import { stepWatched } from '../engine/pace';
-import { FinishResult, finishUserMatch, markKickOff } from '../engine/game';
+import { FinishResult, finishUserMatch, markKickOff, userFixture } from '../engine/game';
+import { Ground, groundFor, groundLine } from '../engine/ground';
 import { FORMATIONS, teamById } from '../engine/lineup';
 import { TableRow, leagueTable, tablePosition } from '../engine/league';
 import { groupTable } from '../engine/international';
@@ -214,13 +215,26 @@ export default function MatchScreen() {
     lastShape.current = myShape;
   }, [myShape, showToast, game?.mode]);
 
-  // The crowd murmurs while the ball is in play.
+  // The ground and its crowd, fixed for the match.
+  const fixtureId = live?.fixtureId;
+  const ground = useMemo(() => {
+    const g = useStore.getState().game;
+    const m = useStore.getState().live;
+    if (!g || !m) return null;
+    const f = userFixture(g);
+    return groundFor(g.world, f && f.id === m.fixtureId ? f : { id: m.fixtureId, week: 0, homeId: m.home.clubId, awayId: m.away.clubId, played: false, homeGoals: 0, awayGoals: 0, scorers: [] });
+    // Built once per fixture: reading the store, so a goal or a sub never redraws the stands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixtureId]);
+
+  // The crowd murmurs while the ball is in play, louder the bigger it is.
   const inPlay = kicked && !!live && !live.finished;
   const soundOn = useSettings((st) => st.sound);
+  const noise = ground?.noise ?? 0.35;
   useEffect(() => {
-    crowdAmbience(inPlay && soundOn);
+    crowdAmbience(inPlay && soundOn, noise);
     return () => crowdAmbience(false);
-  }, [inPlay, soundOn]);
+  }, [inPlay, soundOn, noise]);
 
   // A key moment opens when the move that led to it reaches the player.
   // Nothing opens before kick-off.
@@ -402,6 +416,7 @@ export default function MatchScreen() {
             zone={game.mode === 'career' ? zoneOf(game.world, live) : undefined}
             shout={live.shout && live.minute <= live.shout.until ? live.shout.kind : null}
             celebration={game.career?.celebration}
+            ground={ground!}
           />
           </View>
         )}
@@ -523,6 +538,7 @@ export default function MatchScreen() {
               }}
             />
           </Row>
+          {ground && <GroundCard ground={ground} />}
           <LineupsCard game={game} live={live} focusId={game.career?.playerId} />
         </>
       )}
@@ -733,6 +749,26 @@ function Gain({ label, value, color, icon, decimals = 0, money, absolute }: { la
       <AnimatedNumber value={value} duration={1100} format={(n) => (money ? `+${formatMoney(Math.round(n))}` : `${absolute ? '' : '+'}${n.toFixed(decimals)}`)} style={{ fontFamily: fonts.display, fontSize: 20, color }} />
       <Text style={styles.rateLabel}>{label.toUpperCase()}</Text>
     </View>
+  );
+}
+
+// Before kick-off: where the match is played and who has come to watch.
+function GroundCard({ ground: g }: { ground: Ground }) {
+  const facts = [`Crowd ${g.attendance.toLocaleString('en-GB')}`, g.neutral ? 'Neutral venue' : g.awayFans >= 20 ? `${g.awayFans.toLocaleString('en-GB')} away` : null, g.lights ? 'Floodlit' : null].filter(Boolean).join('  |  ');
+  return (
+    <Card>
+      <Row gap={10}>
+        <Icon name={g.level >= 3 ? 'people' : 'people-outline'} size={22} color={g.level >= 4 ? colors.gold : colors.muted} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.text }} numberOfLines={1}>
+            {groundLine(g)}
+          </Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.muted }} numberOfLines={1}>
+            {facts}
+          </Text>
+        </View>
+      </Row>
+    </Card>
   );
 }
 

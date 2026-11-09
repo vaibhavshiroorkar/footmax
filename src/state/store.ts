@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Game } from '../engine/types';
 import { newCareerGame, startUserMatch } from '../engine/game';
+import { movePlayer } from '../engine/transfers';
 import { MatchState } from '../engine/match';
 import { loadErrorText, loadSave, serialize } from '../engine/save';
 import { DataPack } from '../data/pack';
@@ -274,5 +275,5 @@ export function useGame(): Game | null {
 // production build can opt in, to measure real performance.
 if ((__DEV__ || process.env.EXPO_PUBLIC_TEST_HOOK) && typeof window !== 'undefined') {
   (window as unknown as { __footmax: typeof useStore }).__footmax = useStore;
-  (window as unknown as { __footmaxDev: object }).__footmaxDev = { newCareerGame, startUserMatch };
+  (window as unknown as { __footmaxDev: object }).__footmaxDev = { newCareerGame, startUserMatch, movePlayer };
 }

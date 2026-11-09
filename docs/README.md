@@ -12,6 +12,7 @@ hold everything about the project, so no context depends on a chat.
 | [Match usability plan](superpowers/plans/2026-11-05-match-usability.md) | Training labels, interaction buttons and match rewards | A step finishes or its design changes |
 | [Match flow plan](superpowers/plans/2026-11-06-match-flow.md) | Quick Sim results, cards, Press and referee audio | A step finishes or its design changes |
 | [Career and match rules plan](superpowers/plans/2026-11-09-career-and-match-rules.md) | Awards, retirement, VAR suspense and ground passes | A step finishes or its design changes |
+| [Grounds and crowds plan](superpowers/plans/2026-11-09-grounds-and-crowds.md) | Grounds, crowds in team colours and the climb you can feel | A step finishes or its design changes |
 | [HISTORY.md](HISTORY.md) | What happened: each stage of the project, the decisions made and why, and the traps found | A version ships or a decision is made |
 | [GAME.md](GAME.md) | How the game works right now: every rule and system | Any rule or system changes |
 | [RESEARCH.md](RESEARCH.md) | What we found out: laws, formats, tools, measurements and their sources | Before building each version |

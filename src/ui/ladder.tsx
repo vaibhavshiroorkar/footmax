@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { Game } from '../engine/types';
 import { leagueStrength, nationById, targetOverall } from '../engine/generator';
 import { overall } from '../engine/player';
+import { RUNG_MINS, rungOf } from '../engine/ground';
 import { Card, Icon, IconName, Row, T } from './kit';
 import { alpha, colors, fonts } from './theme';
 
@@ -10,20 +11,14 @@ import { alpha, colors, fonts } from './theme';
 // player's current league is (average club reputation).
 // short: the name under the ladder's bar, where five must fit a phone.
 export const RUNGS: { label: string; short: string; min: number; icon: IconName; color: string }[] = [
-  { label: 'Grassroots', short: 'Local', min: 0, icon: 'leaf', color: '#8fa3b8' },
-  { label: 'Semi-pro', short: 'Semi-pro', min: 35, icon: 'football', color: colors.teal },
-  { label: 'Professional', short: 'Pro', min: 50, icon: 'shield-checkmark', color: colors.blue },
-  { label: 'Top flight', short: 'Top', min: 63, icon: 'star', color: colors.purple },
-  { label: 'Elite', short: 'Elite', min: 76, icon: 'trophy', color: colors.gold },
+  { label: 'Grassroots', short: 'Local', min: RUNG_MINS[0], icon: 'leaf', color: '#8fa3b8' },
+  { label: 'Semi-pro', short: 'Semi-pro', min: RUNG_MINS[1], icon: 'football', color: colors.teal },
+  { label: 'Professional', short: 'Pro', min: RUNG_MINS[2], icon: 'shield-checkmark', color: colors.blue },
+  { label: 'Top flight', short: 'Top', min: RUNG_MINS[3], icon: 'star', color: colors.purple },
+  { label: 'Elite', short: 'Elite', min: RUNG_MINS[4], icon: 'trophy', color: colors.gold },
 ];
 
-export function rungOf(strength: number): number {
-  let i = 0;
-  RUNGS.forEach((r, k) => {
-    if (strength >= r.min) i = k;
-  });
-  return i;
-}
+export { rungOf };
 
 export function LadderCard({ game }: { game: Game }) {
   const world = game.world;
