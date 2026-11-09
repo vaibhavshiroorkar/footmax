@@ -482,7 +482,8 @@ function recordGoal(world: World, s: MatchState, sideKey: SideKey, shooter: Play
       s.events[s.events.length - 1].shot = { ...facts, var: 'overturned', varReason: reason };
       return;
     }
-    if (review) facts = { ...facts, var: 'stands' };
+    // A goal that stands still had something checked; the pitch names it.
+    if (review) facts = { ...facts, var: 'stands', varReason: reason };
   }
   side.goals++;
   side.onTarget++;

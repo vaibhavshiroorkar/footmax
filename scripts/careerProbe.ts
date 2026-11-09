@@ -37,4 +37,8 @@ for (let s = 0; s < seasons; s++) {
     `age ${p.age} ovr ${overall(p)} club ${club?.name ?? 'none'} (rep ${club?.reputation ?? '-'}) apps ${h?.season === season ? h.apps : 0} goals ${h?.season === season ? h.goals : 0} ` +
       `caps ${p.caps} level ${c.level} skills ${JSON.stringify(p.skills)} fame ${c.fame.toFixed(0)}`,
   );
+  if (c.retired) {
+    console.log(`career over at ${p.age}: ${c.endReason ?? 'retired'}`);
+    break;
+  }
 }

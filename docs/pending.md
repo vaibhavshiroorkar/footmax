@@ -12,7 +12,7 @@ Later releases and requests take precedence over earlier unfinished lists.
 
 ## Complete Football Game Update List
 
-Source: the user's update list of 2026-11-05 and follow-up. 36 entries remain open,
+Source: the user's update list of 2026-11-05 and follow-up. 24 entries remain open,
 with release versions unassigned. C0 is in implementation; the others are `todo`.
 C0 is the highest priority. See the approved
 [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency-design.md).
@@ -33,17 +33,7 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C5. New Game Plus (Rebirth):** In New Game Plus, players should have the opportunity to join bigger clubs directly from the youth academy instead of always starting at the lowest level.
 
-- [ ] **C6. Retirement and Career Summary:** Players should eventually retire, after which the game should display a complete summary of their career, including clubs, trophies, achievements, statistics, and milestones.
-
-- [ ] **C7. Dynamic Retirement Age:** Retirement should vary depending on the player's career and circumstances. Some players may retire around age 30, while others can continue playing until approximately 40.
-
-- [ ] **C8. Fix Repeating Voice Lines:** Fix the audio issue where certain voice lines repeat unnecessarily or become inaudible.
-
-- [ ] **C9. Quick Sim Result Screen:** Quick Sim should still display the match result screen after simulating a match.
-
 - [ ] **C11. Defensive Actions and Tutorial:** Make defensive contributions such as tracking back, pressing, marking, and positioning equally important as attacking actions. Emphasize these mechanics during the tutorial.
-
-- [ ] **C12. Realistic Award Eligibility:** Players in local leagues should not be able to win major global awards like the Ballon d'Or. Award eligibility should depend on league reputation, competition level, individual performance, and career achievements.
 
 - [ ] **C13. Noticeable Career Progression:** Make the difference between local leagues and higher-tier football clearly noticeable through gameplay quality, player abilities, match intensity, stadium atmosphere, rewards, and overall presentation.
 
@@ -57,21 +47,11 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C19. Volley Animations:** Add dedicated volley animations, including volley attempts from the edge of the penalty area following corners or loose balls.
 
-- [ ] **C20. Yellow Card Indicators:** Make yellow cards clearly visible as small indicators on players and within the match statistics.
-
 - [ ] **C21. Realistic Shooting and Ball Physics:** Improve shooting animations and ball movement. The ball should visually scale down as it travels farther from the camera, rotate naturally, and follow believable trajectories rather than simply moving across the screen.
-
-- [ ] **C22. Free Kick Voice Line:** Fix the incorrect or malfunctioning free kick voice line.
 
 - [ ] **C23. Dynamic Interaction Animations:** Interaction animations should adapt to the actual pitch situation instead of using fixed player positions and static animations. Player movement, orientation, spacing, and positioning must reflect the current match state.
 
-- [ ] **C24. VAR Suspense:** VAR decisions should include realistic pauses and suspense to increase tension before revealing the final decision.
-
-- [ ] **C25. Red Card Statistics:** Players who receive red cards should appear greyed out in the match statistics to indicate that they have been sent off.
-
 - [ ] **C26. Fix Corner Kick System:** Fix the corner kick system, which is currently bugged, and ensure corners behave consistently across different match situations.
-
-- [ ] **C27. Remove Long-Range Interaction:** Remove the dedicated long-range shooting interaction.
 
 - [ ] **C28. Rework Heading Interaction:** Redesign the heading interaction to make aerial challenges more realistic, engaging, and dependent on player positioning, timing, and heading ability.
 
@@ -87,18 +67,23 @@ The request text below is preserved, including overlapping corner and consistenc
 
 - [ ] **C38. Attribute-Based Shooting Accuracy and Power:** Rework shooting so that players with better shooting attributes have a more forgiving timing, accuracy, and power window. Higher-rated players should be able to shoot harder while maintaining good accuracy, whereas lower-rated players should have a smaller margin for error and be more likely to miss the target when attempting powerful shots. Shooting should still depend on positioning, pressure, angle, and timing.
 
-- [ ] **C39. Prioritize Ground Passes:** Make ground passes the primary method of passing during matches. Players should naturally use short passes, direct passes, and ground through balls instead of constantly attempting lofted passes. Lobbed passes should mainly occur when tactically appropriate, such as switching play, bypassing defensive lines, or delivering aerial balls into the box.
-
 - [ ] **C40.** Model size consistency with respect to distance to keep things real
-
-- [ ] **C41.** change track back into press instead
 
 C0 expands the earlier engine planning request from chat
 `bb12309d-e778-4928-a710-79d1028a137d` into planning and development.
 That earlier reply stopped at a usage limit before delivering a plan.
-C27 replaces the earlier request for a dedicated long-range scene.
+C27 removed the earlier dedicated long-range scene; ROADMAP.md records it as done.
 The old release entries remain historical records; these new requests remain open
 even where a previous release claimed related fixes.
+
+On 2026-11-07 the user had Codex's physical shot actions, swept collisions and shot
+camera removed (`ce526a0`, see ROADMAP.md). Before the next C0 step, ask what was
+wrong with them, so it does not repeat the same approach.
+
+C18 evidence (2026-11-09): with full training and every offer accepted, the career
+probe leaves a rep-34 club after one season and reaches a top-flight side by 19
+(seeds 7 and 21). The weaker-training result is in HISTORY.md. Ask the user for
+the case where they felt stuck before changing how offers work.
 
 ## Historical seasons
 
@@ -175,6 +160,11 @@ Removing the old Legends card is already done.
 - [ ] Review the club page's My club, Squad and Transfers tabs with the user.
 - [ ] Confirm the wrong-goal fix addresses the phone bug originally reported in request 4.
 - [ ] Confirm request 10 meant the Play player card and that its spacing now feels right.
+- [ ] Watch the VAR beats on a phone and judge whether the wait feels tense or slow.
+- [ ] Look at the career-over screen at 360 px after a long career with many clubs.
+- [ ] Check national team call-ups for strong players. In one pre-fix career probe
+  (seed 21), an English striker at 85 overall reached 28 with no caps, while seed 7
+  gained caps from 20.
 
 Sources: [roadmap status](ROADMAP.md#where-it-stands),
 [audit scope](ROADMAP.md#v200-full-audit),

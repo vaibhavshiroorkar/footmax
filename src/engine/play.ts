@@ -434,7 +434,7 @@ export function addFinish(steps: PlayStep[], rng: Rng, side: 'home' | 'away', sh
   const shape = facts?.shape;
   const head = facts ? !!facts.header : header;
   if (result === 'goal') {
-    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var, shotBy: side });
+    steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side, act: 'goal', header: head, aim, shape, var: facts?.var, varReason: facts?.varReason, shotBy: side });
   } else if (facts?.var === 'overturned') {
     // In the net, then VAR rules it out: a free kick to the defenders.
     steps.push({ x: 0.5 + rng.range(-0.045, 0.045), y: goalY - inward * 0.012, carrier: null, side: keeperSide, act: 'goal', header: head, aim, shape, var: 'overturned', varReason: facts.varReason, call: facts.call, restart: 'freekick', shotBy: side });

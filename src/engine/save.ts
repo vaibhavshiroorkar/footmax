@@ -48,6 +48,17 @@ export const MIGRATIONS: Record<number, (g: Record<string, unknown>) => void> = 
       delete p.secondaryRole;
     }
   },
+  // 4 -> 5: a career ended by jail, a ban, injury or depression used to leave
+  // the player on his club's books. He leaves now, as he does on retiring.
+  4: (g) => {
+    const career = g.career as { playerId: string; retired: boolean } | null;
+    const world = g.world as { players: Record<string, { clubId: string | null }>; clubs: Record<string, { playerIds: string[] }> };
+    const p = career?.retired ? world.players[career.playerId] : undefined;
+    if (!p?.clubId) return;
+    const club = world.clubs[p.clubId];
+    if (club) club.playerIds = club.playerIds.filter((id) => id !== career!.playerId);
+    p.clubId = null;
+  },
 };
 
 export type LoadResult = { ok: true; game: Game } | { ok: false; error: 'corrupt' | 'too-new' };

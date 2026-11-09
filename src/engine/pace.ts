@@ -15,6 +15,9 @@ const MAX_FOLD = 6;
 // their build-up than a quiet minute does.
 const TAIL = 2;
 const QUIET_TAIL = 1;
+// The longest pass a cut may leave, in metres. Longer ones keep a middle touch.
+const LONG_GAP = 40;
+const gap = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot((a.x - b.x) * 68, (a.y - b.y) * 105);
 
 const BIG: PlayAct[] = ['goal', 'save', 'miss', 'moment', 'card', 'injury', 'brawl'];
 
@@ -28,7 +31,25 @@ function matters(s: MatchState, steps: PlayStep[]): boolean {
 export function trimMove(steps: PlayStep[], tail = TAIL): PlayStep[] {
   if (steps.length <= tail + 1) return steps;
   const kickoff = steps[0].restart === 'kickoff';
-  const kept = steps.filter((st, i) => i === 0 || (kickoff && i === 1) || i >= steps.length - tail || (st.act !== 'pass' && st.act !== 'run'));
+  const keep = steps.map((st, i) => i === 0 || (kickoff && i === 1) || i >= steps.length - tail || (st.act !== 'pass' && st.act !== 'run'));
+  // A cut that would leave a pass over LONG_GAP metres keeps the dropped
+  // touch nearest its middle, so the ball goes along the ground in two
+  // passes instead of one long ball nobody played.
+  let prev = 0;
+  for (let i = 1; i < steps.length; i++) {
+    if (!keep[i]) continue;
+    if (steps[i].act === 'pass' && gap(steps[prev], steps[i]) > LONG_GAP) {
+      const mid = { x: (steps[prev].x + steps[i].x) / 2, y: (steps[prev].y + steps[i].y) / 2 };
+      let best = -1;
+      for (let j = prev + 1; j < i; j++) {
+        if (steps[j].side !== steps[i].side || !steps[j].carrier) continue;
+        if (best < 0 || gap(steps[j], mid) < gap(steps[best], mid)) best = j;
+      }
+      if (best >= 0) keep[best] = true;
+    }
+    prev = i;
+  }
+  const kept = steps.filter((_, i) => keep[i]);
   let holder = kept[0].carrier;
   return kept.map((st, i) => {
     const out = i > 0 && st.act === 'run' && st.carrier !== holder ? { ...st, act: 'pass' as const } : st;

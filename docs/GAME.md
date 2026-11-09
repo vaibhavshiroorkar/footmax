@@ -68,8 +68,34 @@ moments to play, not a wall of information.
   Unclaimed season goals pay out at the end of the season.
 - **Happiness:** a coach bar (his trust, from form and the relationship)
   and a dressing-room bar (team-mates' average morale) on the Play screen.
-- **Win bonus, fame, sponsors, shop, life actions, international call-ups,
-  awards** (Ballon d'Or and others).
+- **Win bonus, fame, sponsors, shop, life actions, international call-ups.**
+- **Awards** (`src/engine/awards.ts`), handed out when the league season ends,
+  follow the real awards' rules. A league's strength is its clubs' mean reputation.
+  - Ballon d'Or and Yashin Trophy: the shortlist takes top flights of strength 60
+    or more, plus Champions League clubs. The winner plays in one of Europe's five
+    strongest top flights, or for the Champions League winner. Others score at
+    0.75 (0.85 in the Champions League), so they can place but not win.
+  - Golden Boy: under 21 (20 or younger at the ceremony), in a European top flight.
+  - Golden Boot: European top flights only. Goals count 2x in the five strongest,
+    1.5x in leagues of strength 58 or more, 1x elsewhere. The table shows real goals.
+  - A career player who cannot win sees why on the Awards screen (`awardBlock`).
+- **Retirement** (`src/engine/retirement.ts`): the player can retire any time from
+  the profile. The body also sets a limit, `retirementAge`, between 30 and 41:
+  34, +4 for a keeper, +1 a defender, -1 a forward, up to +-2 for physical, +1 with
+  the nutritionist, -1 a year per 20 weeks injured (up to -3), +1 at 82 overall or
+  more, -1 under 70 and -2 under 62, -1 while depressed, and a fixed -2 to +2 for
+  each player. From 31 the inbox suggests thinking about it. One season before the
+  limit comes a "One last season" warning; at the limit the career ends at the
+  season change. Every ending, chosen or forced (jail, a ban, injury, depression),
+  goes through `closeCareer`: the season so far joins the history, he leaves his
+  club and open offers expire.
+- **Career over screen** (`src/ui/careerSummary.tsx`, data from `careerStory`):
+  age, seasons, peak overall, games, goals, assists, average rating, caps and
+  international goals, money banked; each club with its years and numbers; titles,
+  awards won and other top-three award finishes; milestones reached; and the
+  season-by-season table.
+- **Other players retire** from 34 (20% more each year, all gone by 39). Keepers
+  start three years later.
 
 ## Matches
 
@@ -92,7 +118,12 @@ moments to play, not a wall of information.
   - Players are shirt-coloured dots with their numbers (keepers squarer,
     with gloves). When picking a pass, the mates on offer stand up as figures.
   - The ball is a football (white with black panels) in every view, and
-    spins as it rolls. Crosses are whipped and bend, long balls drift,
+    spins as it rolls. Passes go along the ground unless lifting one has a
+    reason (`liftPass`): over 40 m, a switch of play (over 28 m and 22 m across),
+    a goal kick or free kick over 25 m, or an opponent within 1.2 m of the line
+    between passer and target. When `trimMove` (`src/engine/pace.ts`) cuts the
+    middle of a move and a pass over 40 m would be left, it keeps the touch
+    nearest the middle, so the ball goes in two passes. Crosses are whipped and bend, long balls drift,
     curlers start outside the post and bend in, low shots skim the grass,
     driven ones swerve a little. Height, bend and pace vary every time.
     Play runs at 1.95 times real time at 1x.
@@ -132,12 +163,16 @@ moments to play, not a wall of information.
 - **Goals taken away:** a goal can be ruled out on the spot by the flag or because
   the referee had blown (about 4% of goals), in any season. The ball goes in, the
   crowd rises, then NO GOAL.
-- **VAR:** about 8% of goals (not penalties) are checked. The ball goes
-  in, play holds, VAR CHECK shows and the referee goes to a monitor at the
-  touchline. Then GOAL (it stands, the celebration plays and the feed says
-  the goal stood) or NO GOAL (ruled out for offside, a foul or handball,
-  about 4 in 10 checks): it never counts and the defenders get a free
-  kick. The scoreboard adds a goal only after the call. Tested in
+- **VAR:** about 8% of goals (not penalties) are checked, for offside, a foul in
+  the build-up or handball. The ball goes in and play holds in beats:
+  VAR CHECK naming what is checked ("Possible offside"); then for offside,
+  OFFSIDE? while the lines are drawn; for a foul or handball that is ruled out,
+  ON-FIELD REVIEW, when the referee walks to the monitor at the touchline (and
+  for 15% of such goals that stand, so a review is no sure sign). Then GOAL (it
+  stands, the celebration plays) or NO GOAL (about 4 in 10 checks): it never
+  counts and the defenders get a free kick. The engine decides before the check;
+  the beats only build the wait, about 2.4 s then 2 to 2.8 s of pitch time.
+  The scoreboard adds a goal only after the call. Tested in
   `__tests__/ui/var.test.ts`.
 - **The laws on the pitch** (checked frame by frame in
   `__tests__/ui/rules.test.ts`):
@@ -423,7 +458,10 @@ $2K) gives 14 morale and takes 3 low weeks off. Morale 45 ends it.
 - **Who plays:** drawn in week 1 from last season's tables (`world.lastFinish`), or
   by reputation in the first season. Places by nation (England and Spain 5 from
   2024/25, Germany and Italy 4, France 3, Portugal and the Netherlands 2), then the
-  best other European clubs, two a nation.
+  best other European clubs with a squad of 14, two a nation. Clubs outside the
+  simulated leagues lose players to retirement over the years, so if too few remain,
+  the next best clubs fill the last places and their squads are topped up to 18.
+  The league phase always has 36.
 - **Format by season:** from 2024/25, 36 clubs in one table: four pots of nine, each
   club meeting two from each pot, one home and one away, eight games. 1st to 8th go
   to the last 16, 9th to 24th play off. Before that, 32 clubs in eight groups of
@@ -545,6 +583,10 @@ contracts, board and federation confidence, sackings and job offers.
   is pushed so it can be seen live.
 - Supabase: email and Google sign-in, cloud saves (up to six slots),
   leaderboards and public profiles. Guest play needs no account.
+- Local saves (`src/state/storage.ts`) are compressed and split into chunks under a
+  fresh generation; the pointer moves only after every chunk is written. Writes to
+  one key wait for the one before, so an autosave and a background save never
+  delete each other's chunks.
 
 ## Planned next
 

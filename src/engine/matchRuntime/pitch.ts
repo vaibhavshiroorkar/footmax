@@ -110,8 +110,20 @@ const TIME = 1.95;
 // Goals keep their moment: the celebration lasts as long in real time as
 // it did when play ran at 1.8.
 const HOLD = TIME / 1.8;
-// How long a VAR check holds play, in pitch seconds.
-const VAR_HOLD = 3.4 * HOLD;
+// A VAR check runs in beats, in pitch seconds: what is being checked, then
+// the lines or the monitor, then the call. Real checks take 40 to 60
+// seconds (RESEARCH.md); the beats keep the wait without the minute.
+const VAR_CHECK = 2.2 * HOLD;
+const VAR_LINES = 1.8 * HOLD;
+const VAR_REVIEW = 2.6 * HOLD;
+// A goal that stands after a foul or handball check still sends the
+// referee to the monitor now and then, so a review is not a sure sign.
+const REVIEW_STANDS = 0.15;
+const CHECKING: Record<string, string> = { offside: 'Possible offside', foul: 'Possible foul in the build-up', handball: 'Possible handball' };
+function varTopic(reason: string | undefined): 'offside' | 'foul' | 'handball' {
+  const r = (reason ?? '').toLowerCase();
+  return r.includes('handball') ? 'handball' : r.includes('foul') ? 'foul' : 'offside';
+}
 
 export class PitchSim {
   private readonly rng: Rng;
@@ -162,8 +174,9 @@ export class PitchSim {
   celebrate: { at: number; until: number; scorer: string | null; side: 'home' | 'away'; cx: number; cy: number; style: string; told?: boolean } | null = null;
   // Each player's own celebration, when he has one (the career player).
   celebrations: Record<string, string> = {};
-  // A VAR check in progress: when it started and where the monitor stands.
-  varCheck: { at: number; x: number; y: number } | null = null;
+  // A VAR check in progress: when it started, where the monitor stands, and
+  // which beat it is on. The referee walks to the monitor only for a review.
+  varCheck: { at: number; x: number; y: number; beat: 'check' | 'lines' | 'review'; next: 'lines' | 'review' | null; beatAt: number } | null = null;
   caption = 'Teams are out. Waiting for kick off.';
   callout: Callout | null = null;
   hooks: SimHooks = {};
@@ -427,6 +440,25 @@ export class PitchSim {
     return id ? this.bodies.get(id)?.name ?? '' : '';
   }
 
+  // Passes stay on the ground unless there is a reason to lift one: a ball
+  // over 40 m, a switch of play, a long restart, or a man in the lane.
+  // Real top-flight play has about one pass in nine long (RESEARCH.md).
+  liftPass(fx: number, fy: number, tx: number, ty: number, side: 'home' | 'away', restart?: Restart): boolean {
+    const d = dist(fx, fy, tx, ty);
+    if (d > 40) return true;
+    if ((restart === 'goalkick' || restart === 'freekick') && d > 25) return true;
+    if (d > 28 && Math.abs(tx - fx) > 22) return true;
+    if (d < 12) return false;
+    // An opponent standing on the line between passer and target, away from
+    // both ends, forces the ball over him.
+    return this.active().some((b) => {
+      if (b.side === side) return false;
+      const k = ((b.x - fx) * (tx - fx) + (b.y - fy) * (ty - fy)) / (d * d);
+      if (k < 0.15 || k > 0.85) return false;
+      return dist(b.x, b.y, fx + k * (tx - fx), fy + k * (ty - fy)) < 1.2;
+    });
+  }
+
   // Everyone's place, as shares of the pitch (see stepWatched).
   positions(): Record<string, { x: number; y: number }> {
     const out: Record<string, { x: number; y: number }> = {};
@@ -463,7 +495,7 @@ export class PitchSim {
     let tx: number;
     let ty: number;
     const booked = a?.act === 'card' && a.carrier ? this.bodies.get(a.carrier) : undefined;
-    if (this.varCheck) {
+    if (this.varCheck?.beat === 'review') {
       // Over to the monitor at the touchline.
       tx = this.varCheck.x + 1.2;
       ty = this.varCheck.y;
@@ -565,14 +597,18 @@ export class PitchSim {
         const d = dist(fx, fy, tx, ty);
         // A throw-in leaves the hands: a short, looping ball.
         const thrown = prev?.act === 'start' && prev.restart === 'throw';
-        const speed = thrown ? 14 : step.act === 'cross' ? 20 : d > 30 ? 26 : 20;
-        const peak = thrown ? 1.6 : step.act === 'cross' ? 4 : d > 30 ? 3 : d > 18 ? 0.8 : 0;
-        // Crosses are whipped in and bend; long balls drift; short ones run
-        // almost straight.
-        const bend = thrown ? 0 : step.act === 'cross' ? 2.4 + this.rng.next() * 1.6 : d > 30 ? 1 + this.rng.next() : d > 18 ? 0.5 : 0.15;
+        const cross = step.act === 'cross';
+        const lofted = !thrown && !cross && this.liftPass(fx, fy, tx, ty, from?.side ?? step.side, prev?.act === 'start' ? prev.restart : undefined);
+        const speed = thrown ? 14 : cross ? 20 : lofted ? (d > 30 ? 26 : 20) : d > 25 ? 21 : 18;
+        const peak = thrown ? 1.6 : cross ? 4 : lofted ? (d > 30 ? 3 : 1.6) : 0;
+        // Crosses are whipped in and bend; long balls drift; passes along the
+        // ground run almost straight. The draw keeps the old order so seeded
+        // runs stay comparable.
+        const swerve = !thrown && (cross || d > 30) ? this.rng.next() : 0;
+        const bend = thrown ? 0 : cross ? 2.4 + swerve * 1.6 : lofted ? (d > 30 ? 1 + swerve : 0.5) : 0.15;
         this.ball.owner = null;
         this.ball.flight = { fx, fy, tx, ty, t: 0, dur: Math.max(0.32, d / speed), peak, curl: bend * (this.rng.next() < 0.5 ? -1 : 1) };
-        this.hooks.onSound?.('kick', step.act === 'cross' || d > 30 ? 0.8 : 0.5);
+        this.hooks.onSound?.('kick', cross || lofted ? 0.8 : 0.5);
         const to = step.act === 'offside' ? step.other : step.carrier;
         this.caption =
           step.act === 'cross'
@@ -946,18 +982,36 @@ export class PitchSim {
           }
           return done();
         }
-        // VAR: hold play while the referee checks the monitor, then call it.
+        // VAR: the goal waits while the officials look again. The decision is
+        // already made by the engine; the beats only build the wait.
         if (step.act === 'goal' && step.var && a.stage === 0) {
           a.stage = 5;
-          this.varCheck = { at: this.clock, x: 0.8, y: PL / 2 };
-          this.callout = { text: 'VAR CHECK', sub: 'Checking the goal', tone: 'stop', signal: 'still', until: this.clock + VAR_HOLD };
-          this.caption = 'VAR is checking the goal...';
+          const topic = varTopic(step.varReason);
+          const review = topic !== 'offside' && (step.var === 'overturned' || this.rng.next() < REVIEW_STANDS);
+          this.varCheck = { at: this.clock, x: 0.8, y: PL / 2, beat: 'check', next: topic === 'offside' ? 'lines' : review ? 'review' : null, beatAt: this.clock };
+          this.callout = { text: 'VAR CHECK', sub: CHECKING[topic], tone: 'stop', signal: 'still', until: this.clock + VAR_CHECK };
+          this.caption = `VAR is checking the goal. ${CHECKING[topic]}...`;
           this.hooks.onSound?.('whistle', 0.6);
           this.ball.owner = null;
           return;
         }
         if (a.stage === 5) {
-          if (this.clock < (this.varCheck?.at ?? 0) + VAR_HOLD) return;
+          const vc = this.varCheck;
+          if (vc && vc.beat === 'check' && vc.next && this.clock >= vc.beatAt + VAR_CHECK) {
+            vc.beat = vc.next;
+            vc.beatAt = this.clock;
+            if (vc.beat === 'lines') {
+              this.callout = { text: 'OFFSIDE?', sub: 'Drawing the lines', tone: 'stop', signal: 'still', until: this.clock + VAR_LINES };
+              this.caption = 'VAR draws the lines...';
+            } else {
+              this.callout = { text: 'ON-FIELD REVIEW', sub: 'The referee goes to the monitor', tone: 'stop', signal: 'still', until: this.clock + VAR_REVIEW };
+              this.caption = 'The referee is going to the monitor...';
+              this.hooks.onSound?.('whistle', 0.5);
+            }
+            return;
+          }
+          const wait = !vc ? 0 : vc.beat === 'check' ? VAR_CHECK : vc.beat === 'lines' ? VAR_LINES : VAR_REVIEW;
+          if (vc && this.clock < vc.beatAt + wait) return;
           this.varCheck = null;
           if (step.var === 'overturned') {
             a.stage = 1;
@@ -1078,7 +1132,8 @@ export class PitchSim {
           // The ball is not with him yet: it is played to him, in plain sight,
           // and the moment opens when he has it.
           this.ball.owner = null;
-          this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: carrier.x, ty: carrier.y, t: 0, dur: Math.max(0.3, gap / 24), peak: gap > 24 ? 1.2 : 0.2 };
+          const lift = this.liftPass(this.ball.x, this.ball.y, carrier.x, carrier.y, carrier.side);
+          this.ball.flight = { fx: this.ball.x, fy: this.ball.y, tx: carrier.x, ty: carrier.y, t: 0, dur: Math.max(0.3, gap / (lift ? 24 : 20)), peak: lift ? 1.6 : 0 };
           this.hooks.onSound?.('kick', 0.5);
           return;
         }

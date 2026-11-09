@@ -1,13 +1,13 @@
 import { AttrKey, Game, Player } from './types';
 import { Rng, clamp } from './rng';
-import { avgRating, formatMoney, overall, seasonRows, weightsFor } from './player';
+import { avgRating, formatMoney, overall, weightsFor } from './player';
 import { MatchState } from './match';
 import { ABILITY_COST, SKILL_MOVES, canLearnMove, canUpgrade, skillLevel, SKILLS } from './skills';
-import { movePlayer } from './transfers';
 import { recordTraining } from './progress';
 import { addXp, careerPlayer, gainFame, squadStatus } from './careerBase';
 import { allNodes, applyNode, canUnlock, nodeCost, nodeLabel } from './skillTree';
 import { moveFee, moveWeeks, sessionEnergy } from './perks';
+import { closeCareer } from './retirement';
 
 export { addXp, careerPlayer, squadStatus };
 
@@ -286,17 +286,7 @@ export function afterCareerMatch(game: Game, s: MatchState): string | null {
 }
 
 export function retire(game: Game): void {
-  const c = game.career!;
-  const p = careerPlayer(game);
-  c.retired = true;
-  p.retired = true;
-  p.history.push(...seasonRows(p, game.world.season));
-  p.stats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
-  p.seasonSplits = undefined;
-  if (p.clubId) movePlayer(game.world, p, null);
-  game.world.freeAgents = game.world.freeAgents.filter((id) => id !== p.id);
-  // Nothing left to answer once the boots are hung up.
-  for (const m of game.inbox) if (m.action && !m.action.resolved) m.action.resolved = 'expired';
+  closeCareer(game);
 }
 
 

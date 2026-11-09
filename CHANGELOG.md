@@ -2,6 +2,32 @@
 
 The version shows in Settings. Each release is a git tag (`v1.1.0`).
 
+## 2.5.0
+
+- Quick Sim opens the full result screen.
+- Skip to Halftime no longer stops the game taking your input.
+- Press replaces Track back, and closes down the man on the ball from farther away.
+- Yellow cards show on players and in the lineups. Sent-off players stay in the
+  stats, greyed out.
+- Referee calls no longer repeat or cut out, and the free kick call plays once.
+- Long shots use the normal shot controls. The separate long-range scene is gone.
+- Training names every attribute a drill improves and explains the green dot.
+- Interaction buttons lose their descriptions and "better option" labels.
+- Rating, XP, Fame and Bonus share one row after a match.
+- Passes stay on the ground unless there is a reason to lift them: a long ball, a
+  switch of play or a man in the way.
+- VAR builds the tension: what is being checked, then the lines or the referee at
+  the monitor, then the call.
+- Awards follow the real rules. A local league is too small for the Ballon d'Or, the
+  Golden Boy is for under-21s in Europe's top flights, and the Golden Boot weights
+  goals by league. The Awards screen tells you why you are not in the running.
+- Careers end on their own: your body sets a retirement age between 30 and 41, from
+  your position, fitness, injuries and level. You get a season's warning.
+- The career-over screen shows every club, your peak, award finishes and milestones.
+- Fixed a crash when a later season's Champions League draw ran out of clubs.
+- Fixed a career that ended through injury, jail or a ban staying on the club's books.
+- Fixed a save that could become unreadable when two saves ran at the same moment.
+
 ## 2.4.0
 
 - Shooting is two taps again: one to aim, one to strike. Long shots too.

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Game } from '../engine/types';
-import { avgRating, formatMoney, fullName, overall } from '../engine/player';
+import { avgRating, formatMoney, fullName } from '../engine/player';
 import { Card, H2, Row, T } from './kit';
-import { careerTotals } from '../engine/totals';
+import { careerStory, careerTotals } from '../engine/totals';
 
 export function HistoryTable({ game, playerId }: { game: Game; playerId: string }) {
   const p = game.world.players[playerId];
@@ -34,30 +34,49 @@ export function HistoryTable({ game, playerId }: { game: Game; playerId: string 
   );
 }
 
+const ORDINAL = ['', '1st', '2nd', '3rd'];
+
 export function CareerSummary({ game }: { game: Game }) {
   const c = game.career!;
   const p = game.world.players[c.playerId];
-  const all = p.history;
-  const { apps, goals, assists } = careerTotals(game);
+  const totals = careerTotals(game);
+  const story = careerStory(game);
   const honours = game.world.honours.filter((h) => h.playerId === p.id);
   const clubTitles = game.world.honours.filter(
-    (h) => h.clubId && h.title.endsWith('champions') && all.some((s) => s.season === h.season && s.clubId === h.clubId),
+    (h) => h.clubId && h.title.endsWith('champions') && p.history.some((s) => s.season === h.season && s.clubId === h.clubId),
   );
+  const span = (a: number, b: number) => (a === b ? `${a}` : `${a}-${String(b).slice(2)}`);
   return (
     <>
       <Card>
         <H2>{fullName(p)}</H2>
         <T muted>
-          Retired at {p.age}. Peak level {overall(p)}. {p.caps} international caps.
+          Retired at {p.age} after {totals.seasons} season{totals.seasons === 1 ? '' : 's'}. Peak level {totals.peakOvr}.
         </T>
         <T>
-          {apps} games, {goals} goals, {assists} assists.
+          {totals.apps} games, {totals.goals} goals, {totals.assists} assists. Average rating {story.avgRating.toFixed(2)}.
+        </T>
+        <T>
+          {p.caps} international caps, {story.intlGoals} goals.
         </T>
         <T>Career earnings banked: {formatMoney(c.money)}.</T>
       </Card>
       <Card>
+        <H2>Clubs</H2>
+        {story.clubs.length === 0 && <T muted>No first-team games.</T>}
+        {story.clubs.map((s, i) => (
+          <Row key={i} style={{ paddingVertical: 3 }}>
+            <T style={{ width: 64, fontSize: 13 }}>{span(s.from, s.to)}</T>
+            <T style={{ flex: 1, fontSize: 13 }}>{s.name}</T>
+            <T muted style={{ fontSize: 13 }}>
+              {s.apps} games, {s.goals} goals
+            </T>
+          </Row>
+        ))}
+      </Card>
+      <Card>
         <H2>Trophies and awards</H2>
-        {clubTitles.length + honours.length === 0 ? <T muted>None this time. There is always the next career.</T> : null}
+        {clubTitles.length + honours.length + story.podiums.length === 0 ? <T muted>None this time. There is always the next career.</T> : null}
         {clubTitles.map((h, i) => (
           <T key={`c${i}`}>
             {h.season}: {h.title} with {h.winner}
@@ -68,7 +87,20 @@ export function CareerSummary({ game }: { game: Game }) {
             {h.season}: {h.title}
           </T>
         ))}
+        {story.podiums
+          .filter((x) => x.place > 1)
+          .map((x, i) => (
+            <T key={`p${i}`} muted>
+              {x.season}: {x.award}, {ORDINAL[x.place]}
+            </T>
+          ))}
       </Card>
+      {story.milestones.length > 0 && (
+        <Card>
+          <H2>Milestones</H2>
+          <T>{story.milestones.join(', ')}.</T>
+        </Card>
+      )}
       <Card>
         <H2>Season by season</H2>
         <HistoryTable game={game} playerId={p.id} />

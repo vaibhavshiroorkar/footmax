@@ -1,6 +1,6 @@
 import { gainFame } from './careerBase';
 import { addMessage } from './inbox';
-import { newId } from './generator';
+import { fillSquad, newId } from './generator';
 import { TableRow, tableFrom } from './league';
 import { teamById } from './lineup';
 import { quickSim } from './match';
@@ -62,11 +62,18 @@ function entrants(world: World, size: number, season: number): string[] {
   const uefa = new Set(world.nations.filter((n) => n.conf === 'UEFA').map((n) => n.id));
   const perNation: Record<string, number> = {};
   const rest = Object.values(world.clubs)
-    .filter((c) => uefa.has(c.nationId) && !places[c.nationId] && c.playerIds.length >= 14)
+    .filter((c) => uefa.has(c.nationId) && !places[c.nationId] && !c.national)
     .sort((a, b) => b.reputation - a.reputation);
   for (const c of rest) {
     if (out.length >= size) break;
-    if ((perNation[c.nationId] = (perNation[c.nationId] ?? 0) + 1) <= 2) out.push(c.id);
+    if (c.playerIds.length >= 14 && (perNation[c.nationId] = (perNation[c.nationId] ?? 0) + 1) <= 2) out.push(c.id);
+  }
+  // Clubs outside the simulated leagues lose players to retirement over the
+  // years. When too few still have a squad, the next best clubs take the
+  // last places (startEurope tops their squads up): the draw needs all 36.
+  for (const c of rest) {
+    if (out.length >= size) break;
+    if (!out.includes(c.id)) out.push(c.id);
   }
   return out.slice(0, size);
 }
@@ -85,6 +92,7 @@ function challenger(world: World, clubs: string[], clubId: string | null): strin
 export function startEurope(world: World, rng: Rng, userClub: string | null): void {
   const format = world.season >= LEAGUE_FROM ? 'league' : 'groups';
   const clubs = entrants(world, SIZE[format], world.season);
+  for (const id of clubs) if (world.clubs[id].playerIds.length < 18) fillSquad(world, rng, world.clubs[id], 18);
   const e: Europe = { season: world.season, format, clubs, groups: [], fixtures: [], round: 'qualifier' };
   world.europe = e;
   const hopeful = challenger(world, clubs, userClub);

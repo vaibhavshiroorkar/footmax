@@ -17,6 +17,10 @@ const count = Number(process.argv[2] ?? 12);
 const rows: Record<string, number>[] = [];
 let finishes = 0;
 let wrongGoal = 0;
+// Passes on screen, and how many leave the ground (peak over half a metre).
+let passes = 0;
+let lofted = 0;
+const PASSES = ['pass', 'offside', 'out'];
 
 for (let seed = 101; seed < 101 + count; seed++) {
   const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed });
@@ -75,6 +79,10 @@ for (let seed = 101; seed < 101 + count; seed++) {
     const a = sim.act;
     if (a && a !== lastAct) {
       lastAct = a;
+      if (PASSES.includes(a.step.act) && sim.ball.flight) {
+        passes++;
+        if (sim.ball.flight.peak > 0.5) lofted++;
+      }
       const shooter = a.from ? sim.bodies.get(a.from) : undefined;
       if (shooter && ['goal', 'save', 'miss'].includes(a.step.act)) {
         finishes++;
@@ -114,3 +122,4 @@ console.log(`moments, goals      ${f(mean('moments'))}, ${f(mean('goals'))}`);
 console.log(`caption median      ${f(mean('captionMedian'))} s`);
 console.log(`captions under 1 s  ${f(mean('captionShort') * 100, 0)}%`);
 console.log(`wrong-goal shots    ${wrongGoal} of ${finishes}`);
+console.log(`lofted passes       ${lofted} of ${passes} (${f((lofted / Math.max(1, passes)) * 100, 0)}%)`);

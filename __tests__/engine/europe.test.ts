@@ -11,6 +11,26 @@ function playSeason(game: Game) {
   while (game.world.phase === 'season' && guard++ < 60) advanceWeek(game);
 }
 
+describe('a draw after years of retirements', () => {
+  // Clubs outside the simulated leagues are never refilled, so by the fifth
+  // season too few had 14 players and the draw got 35 clubs and threw.
+  const game = fresh(7);
+  const w = game.world;
+  const inLeague = new Set(w.leagues.flatMap((l) => l.clubIds));
+  for (const c of Object.values(w.clubs)) if (!inLeague.has(c.id) && !c.national) c.playerIds = c.playerIds.slice(0, 10);
+  startEurope(w, new Rng(5), null);
+  const e = w.europe!;
+
+  it('still fills all 36 places and schedules every game', () => {
+    expect(e.clubs.length).toBe(36);
+    expect(e.fixtures.length).toBe(144);
+  });
+
+  it('gives every club a squad to play with', () => {
+    for (const id of e.clubs) expect(w.clubs[id].playerIds.length).toBeGreaterThanOrEqual(18);
+  });
+});
+
 describe('the league phase draw', () => {
   const game = fresh();
   const w = game.world;

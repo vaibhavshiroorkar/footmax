@@ -478,8 +478,15 @@ describe('progression', () => {
 
   it('records a season review at the rollover', () => {
     const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 54 });
-    while (game.world.phase === 'season') skipWeek(game);
+    // An idle, unhappy player can walk away in his first season, and an ended
+    // career has no review. Keep him content so the season runs its course.
+    const me = game.world.players[game.career!.playerId];
+    while (game.world.phase === 'season') {
+      me.morale = 70;
+      skipWeek(game);
+    }
     skipSummer(game);
+    expect(game.career!.retired).toBe(false);
     const pr = progressOf(game);
     expect(pr.review).toBeDefined();
     expect(pr.ovrHistory.length).toBe(2);
@@ -540,6 +547,22 @@ describe('save migrations', () => {
     const r = loadSave(JSON.stringify(old));
     expect(r.ok).toBe(true);
     if (r.ok) expect(Object.values(r.game.world.players).every((p) => !!p.role)).toBe(true);
+  });
+
+  it('takes a player whose career ended off his club in a version 4 save', () => {
+    const game = newCareerGame({ firstName: 'A', lastName: 'B', nationId: 'ENG', role: 'ST', seed: 83 });
+    const p = game.world.players[game.career!.playerId];
+    const club = p.clubId!;
+    game.career!.retired = true;
+    p.retired = true;
+    const old = JSON.parse(serialize(game));
+    old.version = 4;
+    const r = loadSave(JSON.stringify(old));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.game.world.players[p.id].clubId).toBeNull();
+      expect(r.game.world.clubs[club].playerIds).not.toContain(p.id);
+    }
   });
 
   it('upgrades an older save step by step and refuses newer ones', () => {

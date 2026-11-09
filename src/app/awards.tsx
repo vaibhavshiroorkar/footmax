@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useGame, useStore } from '../state/store';
 import { Card, H2, Icon, IconName, Row, Screen, T, Tabs } from '../ui/kit';
 import { alpha, colors, fonts, gradients } from '../ui/theme';
-import { AWARD_NAMES, computeAwards } from '../engine/awards';
+import { AWARD_NAMES, awardBlock, computeAwards } from '../engine/awards';
 import { AwardEntry, SeasonAwards } from '../engine/types';
 import { HonoursList } from './honours';
 
@@ -35,6 +35,9 @@ export default function Awards() {
   const chosen = options[Math.min(seasonIdx, options.length - 1)];
   const me = game.career?.playerId;
   const list: AwardEntry[] = chosen?.a[key] ?? [];
+  // This season only: why the career player is not in the running.
+  const mine = me ? game.world.players[me] : undefined;
+  const block = chosen?.live && mine && !mine.retired ? awardBlock(game, mine, key) : null;
 
   return (
     <Screen title="Awards">
@@ -71,6 +74,7 @@ export default function Awards() {
       {chosen && (
         <Card>
           <H2>{AWARD_NAMES[key]} {chosen.live ? 'race' : 'rankings'}</H2>
+          {!!block && <T muted style={{ fontSize: 12.5 }}>{block}</T>}
           {list.map((e, i) => {
             const mine = e.playerId === me;
             return (
@@ -82,7 +86,7 @@ export default function Awards() {
                     {e.clubName}
                   </T>
                 </View>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.muted }}>{key === 'goldenBoot' ? `${Math.floor(e.score)} goals` : e.score}</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: colors.muted }}>{key === 'goldenBoot' ? `${e.goals ?? Math.floor(e.score)} goals` : e.score}</Text>
               </Row>
             );
           })}

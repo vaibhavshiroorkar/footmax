@@ -357,10 +357,10 @@ export function LivePitch({ world, live, focusId, speed, width, running, paused,
       ball.size.setValue(10 + sim.ball.z * 2.2);
       ball.z.setValue(Math.min(1, sim.ball.z / 4));
       ball.rot.setValue(sim.ball.rot);
-      // A VAR check: the monitor appears at the touchline until the call.
-      const vc = sim.varCheck;
-      if ((vc?.at ?? null) !== lastVar) {
-        lastVar = vc?.at ?? null;
+      // An on-field review: the monitor appears at the touchline until the call.
+      const vc = sim.varCheck?.beat === 'review' ? sim.varCheck : null;
+      if ((vc?.beatAt ?? null) !== lastVar) {
+        lastVar = vc?.beatAt ?? null;
         setMonitor(vc ? toScreen(vc.x, vc.y) : null);
       }
       // A goal: confetti once, where the scorer celebrates.

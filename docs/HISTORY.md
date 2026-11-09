@@ -216,6 +216,44 @@ behind it became smooth curves (height, wall, low-shot drag). Goal rates match t
 bar up to the sweet spot. Past it there is a narrow window of top-corner shots before
 the ball clears the bar. Passes stayed on hold.
 
+### 25. Codex's batch and its revert (2026-11-05 to 11-07)
+
+Codex wrote the engine design, moved the pitch into the engine with snapshots and a
+fixed clock, then built 13 requests (`9a6a75a`, `7f268d6`). On 2026-11-07 it went on
+to physical shots, swept collisions and a shot camera, tagged as v2.5.0 and v2.6.0
+in commits. The user asked to undo all changes back to `7f268d6`, and `ce526a0`
+did. No reason was given; the same session also complained of slowness and failing
+hooks. Those two versions were never tagged, so the numbers were free again.
+
+### 26. v2.5.0: real rules for awards, retirement and VAR (2026-11-09)
+
+Shipped Codex's 13 requests after the full suite passed on them, plus C6, C7, C12,
+C24 and C39. The request was open-ended ("check docs, deep research, create a plan,
+perform it, update docs"), so the plan took work that does not depend on the reverted
+shot engine, and researched each rule first.
+
+- Awards copy the real ones: the winner of the Ballon d'Or plays in one of the five
+  strongest leagues, as every winner since 1995 has.
+- Retirement age comes from the body and the career, inside the real spread.
+- The live pitch lofted 83% of passes. The cause was not the pass rule alone:
+  `trimMove` cuts the middle of moves for the clock, which turns a build-up into one
+  50-metre ball. Keeping one middle touch on such gaps, and lifting passes only for a
+  reason, brought it to 49%, for 3 more seconds a match.
+- Probes found two old bugs. Over the seasons, clubs outside the simulated leagues
+  lose players, so by about the fifth season fewer than 36 had a squad of 14 and the
+  league phase draw threw. And a career ended by jail, a ban, injury or depression
+  stayed on its club's books and lost its last season from the summary. Save version
+  5 cleans up old saves.
+- C18 (stuck in local clubs) stays open. The career probe does not reproduce it:
+  with full training (seed 7) the player left a rep-34 club after one season and
+  reached Manchester United at 20. With weak training (`TRAIN_SCORE=0.3`, seed 21)
+  he still left after one season and reached Liverpool at 21. Both runs accept the
+  first offer, which a real player may not. That run also kept an English striker
+  of 85 without a cap; call-ups are on the review list in pending.md.
+- A browser check found a third: two saves at once (a new game's first save and a
+  manual save) left a pointer to chunks the other write had deleted, and the save
+  could not be read. Writes to one key now queue.
+
 ## Decisions that still hold
 
 | Decision | Why |
@@ -261,5 +299,12 @@ Human figures were once for moment games only, and goals had no pop-up. Requests
   three real problems across these versions.
 - In GNU sed, a backslash before a backtick means the start of the buffer. Use a
   script for edits with backticks.
+- The career probe stops at a crash or a career's end. Before v2.5.0 it hid both:
+  a draw crash looked like the script failing, and an ended career looked like a
+  player stuck at 18. Read its output season by season, not only the last line.
+- Any write that cleans up after itself must not run alongside another write to
+  the same key. `writeChunked` queues per key; keep it that way.
+- `trimMove` and the fold of quiet minutes shape what the pitch shows more than
+  the move builder in `play.ts` does. Measure on the probe before changing either.
 - Save data is large, so floats are rounded and attributes stored as arrays.
   Any new save field needs a migration and `SAVE_VERSION` raised.

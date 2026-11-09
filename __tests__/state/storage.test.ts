@@ -17,6 +17,15 @@ describe('chunked storage', () => {
     expect(await readChunked('k')).toBe(text);
   });
 
+  it('keeps a readable copy when two writes overlap', async () => {
+    // An autosave and a background save can start before the other ends.
+    // Each used to delete the other's chunks as stale.
+    const a = writeChunked('k', big(500_000, 'a'));
+    const b = writeChunked('k', big(500_000, 'b'));
+    await Promise.all([a, b]);
+    expect(await readChunked('k')).toBe(big(500_000, 'b'));
+  });
+
   it('removes the old copy after a smaller write', async () => {
     await writeChunked('k', big(900_000, 'a'));
     await writeChunked('k', 'small');

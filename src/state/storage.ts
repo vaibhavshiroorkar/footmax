@@ -19,7 +19,22 @@ const LAST_KEY = 'footmax-last-slot';
 // pointer, so running out of space halfway leaves the old copy readable.
 // Values written before this change use a bare count with chunks at
 // "<key>:<i>"; reads still accept that.
-export async function writeChunked(key: string, text: string): Promise<void> {
+// Two writes to one key at once would each delete the other's chunks as
+// stale, leaving the pointer on a copy that no longer exists. So writes to a
+// key wait for the one before; the last one called is the one kept.
+const writing = new Map<string, Promise<void>>();
+
+export function writeChunked(key: string, text: string): Promise<void> {
+  const run = (writing.get(key) ?? Promise.resolve()).then(() => writeNow(key, text));
+  const settled = run.catch(() => {});
+  writing.set(key, settled);
+  void settled.then(() => {
+    if (writing.get(key) === settled) writing.delete(key);
+  });
+  return run;
+}
+
+async function writeNow(key: string, text: string): Promise<void> {
   const parts = Math.max(1, Math.ceil(text.length / CHUNK));
   const gen = `g${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
   const pairs: [string, string][] = [];

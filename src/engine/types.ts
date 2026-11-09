@@ -246,6 +246,8 @@ export interface AwardEntry {
   name: string;
   clubName: string;
   score: number;
+  // Golden Boot only: real goals, since its score weights them by league.
+  goals?: number;
 }
 
 export interface SeasonAwards {
@@ -356,6 +358,8 @@ export interface CareerState {
   depressed?: boolean;
   // Why the career ended, when it did not end by choice.
   endReason?: string;
+  // Weeks spent injured over the whole career; they shorten it (retirement.ts).
+  injuredWeeks?: number;
   // Equipment from cases, and which piece is on in each slot.
   equipment?: { id: string; slot: 'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch'; name: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; attr: AttrKey; bonus: number }[];
   equipped?: Partial<Record<'boots' | 'gloves' | 'shinpads' | 'top' | 'headband' | 'watch', string>>;

@@ -20,6 +20,7 @@ import { callUpMessage, careerOffers, managerOffers, ownClubRenewal } from './of
 import { presentAwards } from './awards';
 import { seasonRollover } from './progress';
 import { lifeWeekly } from './lifeEvents';
+import { closeCareer, retirementAge } from './retirement';
 import { playEuropeWeek, startEurope } from './europe';
 
 const rep = (v: number) => Math.round(clamp(v, 10, 95));
@@ -139,6 +140,7 @@ function careerUpkeep(game: Game) {
   c.fame = clamp(c.fame - 0.15, 0, 100);
   if (c.items.includes('nutrition')) p.fitness = clamp(p.fitness + 6, 0, 100);
   if (c.items.includes('icebath')) p.fitness = clamp(p.fitness + 3, 0, 100);
+  if (p.injuryWeeks > 0) c.injuredWeeks = (c.injuredWeeks ?? 0) + 1;
   if (c.items.includes('physio') && p.injuryWeeks > 0) p.injuryWeeks = Math.max(0, p.injuryWeeks - 1);
   if (c.items.includes('house')) p.morale = clamp(p.morale + 3, 0, 100);
 }
@@ -282,7 +284,9 @@ function rollover(game: Game, rng: Rng) {
     p.fitness = 100;
     p.injuryWeeks = 0;
     if (isUser) continue;
-    const retireP = p.age >= 39 ? 1 : p.age >= 34 ? (p.age - 33) * 0.2 : 0;
+    // Keepers last about three years longer (RESEARCH.md).
+    const old = p.age - (p.position === 'GK' ? 3 : 0);
+    const retireP = old >= 39 ? 1 : old >= 34 ? (old - 33) * 0.2 : 0;
     if (rng.chance(retireP)) {
       retiring.push(p.id);
       continue;
@@ -316,7 +320,7 @@ function rollover(game: Game, rng: Rng) {
     delete world.players[id];
   }
 
-  if (game.career && careerId) careerRollover(game, rng);
+  if (game.career && careerId && !game.career.retired) careerRollover(game, rng);
   pruneHonours(game);
 
   const managed = game.manager?.clubId;
@@ -383,6 +387,13 @@ function careerRollover(game: Game, rng: Rng) {
   const world = game.world;
   const p = careerPlayer(game);
   seasonRollover(game, rng);
+  // The body decides in the end. One season's warning, then it is over.
+  const limit = retirementAge(game);
+  if (p.age >= limit) {
+    closeCareer(game, `Retired at ${p.age}. The body has had enough.`);
+    addMessage(game, 'news', 'Time to hang up the boots', `At ${p.age} your legs will not take another season. Your career is over: look back at everything you won.`);
+    return;
+  }
   if (p.clubId) {
     p.contractYears--;
     if (p.contractYears <= 0) {
@@ -392,8 +403,8 @@ function careerRollover(game: Game, rng: Rng) {
       ownClubRenewal(game, rng);
     }
   }
-  if (p.age >= 38) addMessage(game, 'news', 'Time to hang up the boots', 'At 38 your body says stop. Retire from your profile whenever you are ready.');
-  else if (p.age >= 33) addMessage(game, 'news', 'Thinking about the future?', 'You can retire at any time from your profile.');
+  if (p.age >= limit - 1) addMessage(game, 'news', 'One last season', 'Your body says this season is the last. Make it count, or retire from your profile whenever you are ready.');
+  else if (p.age >= 31) addMessage(game, 'news', 'Thinking about the future?', 'You can retire at any time from your profile.');
 }
 
 function signFreeAgentOrGenerate(game: Game, rng: Rng, clubId: string) {

@@ -5,6 +5,7 @@ import { Rng, clamp } from './rng';
 import { careerPlayer, gainFame } from './careerBase';
 import { addMessage } from './inbox';
 import { fullName } from './player';
+import { closeCareer } from './retirement';
 
 // Life off the pitch has consequences. Arrests bring bans and, in the end,
 // jail; bribes can come out years later; injuries can end a career.
@@ -17,11 +18,7 @@ export function lifeOf(game: Game): { arrests: number; bribes: number; partner?:
 
 // The career ends here, not by choice. The career-over screen gives why.
 export function endCareer(game: Game, reason: string): void {
-  const c = game.career!;
-  const p = careerPlayer(game);
-  c.retired = true;
-  c.endReason = reason;
-  p.retired = true;
+  closeCareer(game, reason);
 }
 
 // Arrested after a night out: a fine, a ban and lost fame. A third arrest

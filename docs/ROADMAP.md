@@ -1,11 +1,25 @@
 # FootMax roadmap
 
 Every open request, the version it ships in, and how it gets built. Live now:
-v2.4.0. Open work is collected in [pending.md](pending.md). Status keys:
+v2.5.0. Open work is collected in [pending.md](pending.md). Status keys:
 `todo`, `doing`, `done`. Findings behind
 this plan are in `RESEARCH.md`.
 
 ## Active work
+
+Request (2026-11-09): "check docs, deepp research, create a plan, perform it, update docs"
+Version: v2.5.0. Status: done. The [plan](superpowers/plans/2026-11-09-career-and-match-rules.md)
+chose work that does not depend on the reverted shot engine: the 13 requests Codex had
+built, award eligibility, retirement and the career summary, VAR suspense and ground
+passes. Probes found and fixed two crashes on the way (see HISTORY.md).
+
+Requests (Codex chat, 2026-11-07): "push and release as we go, make sure to mark these as
+done by codex and make sure it is documented properly, continue with the remaining tasks",
+then "undo all chanegs to 7f268d689541fbb94d7b6091bbdf237f9040701e" and "get rid of later work".
+Status: done. `ce526a0` restored the project to `7f268d6`, removing the unreleased
+v2.5.0 and v2.6.0 commits (physical shot actions, swept collisions and the shot camera).
+No reason was given. The next C0 step should not repeat that approach without the
+user's view of what went wrong. Codex's earlier work is marked "done by Codex" below.
 
 Request: "can you do all the pending work?"
 Version: staged releases, unassigned. Status: doing, approved on 2026-11-05.
@@ -13,13 +27,14 @@ The [engine and delivery design](superpowers/specs/2026-11-05-engine-consistency
 sets the dependency order for the full backlog. The
 [foundation plan](superpowers/plans/2026-11-05-engine-foundation.md) is implemented and verified.
 The [usability plan](superpowers/plans/2026-11-05-match-usability.md) covers the completed presentation changes.
+The [match-flow plan](superpowers/plans/2026-11-06-match-flow.md) covers simulation results, cards, Press and audio.
 Human reviews, historical data and Legends remain in scope.
 
 ## Complete Football Game Update List (2026-11-05)
 
 Open requests and their original wording are in
 [pending.md](pending.md#complete-football-game-update-list).
-36 entries remain open. Six requests below are done and awaiting release. C0 identifies the first of the two items numbered 1;
+24 entries remain open. Eighteen requests below are done in v2.5.0. C0 identifies the first of the two items numbered 1;
 C1 through C40 preserve the remaining supplied numbers.
 C41 records the follow-up request.
 
@@ -27,25 +42,52 @@ C41 records the follow-up request.
 | --- | --- | --- |
 | C0: Match Engine Precision and Live Pitch Consistency | Unassigned, highest priority | doing: approved design, foundation verified; action migration next |
 | C1 through C40: remaining Complete Football Game Update List requests | Unassigned | todo: individual requests tracked in pending.md |
-| C41: change track back into press instead | Unassigned | todo |
+| C41: change track back into press instead | v2.5.0 | done by Codex |
 
 C0 expands the earlier planning request below. C27 requests removal of the
 dedicated long-range interaction previously shipped for original request 16.
 Earlier completion entries describe those releases, not completion of this new list.
 
-### Completed requests awaiting release
+### Completed requests in v2.5.0
 
-- **done, unreleased.** **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
+Codex built the requests marked "done by Codex" in `9a6a75a` and `7f268d6`, which
+survived the revert below. The rest were built on 2026-11-09.
 
-- **done, unreleased.** **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
+- **done, v2.5.0.** **C6. Retirement and Career Summary:** Players should eventually retire, after which the game should display a complete summary of their career, including clubs, trophies, achievements, statistics, and milestones.
 
-- **done, unreleased.** **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
+- **done, v2.5.0.** **C7. Dynamic Retirement Age:** Retirement should vary depending on the player's career and circumstances. Some players may retire around age 30, while others can continue playing until approximately 40.
 
-- **done, unreleased.** **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
+- **done by Codex, v2.5.0.** **C8. Fix Repeating Voice Lines:** Fix the audio issue where certain voice lines repeat unnecessarily or become inaudible.
 
-- **done, unreleased.** **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
+- **done by Codex, v2.5.0.** **C9. Quick Sim Result Screen:** Quick Sim should still display the match result screen after simulating a match.
 
-- **done, unreleased.** **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
+- **done by Codex, v2.5.0.** - **C10. Skip to Halftime Bug:** Fix the issue where using "Skip to Halftime" causes the game to stop accepting player input.
+
+- **done, v2.5.0.** **C12. Realistic Award Eligibility:** Players in local leagues should not be able to win major global awards like the Ballon d'Or. Award eligibility should depend on league reputation, competition level, individual performance, and career achievements.
+
+- **done by Codex, v2.5.0.** - **C15. Training Green Dot:** Explain or fix the green dot appearing next to player attributes in the training section so its purpose is clear.
+
+- **done by Codex, v2.5.0.** **C20. Yellow Card Indicators:** Make yellow cards clearly visible as small indicators on players and within the match statistics.
+
+- **done by Codex, v2.5.0.** **C22. Free Kick Voice Line:** Fix the incorrect or malfunctioning free kick voice line.
+
+- **done, v2.5.0.** **C24. VAR Suspense:** VAR decisions should include realistic pauses and suspense to increase tension before revealing the final decision.
+
+- **done by Codex, v2.5.0.** **C25. Red Card Statistics:** Players who receive red cards should appear greyed out in the match statistics to indicate that they have been sent off.
+
+- **done by Codex, v2.5.0.** **C27. Remove Long-Range Interaction:** Remove the dedicated long-range shooting interaction.
+
+- **done by Codex, v2.5.0.** - **C30. Remove Button Descriptions:** Remove the explanatory descriptions underneath interaction buttons, such as the description below "Curl."
+
+- **done by Codex, v2.5.0.** - **C31. Remove Better Option Labels:** Remove labels such as "(Better Option)" from interaction choices so the player must make decisions independently.
+
+- **done by Codex, v2.5.0.** - **C35. Training Attribute Visibility:** Clearly display which specific ability or attribute is being trained during training sessions.
+
+- **done by Codex, v2.5.0.** - **C36. Match Reward Layout:** Display Rating, XP, Fame, and Bonus together in a single horizontal row instead of the current layout.
+
+- **done, v2.5.0.** **C39. Prioritize Ground Passes:** Make ground passes the primary method of passing during matches. Players should naturally use short passes, direct passes, and ground through balls instead of constantly attempting lofted passes. Lobbed passes should mainly occur when tactically appropriate, such as switching play, bypassing defensive lines, or delivering aerial balls into the box.
+
+- **done by Codex, v2.5.0.** **C41.** change track back into press instead
 
 ## Requests recovered from chats
 

@@ -363,6 +363,53 @@ map, and two zoom buttons rescale it.
 Sources: [Wayline on data-driven skill trees](https://www.wayline.io/blog/unity-skill-tree-scriptable-objects),
 [itch.io player feedback](https://itch.io/post/15844276).
 
+## Awards, retirement, VAR and passing (v2.5.0)
+
+**Awards (C12).** Since 2022 the Ballon d'Or judges one season. Its criteria, in
+order: individual performance, team results and titles, then class and fair play.
+100 journalists from FIFA's top 100 nations each rank ten of a 30-player shortlist.
+From 1995 players from anywhere at European clubs were eligible, and from 2007 every
+professional. Since 1995 the winners have come from England, France, Germany, Italy
+and Spain. The 2026 shortlist still reached beyond them: one MLS and one Saudi player.
+The Golden Boy is for under-21s in a European top flight. The European Golden Shoe
+doubles goals in the five strongest leagues by UEFA coefficient and counts them 1.5
+times in the next band. Sources differ on whether that band ends at 21st or 22nd.
+The game uses league strength for that band, because it only builds the leagues a
+career needs, so ranks among them would be wrong.
+
+**Retirement (C7).** A study of 3,467 retired Portuguese players found a mean
+retirement age of 32.7 (sd 4.3, range 21 to 45) after 17.5 years in the game. It did
+not split by position or division. The claim that keepers play several years longer
+comes from weaker sources, but it is consistent across them. The game's limit sits
+above 32.7 because its player turned pro at 16 and plays at a good level; that is a
+design choice.
+
+**VAR (C24).** Premier League figures put the average check at about 40 s in
+2022/23, 64 s in 2023/24 and 40 s in 2024/25. One commercial source claims over four
+minutes per review in 2025/26; it is not comparable with the league's own figures.
+The game keeps the stages (check, lines or monitor, call) and shrinks the minute
+into a few seconds of pitch time.
+
+**Passing (C39).** A long ball is one of 32 m or more. In 2025/26 the Premier League
+averaged 99.7 long balls in 849.1 passes a game, about 11 to 12%. The long-pass share
+fell from 19.4% in 2006/07 to a low of 10.5%. Lower English tiers play more long
+passes, and less accurately. The match probe measured the live pitch at 83% lofted
+passes before this change and 49% after (12 matches, seeds 101 to 112). The rest are
+mostly passes of over 40 m left by the clock's folding of quiet minutes, which the
+pitch must not split into touches the engine never played.
+
+Sources: [SI on Ballon d'Or voting](https://www.si.com/soccer/how-ballon-dor-voting-work-nominees-format-explained),
+[Al Jazeera on the 2026 shortlist](https://aljazeera.com/sports/2026/9/8/dembele-mbappe-kane-and-yamal-top-ballon-dor-shortlist),
+[90min on non-European winners](https://www.90min.com/posts/has-player-outside-europe-ever-won-ballon-dor),
+[Golden Boy on Wikipedia](https://en.wikipedia.org/wiki/Golden_Boy_(award)),
+[Golden Shoe points](https://www.topendsports.com/sport/soccer/awards/golden-shoe-europe.htm),
+[Journal of Human Kinetics on retirement age](https://pmc.ncbi.nlm.nih.gov/articles/PMC12360933),
+[Jobs in Football on retirement](https://jobsinfootball.com/blog/what-age-do-soccer-players-retire/),
+[Irish Times on 2023/24 VAR waits](https://www.irishtimes.com/sport/soccer/2024/06/05/premier-league-reveals-waiting-time-for-var-decisions-went-up-50-last-season/),
+[Premier League on 2024/25 VAR](https://premierleague.com/news/4251195),
+[Opta Analyst on long balls](https://www.premierleague.com/en/news/4426039/opta-analyst-on-long-balls-long-throws-key-tactical-trends-spotted-in-2025-26-season),
+[The Analyst on style by division](https://theanalyst.com/articles/how-does-the-style-of-football-change-as-you-journey-down-the-english-football-league).
+
 ## Sources
 
 - IFAB Laws: [penalty kick](https://theifab.com/laws/latest/the-penalty-kick),

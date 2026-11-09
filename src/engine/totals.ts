@@ -1,6 +1,7 @@
 import { Game } from './types';
 import { fullName, overall, seasonRows } from './player';
-import { progressOf } from './progress';
+import { MILESTONES, progressOf } from './progress';
+import { AWARD_NAMES } from './awards';
 
 // Career-long numbers for the summary screen, leaderboards and profiles.
 // One place computes them so every screen agrees.
@@ -70,4 +71,58 @@ export function managerTotals(game: Game): Totals {
 
 export function gameTotals(game: Game): Totals {
   return game.mode === 'career' && game.career ? careerTotals(game) : managerTotals(game);
+}
+
+export interface ClubSpell {
+  clubId: string;
+  name: string;
+  from: number;
+  to: number;
+  apps: number;
+  goals: number;
+  assists: number;
+}
+
+// Everything the career-over screen shows beyond the totals: each club in
+// order with his numbers there, top-three award finishes, and milestones.
+export interface CareerStory {
+  clubs: ClubSpell[];
+  avgRating: number;
+  intlGoals: number;
+  podiums: { season: number; award: string; place: number }[];
+  milestones: string[];
+}
+
+export function careerStory(game: Game): CareerStory {
+  const world = game.world;
+  const p = world.players[game.career!.playerId];
+  const rows = [...p.history, ...seasonRows(p, world.season)];
+  const clubs: ClubSpell[] = [];
+  for (const r of rows) {
+    const last = clubs[clubs.length - 1];
+    // A loan and back makes two spells at the parent club, as in real records.
+    if (last && last.clubId === r.clubId) {
+      last.to = r.season;
+      last.apps += r.apps;
+      last.goals += r.goals;
+      last.assists += r.assists;
+    } else clubs.push({ clubId: r.clubId, name: world.clubs[r.clubId]?.name ?? 'Unknown club', from: r.season, to: r.season, apps: r.apps, goals: r.goals, assists: r.assists });
+  }
+  const apps = rows.reduce((s, r) => s + r.apps, 0);
+  const podiums: CareerStory['podiums'] = [];
+  for (const a of world.awards ?? []) {
+    for (const key of Object.keys(AWARD_NAMES) as (keyof typeof AWARD_NAMES)[]) {
+      const place = a[key].findIndex((e) => e.playerId === p.id);
+      if (place >= 0 && place < 3) podiums.push({ season: a.season, award: AWARD_NAMES[key], place: place + 1 });
+    }
+  }
+  podiums.sort((x, y) => x.season - y.season || x.place - y.place);
+  const reached = new Set(progressOf(game).milestones);
+  return {
+    clubs,
+    avgRating: apps ? rows.reduce((s, r) => s + r.ratingSum, 0) / apps : 0,
+    intlGoals: p.intlGoals,
+    podiums,
+    milestones: MILESTONES.filter((m) => reached.has(m.id)).map((m) => m.label),
+  };
 }

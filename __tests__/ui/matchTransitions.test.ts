@@ -48,7 +48,7 @@ describe('interaction transitions', () => {
     sim.beginInteraction('corner');
     sim.queue = [{ x: 0.2, y: 0.8, carrier: 'a', side: 'home', act: 'cross' }];
     sim.setPiece = { kind: 'corner', side: 'home', x: 0, y: PL, wall: [] };
-    sim.varCheck = { at: 0, x: 0, y: 0 };
+    sim.varCheck = { at: 0, x: 0, y: 0, beat: 'review', next: null, beatAt: 0 };
     sim.callout = { text: 'CORNER', tone: 'stop', until: 999 };
     sim.ball.flight = { fx: 0, fy: PL, tx: 34, ty: 98, t: 0, dur: 1, peak: 2 };
     sim.halfTime('away');
